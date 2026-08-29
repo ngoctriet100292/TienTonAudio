@@ -55,6 +55,7 @@ type ListeningProgressReq struct {
 	ChapterID           uuid.UUID `json:"chapter_id" validate:"required"`
 	StoryID             uuid.UUID `json:"story_id" validate:"required"`
 	LastPositionSeconds int32     `json:"last_position_seconds"`
+	PlaybackSpeed       *float64  `json:"playback_speed,omitempty"`
 	IsCompleted         bool      `json:"is_completed"`
 }
 
@@ -62,6 +63,7 @@ type ListeningHistoryResp struct {
 	ChapterID           uuid.UUID `json:"chapter_id"`
 	StoryID             uuid.UUID `json:"story_id"`
 	LastPositionSeconds int32     `json:"last_position_seconds"`
+	PlaybackSpeed       float64   `json:"playback_speed"`
 	IsCompleted         bool      `json:"is_completed"`
 	UpdatedAt           time.Time `json:"updated_at"`
 	ChapterTitle        string    `json:"chapter_title"`

@@ -186,10 +186,12 @@ CREATE TABLE IF NOT EXISTS listening_history (
     chapter_id UUID REFERENCES chapters(id) ON DELETE CASCADE,
     story_id UUID NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
     last_position_seconds INT NOT NULL DEFAULT 0,
+    playback_speed NUMERIC(3, 2) DEFAULT 1.00,
     is_completed BOOLEAN DEFAULT FALSE,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, chapter_id)
 );
+ALTER TABLE listening_history ADD COLUMN IF NOT EXISTS playback_speed NUMERIC(3, 2) DEFAULT 1.00;
 
 -- ============================================================
 -- 7. YÊU THÍCH / THEO DÕI (BOOKMARKS / FAVORITES)

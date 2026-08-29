@@ -1,11 +1,35 @@
 'use client';
 
-import React from 'react';
-import { useAudio } from '@/context/audio-context';
-import { Play, Pause, RotateCcw, RotateCw, Volume2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { useAudio, PLAYBACK_SPEEDS } from '@/context/audio-context';
+import { Play, Pause, RotateCcw, RotateCw, Volume2, Gauge } from 'lucide-react';
 
 export function StickyAudioPlayer() {
-  const { currentChapter, currentStory, isPlaying, togglePlay, currentTime, duration, seek, skip } = useAudio();
+  const {
+    currentChapter,
+    currentStory,
+    isPlaying,
+    togglePlay,
+    currentTime,
+    duration,
+    seek,
+    skip,
+    playbackSpeed,
+    setPlaybackSpeed,
+  } = useAudio();
+
+  const [speedMenuOpen, setSpeedMenuOpen] = useState(false);
+  const speedMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (speedMenuRef.current && !speedMenuRef.current.contains(event.target as Node)) {
+        setSpeedMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   if (!currentChapter || !currentStory) return null;
 
@@ -93,9 +117,49 @@ export function StickyAudioPlayer() {
           </div>
         </div>
 
-        {/* Thanh âm lượng & chất lượng */}
+        {/* Thanh âm lượng & Bộ chọn tốc độ phát */}
         <div className="flex items-center justify-end gap-3 w-1/3">
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/10 text-[#ffd166] border border-amber-500/30 uppercase tracking-wider">
+          {/* Nút chọn Tốc độ phát (0.5x, 0.75x, 1x, 1.25x, 1.5x, 1.75x, 2x) */}
+          <div className="relative" ref={speedMenuRef}>
+            <button
+              onClick={() => setSpeedMenuOpen(!speedMenuOpen)}
+              className="flex items-center gap-1 text-[11px] font-mono font-bold px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 transition-all shadow-sm"
+              title="Điều chỉnh tốc độ phát audio"
+            >
+              <Gauge className="w-3 h-3 text-[#ffd166]" />
+              {playbackSpeed}x
+            </button>
+
+            {speedMenuOpen && (
+              <div className="absolute bottom-full right-0 mb-2 w-32 rounded-xl border border-white/10 bg-[#0f172a]/95 p-1.5 shadow-2xl backdrop-blur-xl z-50 animate-in fade-in-0 zoom-in-95">
+                <div className="text-[10px] uppercase font-bold text-slate-400 px-2 py-1 border-b border-white/10 mb-1">
+                  Tốc độ phát
+                </div>
+                <div className="space-y-0.5">
+                  {PLAYBACK_SPEEDS.map((speed) => (
+                    <button
+                      key={speed}
+                      onClick={() => {
+                        setPlaybackSpeed(speed);
+                        setSpeedMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-colors ${
+                        playbackSpeed === speed
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                          : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      <span>{speed}x</span>
+                      {speed === 1.0 && <span className="text-[9px] text-slate-500 font-sans">Chuẩn</span>}
+                      {speed === 1.5 && <span className="text-[9px] text-amber-400 font-sans">Hot</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/10 text-[#ffd166] border border-amber-500/30 uppercase tracking-wider hidden sm:inline-block">
             320kbps
           </span>
           <Volume2 className="w-4 h-4 text-slate-400" />

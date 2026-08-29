@@ -134,17 +134,37 @@ class ApiClient {
     }
   }
 
-  async getSignedStreamUrl(chapterId: string, quality = '128k'): Promise<{ signed_url: string; expires_at: string }> {
-    return this.request<{ signed_url: string; expires_at: string }>(`/chapters/${chapterId}/stream?quality=${quality}`);
+  async getSignedStreamUrl(chapterId: string, quality = '128k', speed = 1.0): Promise<{ signed_url: string; expires_at: string; playback_speed: number; available_speeds: any[] }> {
+    return this.request<any>(`/chapters/${chapterId}/stream?quality=${quality}&speed=${speed}`);
   }
 
-  async saveListeningProgress(chapterId: string, progressSeconds: number, isCompleted = false): Promise<void> {
+  async getPlaybackSpeeds(): Promise<{ default_speed: number; speeds: Array<{ value: number; label: string; description: string }> }> {
+    try {
+      return await this.request<any>('/chapters/playback-speeds');
+    } catch {
+      return {
+        default_speed: 1.0,
+        speeds: [
+          { value: 0.5, label: '0.5x', description: 'Rất chậm' },
+          { value: 0.75, label: '0.75x', description: 'Chậm' },
+          { value: 1.0, label: '1.0x', description: 'Chuẩn' },
+          { value: 1.25, label: '1.25x', description: 'Hơi nhanh' },
+          { value: 1.5, label: '1.5x', description: 'Nhanh' },
+          { value: 1.75, label: '1.75x', description: 'Rất nhanh' },
+          { value: 2.0, label: '2.0x', description: 'Tốc biến x2' },
+        ],
+      };
+    }
+  }
+
+  async saveListeningProgress(chapterId: string, progressSeconds: number, isCompleted = false, speed = 1.0): Promise<void> {
     try {
       await this.request('/chapters/progress', {
         method: 'POST',
         body: JSON.stringify({
           chapter_id: chapterId,
-          progress_seconds: progressSeconds,
+          last_position_seconds: progressSeconds,
+          playback_speed: speed,
           is_completed: isCompleted,
         }),
       });

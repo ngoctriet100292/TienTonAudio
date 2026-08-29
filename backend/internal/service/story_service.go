@@ -373,11 +373,17 @@ func (s *storyService) ListCategories(ctx context.Context) ([]domain.Category, e
 
 func (s *storyService) SaveListeningProgress(ctx context.Context, userID uuid.UUID, req domain.ListeningProgressReq) error {
 	isCompleted := req.IsCompleted
+	speed := 1.0
+	if req.PlaybackSpeed != nil && domain.IsValidPlaybackSpeed(*req.PlaybackSpeed) {
+		speed = *req.PlaybackSpeed
+	}
+
 	return s.repo.UpsertListeningProgress(ctx, db.UpsertListeningProgressParams{
 		UserID:              userID,
 		ChapterID:           req.ChapterID,
 		StoryID:             req.StoryID,
 		LastPositionSeconds: req.LastPositionSeconds,
+		PlaybackSpeed:       utils.Float64ToNumeric(speed),
 		IsCompleted:         &isCompleted,
 	})
 }
@@ -397,10 +403,15 @@ func (s *storyService) GetUserListeningHistory(ctx context.Context, userID uuid.
 		if r.IsCompleted != nil {
 			isComp = *r.IsCompleted
 		}
+		speed := utils.NumericToFloat64(r.PlaybackSpeed)
+		if speed <= 0 {
+			speed = 1.0
+		}
 		res[i] = domain.ListeningHistoryResp{
 			ChapterID:           r.ChapterID,
 			StoryID:             r.StoryID,
 			LastPositionSeconds: r.LastPositionSeconds,
+			PlaybackSpeed:       speed,
 			IsCompleted:         isComp,
 			UpdatedAt:           r.UpdatedAt.Time,
 			ChapterTitle:        r.ChapterTitle,

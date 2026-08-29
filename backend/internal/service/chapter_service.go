@@ -19,7 +19,8 @@ type ChapterService interface {
 	GetChapterByID(ctx context.Context, id uuid.UUID) (*domain.ChapterResp, error)
 	CreateChapter(ctx context.Context, req domain.CreateChapterReq) (*domain.ChapterResp, error)
 	AddChapterAudioFile(ctx context.Context, chapterID uuid.UUID, quality string, audioURL string, fileSize *int64, isPrimary bool) (*domain.ChapterAudioFileResp, error)
-	GetSignedStreamURL(ctx context.Context, userID *uuid.UUID, chapterID uuid.UUID, quality string) (*domain.StreamURLResp, error)
+	GetSignedStreamURL(ctx context.Context, userID *uuid.UUID, chapterID uuid.UUID, quality string, speed *float64) (*domain.StreamURLResp, error)
+	GetPlaybackSpeeds() []domain.PlaybackSpeedInfo
 }
 
 type chapterService struct {
@@ -163,7 +164,11 @@ func (s *chapterService) AddChapterAudioFile(ctx context.Context, chapterID uuid
 	}, nil
 }
 
-func (s *chapterService) GetSignedStreamURL(ctx context.Context, userID *uuid.UUID, chapterID uuid.UUID, quality string) (*domain.StreamURLResp, error) {
+func (s *chapterService) GetPlaybackSpeeds() []domain.PlaybackSpeedInfo {
+	return domain.PlaybackSpeedPresets
+}
+
+func (s *chapterService) GetSignedStreamURL(ctx context.Context, userID *uuid.UUID, chapterID uuid.UUID, quality string, speed *float64) (*domain.StreamURLResp, error) {
 	chapter, err := s.repo.GetChapterByID(ctx, chapterID)
 	if err != nil {
 		return nil, errors.New("chapter not found")
@@ -223,10 +228,17 @@ func (s *chapterService) GetSignedStreamURL(ctx context.Context, userID *uuid.UU
 
 	signedURL := auth.BuildSignedAudioURL(targetFile.AudioUrl, token, expiresAt)
 
+	playbackSpeed := 1.0
+	if speed != nil && domain.IsValidPlaybackSpeed(*speed) {
+		playbackSpeed = *speed
+	}
+
 	return &domain.StreamURLResp{
-		ChapterID: chapterID,
-		Quality:   targetFile.Quality,
-		StreamURL: signedURL,
-		ExpiresAt: expiresAt,
+		ChapterID:       chapterID,
+		Quality:         targetFile.Quality,
+		StreamURL:       signedURL,
+		ExpiresAt:       expiresAt,
+		PlaybackSpeed:   playbackSpeed,
+		AvailableSpeeds: domain.PlaybackSpeedPresets,
 	}, nil
 }

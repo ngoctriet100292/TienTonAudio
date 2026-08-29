@@ -556,18 +556,28 @@
         }
       }
     },
+    "/chapters/playback-speeds": {
+      "get": {
+        "tags": ["Chapters"],
+        "summary": "Lấy danh sách các tốc độ phát audio được hỗ trợ (0.5x, 0.75x, 1.0x, 1.25x, 1.5x, 1.75x, 2.0x...)",
+        "responses": {
+          "200": { "description": "Danh sách các tốc độ phát, nhãn hiển thị và mô tả" }
+        }
+      }
+    },
     "/chapters/{id}/stream": {
       "get": {
         "tags": ["Chapters"],
         "summary": "Lấy Stream URL có chữ ký HMAC bảo mật để phát audio",
-        "description": "Tự động kiểm tra quyền VIP đối với các chương trả phí và tạo đường link Cloudflare R2 có chữ ký giới hạn thời gian.",
+        "description": "Tự động kiểm tra quyền VIP đối với các chương trả phí và tạo đường link Cloudflare R2 có chữ ký giới hạn thời gian kèm tốc độ phát mong muốn.",
         "security": [{ "BearerAuth": [] }],
         "parameters": [
           { "name": "id", "in": "path", "required": true, "type": "string" },
-          { "name": "quality", "in": "query", "type": "string", "enum": ["64k", "128k", "320k"], "default": "128k" }
+          { "name": "quality", "in": "query", "type": "string", "enum": ["64k", "128k", "320k"], "default": "128k" },
+          { "name": "speed", "in": "query", "type": "number", "enum": [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0], "default": 1.0, "description": "Tốc độ phát audio (0.5x đến 2.0x)" }
         ],
         "responses": {
-          "200": { "description": "Trả về signed_url có hiệu lực trong 1 giờ" },
+          "200": { "description": "Trả về signed_url có hiệu lực trong 2 giờ, playback_speed và available_speeds" },
           "403": { "description": "Yêu cầu tài khoản Hội Viên VIP để nghe chương này" }
         }
       }
@@ -612,7 +622,9 @@
             "required": ["chapter_id", "progress_seconds"],
             "properties": {
               "chapter_id": { "type": "string" },
-              "progress_seconds": { "type": "integer", "example": 145 },
+              "story_id": { "type": "string" },
+              "last_position_seconds": { "type": "integer", "example": 145 },
+              "playback_speed": { "type": "number", "example": 1.25, "description": "Tốc độ phát (0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0)" },
               "is_completed": { "type": "boolean", "default": false }
             }
           }

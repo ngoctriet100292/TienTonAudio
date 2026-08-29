@@ -222,6 +222,7 @@ func NewRouter(opts RouterOptions) http.Handler {
 
 		// Chapters & Audio Streaming
 		r.Route("/chapters", func(r chi.Router) {
+			r.Get("/playback-speeds", opts.ChapterHandler.GetPlaybackSpeeds)
 			r.Get("/{id}", opts.ChapterHandler.GetChapterByID)
 			r.With(middleware.OptionalAuthMiddleware(opts.JWTService)).Get("/{id}/stream", opts.ChapterHandler.GetSignedStreamURL)
 			r.With(middleware.OptionalAuthMiddleware(opts.JWTService)).Get("/{id}/comments", opts.CommentHandler.GetChapterComments)

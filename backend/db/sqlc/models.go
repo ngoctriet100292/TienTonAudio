@@ -90,6 +90,7 @@ type ListeningHistory struct {
 	ChapterID           uuid.UUID          `json:"chapter_id"`
 	StoryID             uuid.UUID          `json:"story_id"`
 	LastPositionSeconds int32              `json:"last_position_seconds"`
+	PlaybackSpeed       pgtype.Numeric     `json:"playback_speed"`
 	IsCompleted         *bool              `json:"is_completed"`
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 }

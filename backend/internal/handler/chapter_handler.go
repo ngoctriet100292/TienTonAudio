@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -100,7 +101,16 @@ func (h *ChapterHandler) AddAudioFile(w http.ResponseWriter, r *http.Request) {
 	utils.JSONWithMessage(w, http.StatusCreated, "Audio file added successfully", af)
 }
 
-// GetSignedStreamURL cấp link phát audio có chữ ký và kiểm tra gói VIP
+// GetPlaybackSpeeds trả về danh sách các tốc độ phát audio được hệ thống hỗ trợ
+func (h *ChapterHandler) GetPlaybackSpeeds(w http.ResponseWriter, r *http.Request) {
+	speeds := h.chapterService.GetPlaybackSpeeds()
+	utils.JSON(w, http.StatusOK, map[string]any{
+		"default_speed": 1.0,
+		"speeds":        speeds,
+	})
+}
+
+// GetSignedStreamURL cấp link phát audio có chữ ký và kiểm tra gói VIP kèm tốc độ phát
 func (h *ChapterHandler) GetSignedStreamURL(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	chapterID, err := uuid.Parse(idStr)
@@ -115,7 +125,14 @@ func (h *ChapterHandler) GetSignedStreamURL(w http.ResponseWriter, r *http.Reque
 	}
 
 	quality := r.URL.Query().Get("quality")
-	streamResp, err := h.chapterService.GetSignedStreamURL(r.Context(), currentUserID, chapterID, quality)
+	var speed *float64
+	if speedStr := r.URL.Query().Get("speed"); speedStr != "" {
+		if s, err := strconv.ParseFloat(speedStr, 64); err == nil {
+			speed = &s
+		}
+	}
+
+	streamResp, err := h.chapterService.GetSignedStreamURL(r.Context(), currentUserID, chapterID, quality, speed)
 	if err != nil {
 		utils.ErrorResponse(w, http.StatusForbidden, err.Error())
 		return

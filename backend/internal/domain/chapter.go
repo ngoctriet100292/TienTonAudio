@@ -2,10 +2,39 @@ package domain
 
 import (
 	"encoding/json"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+// SupportedPlaybackSpeeds danh sách tốc độ phát audio hỗ trợ
+var SupportedPlaybackSpeeds = []float64{0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0}
+
+type PlaybackSpeedInfo struct {
+	Value       float64 `json:"value"`
+	Label       string  `json:"label"`
+	Description string  `json:"description"`
+}
+
+var PlaybackSpeedPresets = []PlaybackSpeedInfo{
+	{Value: 0.5, Label: "0.5x", Description: "Rất chậm"},
+	{Value: 0.75, Label: "0.75x", Description: "Chậm"},
+	{Value: 1.0, Label: "1.0x", Description: "Chuẩn (Mặc định)"},
+	{Value: 1.25, Label: "1.25x", Description: "Hơi nhanh"},
+	{Value: 1.5, Label: "1.5x", Description: "Nhanh"},
+	{Value: 1.75, Label: "1.75x", Description: "Rất nhanh"},
+	{Value: 2.0, Label: "2.0x", Description: "Tốc biến x2"},
+}
+
+func IsValidPlaybackSpeed(speed float64) bool {
+	for _, s := range SupportedPlaybackSpeeds {
+		if math.Abs(s-speed) < 0.01 {
+			return true
+		}
+	}
+	return false
+}
 
 type CreateChapterReq struct {
 	StoryID         uuid.UUID       `json:"story_id" validate:"required"`
@@ -45,8 +74,10 @@ type ChapterAudioFileResp struct {
 }
 
 type StreamURLResp struct {
-	ChapterID uuid.UUID `json:"chapter_id"`
-	Quality   string    `json:"quality"`
-	StreamURL string    `json:"stream_url"`
-	ExpiresAt time.Time `json:"expires_at"`
+	ChapterID       uuid.UUID           `json:"chapter_id"`
+	Quality         string              `json:"quality"`
+	StreamURL       string              `json:"stream_url"`
+	ExpiresAt       time.Time           `json:"expires_at"`
+	PlaybackSpeed   float64             `json:"playback_speed"`
+	AvailableSpeeds []PlaybackSpeedInfo `json:"available_speeds"`
 }

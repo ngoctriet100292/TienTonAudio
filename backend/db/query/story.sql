@@ -87,14 +87,16 @@ INSERT INTO listening_history (
     chapter_id,
     story_id,
     last_position_seconds,
+    playback_speed,
     is_completed,
     updated_at
 ) VALUES (
-    $1, $2, $3, $4, $5, CURRENT_TIMESTAMP
+    $1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP
 )
 ON CONFLICT (user_id, chapter_id)
 DO UPDATE SET
     last_position_seconds = EXCLUDED.last_position_seconds,
+    playback_speed = EXCLUDED.playback_speed,
     is_completed = EXCLUDED.is_completed,
     updated_at = CURRENT_TIMESTAMP;
 
@@ -103,6 +105,7 @@ SELECT
     h.chapter_id,
     h.story_id,
     h.last_position_seconds,
+    h.playback_speed,
     h.is_completed,
     h.updated_at,
     c.title AS chapter_title,
