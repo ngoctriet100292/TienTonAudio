@@ -1,3 +1,5 @@
+export type StoryStatus = 'ongoing' | 'completed' | 'paused' | 'dropped';
+
 export interface Story {
   id: string;
   title: string;
@@ -6,7 +8,8 @@ export interface Story {
   cover_image_url?: string;
   author_id?: string;
   author_name?: string;
-  status: 'ongoing' | 'completed';
+  status: StoryStatus;
+  status_label?: string;
   view_count: number;
   total_chapters: number;
   rating_avg: number;

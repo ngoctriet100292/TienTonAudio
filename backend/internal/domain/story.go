@@ -25,6 +25,26 @@ type UpdateStoryReq struct {
 	Status        *string `json:"status,omitempty"`
 }
 
+const (
+	StoryStatusOngoing   = "ongoing"   // Còn tiếp
+	StoryStatusCompleted = "completed" // Hoàn thành
+	StoryStatusPaused    = "paused"    // Tạm ngưng
+	StoryStatusDropped   = "dropped"   // Tạm ngưng
+)
+
+func GetStoryStatusLabel(status string) string {
+	switch status {
+	case StoryStatusCompleted:
+		return "Hoàn thành"
+	case StoryStatusPaused, StoryStatusDropped:
+		return "Tạm ngưng"
+	case StoryStatusOngoing:
+		fallthrough
+	default:
+		return "Còn tiếp"
+	}
+}
+
 type StoryFilterReq struct {
 	Query      *string `json:"query,omitempty"`
 	CategoryID *int32  `json:"category_id,omitempty"`
@@ -40,6 +60,7 @@ type StoryResp struct {
 	AuthorID      *int32     `json:"author_id,omitempty"`
 	AuthorName    *string    `json:"author_name,omitempty"`
 	Status        *string    `json:"status,omitempty"`
+	StatusLabel   *string    `json:"status_label,omitempty"`
 	ViewCount     *int64     `json:"view_count,omitempty"`
 	TotalChapters *int32     `json:"total_chapters,omitempty"`
 	RatingAvg     *float64   `json:"rating_avg,omitempty"`

@@ -127,7 +127,7 @@ CREATE TABLE IF NOT EXISTS stories (
     description TEXT,
     cover_image_url VARCHAR(500),
     author_id INT REFERENCES authors(id) ON DELETE SET NULL,
-    status VARCHAR(20) DEFAULT 'ongoing' CHECK (status IN ('ongoing', 'completed', 'dropped')),
+    status VARCHAR(20) DEFAULT 'ongoing' CHECK (status IN ('ongoing', 'completed', 'paused', 'dropped')),
     view_count BIGINT DEFAULT 0,
     total_chapters INT DEFAULT 0,
     rating_avg NUMERIC(3, 2) DEFAULT 0.00,

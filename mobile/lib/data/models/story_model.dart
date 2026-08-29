@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 class Story {
   final String id;
   final String title;
@@ -32,6 +34,32 @@ class Story {
     this.isFavorite = false,
     this.categories = const [],
   });
+
+  String get statusLabel {
+    switch (status.toLowerCase()) {
+      case 'completed':
+        return 'Hoàn thành';
+      case 'paused':
+      case 'dropped':
+        return 'Tạm ngưng';
+      case 'ongoing':
+      default:
+        return 'Còn tiếp';
+    }
+  }
+
+  Color get statusColor {
+    switch (status.toLowerCase()) {
+      case 'completed':
+        return const Color(0xFF06D6A0);
+      case 'paused':
+      case 'dropped':
+        return const Color(0xFFF43F5E);
+      case 'ongoing':
+      default:
+        return const Color(0xFFFFB703);
+    }
+  }
 
   factory Story.fromJson(Map<String, dynamic> json) {
     return Story(

@@ -16,6 +16,7 @@ class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
   String _selectedCategory = 'Tất cả';
+  String _selectedStatus = 'Tất cả';
 
   final List<String> _categories = [
     'Tất cả',
@@ -25,6 +26,13 @@ class _SearchScreenState extends State<SearchScreen> {
     'Kiếm Hiệp',
     'Đô Thị',
     'Khoa Huyễn',
+  ];
+
+  final List<String> _statuses = [
+    'Tất cả',
+    'Hoàn thành',
+    'Còn tiếp',
+    'Tạm ngưng',
   ];
 
   final List<String> _trendingKeywords = [
@@ -46,12 +54,14 @@ class _SearchScreenState extends State<SearchScreen> {
     final storyProvider = Provider.of<StoryProvider>(context);
     final allStories = [...storyProvider.recentStories, ...storyProvider.topViews];
 
-    // Lọc theo từ khóa và thể loại
+    // Lọc theo từ khóa, thể loại và trạng thái
     final filteredStories = allStories.where((s) {
       final matchesQuery = _query.isEmpty ||
           s.title.toLowerCase().contains(_query.toLowerCase()) ||
           (s.authorName?.toLowerCase().contains(_query.toLowerCase()) ?? false);
-      return matchesQuery;
+      final matchesStatus = _selectedStatus == 'Tất cả' ||
+          s.statusLabel.toLowerCase() == _selectedStatus.toLowerCase();
+      return matchesQuery && matchesStatus;
     }).toList();
 
     return Scaffold(
@@ -123,6 +133,38 @@ class _SearchScreenState extends State<SearchScreen> {
                       ),
                       onSelected: (selected) {
                         setState(() => _selectedCategory = cat);
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Trạng thái Truyện Chips (Hoàn thành, Còn tiếp, Tạm ngưng)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: _statuses.map((status) {
+                  final isSelected = _selectedStatus == status;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(status),
+                      selected: isSelected,
+                      selectedColor: AppTheme.primary,
+                      backgroundColor: AppTheme.surface,
+                      labelStyle: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? Colors.black : AppTheme.textSecondary,
+                      ),
+                      side: BorderSide(
+                        color: isSelected ? AppTheme.primary : Colors.white.withValues(alpha: 0.08),
+                      ),
+                      onSelected: (selected) {
+                        setState(() => _selectedStatus = status);
                       },
                     ),
                   );
@@ -241,6 +283,23 @@ class _SearchScreenState extends State<SearchScreen> {
                                 const SizedBox(height: 6),
                                 Row(
                                   children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                      decoration: BoxDecoration(
+                                        color: story.statusColor.withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(5),
+                                        border: Border.all(color: story.statusColor.withValues(alpha: 0.4)),
+                                      ),
+                                      child: Text(
+                                        story.statusLabel,
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          color: story.statusColor,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
                                     const Icon(Icons.headphones_rounded, size: 12, color: AppTheme.primaryLight),
                                     const SizedBox(width: 4),
                                     Text(

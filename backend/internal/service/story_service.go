@@ -50,6 +50,14 @@ func NewStoryService(repo repository.StoryRepository, userRepo repository.UserRe
 	}
 }
 
+func mapStoryStatusLabel(status *string) *string {
+	if status == nil {
+		return nil
+	}
+	label := domain.GetStoryStatusLabel(*status)
+	return &label
+}
+
 func (s *storyService) ListStories(ctx context.Context, pagination utils.PaginationParams) ([]domain.StoryResp, error) {
 	rows, err := s.repo.ListStories(ctx, db.ListStoriesParams{
 		Limit:  pagination.Limit,
@@ -70,6 +78,7 @@ func (s *storyService) ListStories(ctx context.Context, pagination utils.Paginat
 			AuthorID:      r.AuthorID,
 			AuthorName:    r.AuthorName,
 			Status:        r.Status,
+			StatusLabel:   mapStoryStatusLabel(r.Status),
 			ViewCount:     r.ViewCount,
 			TotalChapters: r.TotalChapters,
 			RatingAvg:     utils.NumericToFloat64Ptr(r.RatingAvg),
@@ -102,6 +111,7 @@ func (s *storyService) ListTopViewedStories(ctx context.Context, pagination util
 			AuthorID:      r.AuthorID,
 			AuthorName:    r.AuthorName,
 			Status:        r.Status,
+			StatusLabel:   mapStoryStatusLabel(r.Status),
 			ViewCount:     r.ViewCount,
 			TotalChapters: r.TotalChapters,
 			RatingAvg:     utils.NumericToFloat64Ptr(r.RatingAvg),
@@ -149,6 +159,7 @@ func (s *storyService) GetStoryBySlug(ctx context.Context, slug string) (*domain
 		AuthorID:      row.AuthorID,
 		AuthorName:    row.AuthorName,
 		Status:        row.Status,
+		StatusLabel:   mapStoryStatusLabel(row.Status),
 		ViewCount:     &updatedViewCount,
 		TotalChapters: row.TotalChapters,
 		RatingAvg:     utils.NumericToFloat64Ptr(row.RatingAvg),
@@ -195,6 +206,7 @@ func (s *storyService) GetStoryByID(ctx context.Context, id uuid.UUID) (*domain.
 		AuthorID:      row.AuthorID,
 		AuthorName:    row.AuthorName,
 		Status:        row.Status,
+		StatusLabel:   mapStoryStatusLabel(row.Status),
 		ViewCount:     &updatedViewCount,
 		TotalChapters: row.TotalChapters,
 		RatingAvg:     utils.NumericToFloat64Ptr(row.RatingAvg),
@@ -268,6 +280,7 @@ func (s *storyService) AdvancedSearchStories(ctx context.Context, filter domain.
 			AuthorID:      r.AuthorID,
 			AuthorName:    r.AuthorName,
 			Status:        r.Status,
+			StatusLabel:   mapStoryStatusLabel(r.Status),
 			ViewCount:     r.ViewCount,
 			TotalChapters: r.TotalChapters,
 			RatingAvg:     utils.NumericToFloat64Ptr(r.RatingAvg),
@@ -307,6 +320,7 @@ func (s *storyService) CreateStory(ctx context.Context, req domain.CreateStoryRe
 		CoverImageURL: row.CoverImageUrl,
 		AuthorID:      row.AuthorID,
 		Status:        row.Status,
+		StatusLabel:   mapStoryStatusLabel(row.Status),
 		ViewCount:     row.ViewCount,
 		TotalChapters: row.TotalChapters,
 		RatingAvg:     utils.NumericToFloat64Ptr(row.RatingAvg),
@@ -347,6 +361,7 @@ func (s *storyService) UpdateStory(ctx context.Context, id uuid.UUID, req domain
 		CoverImageURL: row.CoverImageUrl,
 		AuthorID:      row.AuthorID,
 		Status:        row.Status,
+		StatusLabel:   mapStoryStatusLabel(row.Status),
 		ViewCount:     row.ViewCount,
 		TotalChapters: row.TotalChapters,
 		RatingAvg:     utils.NumericToFloat64Ptr(row.RatingAvg),
@@ -546,6 +561,7 @@ func (s *storyService) GetRelatedStories(ctx context.Context, storyID uuid.UUID,
 			AuthorID:      r.AuthorID,
 			AuthorName:    r.AuthorName,
 			Status:        r.Status,
+			StatusLabel:   mapStoryStatusLabel(r.Status),
 			ViewCount:     r.ViewCount,
 			TotalChapters: r.TotalChapters,
 			RatingAvg:     utils.NumericToFloat64Ptr(r.RatingAvg),

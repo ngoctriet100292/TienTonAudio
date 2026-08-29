@@ -159,6 +159,59 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const SizedBox(height: 12),
+                  // Trạng thái truyện (Hoàn thành, Tạm ngưng, Còn tiếp) & Thể loại
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _story.statusColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: _story.statusColor.withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: _story.statusColor,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _story.statusLabel,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: _story.statusColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      ..._story.categories.map((c) => Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.surface,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppTheme.borderGlass),
+                            ),
+                            child: Text(
+                              c,
+                              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                            ),
+                          )),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
                   // Tên truyện
                   Text(
                     _story.title,

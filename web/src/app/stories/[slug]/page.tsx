@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { Star, Headphones, BookOpen, Crown, Share2, Heart, Play } from 'lucide-react';
 import { Story, Chapter } from '@/types';
 import ChapterListClient from './chapter-list-client';
+import { StoryStatusBadge } from '@/components/story-status-badge';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -138,7 +139,10 @@ export default async function StoryDetailPage({ params }: Props) {
 
         {/* Thông tin tác phẩm */}
         <div className="flex-1 space-y-5">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Trạng thái truyện: Hoàn thành, Tạm ngưng, Còn tiếp */}
+            <StoryStatusBadge status={story.status} size="md" />
+
             {story.categories.map((c) => (
               <span key={c} className="text-xs px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30 font-semibold">
                 {c}

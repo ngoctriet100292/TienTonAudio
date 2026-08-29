@@ -1,9 +1,10 @@
 import React from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Search, Star, Headphones, BookOpen } from 'lucide-react';
+import { Search, Star, Headphones, BookOpen, Filter } from 'lucide-react';
 import { api } from '@/lib/api';
-import { Story } from '@/types';
+import { Story, StoryStatus } from '@/types';
+import { StoryStatusBadge } from '@/components/story-status-badge';
 
 export const metadata: Metadata = {
   title: 'Tìm Kiếm Truyện Tiên Hiệp Audio',
@@ -11,14 +12,25 @@ export const metadata: Metadata = {
 };
 
 interface Props {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; status?: string }>;
 }
 
 export default async function SearchPage({ searchParams }: Props) {
-  const { q } = await searchParams;
+  const { q, status } = await searchParams;
   const query = q || '';
+  const currentStatus = status || '';
 
-  const results = query ? await api.searchStories(query) : await api.getStories(1, 12);
+  const rawResults = query ? await api.searchStories(query) : await api.getStories(1, 12);
+  const results = currentStatus
+    ? rawResults.filter((s) => s.status === currentStatus)
+    : rawResults;
+
+  const statusFilters: { label: string; value: string }[] = [
+    { label: 'Tất cả trạng thái', value: '' },
+    { label: 'Hoàn thành', value: 'completed' },
+    { label: 'Còn tiếp', value: 'ongoing' },
+    { label: 'Tạm ngưng', value: 'paused' },
+  ];
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8 space-y-8">
@@ -33,13 +45,42 @@ export default async function SearchPage({ searchParams }: Props) {
         <p className="text-xs sm:text-sm text-slate-400 mt-1">
           Tìm thấy {results.length} tác phẩm phù hợp
         </p>
+
+        {/* Bộ lọc trạng thái truyện */}
+        <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-white/5">
+          <span className="text-xs text-slate-400 font-semibold flex items-center gap-1.5 mr-2">
+            <Filter className="w-3.5 h-3.5 text-amber-400" />
+            Trạng thái:
+          </span>
+          {statusFilters.map((f) => {
+            const isActive = currentStatus === f.value;
+            const queryParams = new URLSearchParams();
+            if (query) queryParams.set('q', query);
+            if (f.value) queryParams.set('status', f.value);
+            const href = `/search?${queryParams.toString()}`;
+
+            return (
+              <Link
+                key={f.value}
+                href={href}
+                className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all ${
+                  isActive
+                    ? 'bg-amber-500 text-black border-amber-500 shadow-md shadow-amber-500/20'
+                    : 'bg-slate-900/80 text-slate-300 border-white/10 hover:border-amber-500/40 hover:text-white'
+                }`}
+              >
+                {f.label}
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
       {results.length === 0 ? (
         <div className="text-center py-20 border border-dashed border-white/10 rounded-3xl">
-          <p className="text-slate-400 text-sm">Không tìm thấy tác phẩm nào phù hợp với từ khóa trên.</p>
-          <Link href="/" className="inline-block mt-4 text-xs font-bold text-amber-400 hover:underline">
-            Quay lại trang chủ
+          <p className="text-slate-400 text-sm">Không tìm thấy tác phẩm nào phù hợp với điều kiện trên.</p>
+          <Link href="/search" className="inline-block mt-4 text-xs font-bold text-amber-400 hover:underline">
+            Xóa bộ lọc
           </Link>
         </div>
       ) : (
@@ -58,6 +99,12 @@ export default async function SearchPage({ searchParams }: Props) {
                     className="h-full w-full object-cover group-hover:scale-105 transition-transform"
                   />
                 )}
+
+                {/* Status Badge */}
+                <div className="absolute top-2 right-2">
+                  <StoryStatusBadge status={story.status} size="sm" />
+                </div>
+
                 <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-black/80 backdrop-blur-sm px-2 py-0.5 text-[11px] font-bold text-amber-400">
                   <Star className="h-3 w-3 fill-current" />
                   {story.rating_avg.toFixed(1)}

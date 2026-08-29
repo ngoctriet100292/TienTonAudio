@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Play, Star, Headphones, Sparkles, Flame, BookOpen, Crown, ChevronRight, MessageSquare } from 'lucide-react';
 import { Story } from '@/types';
+import { StoryStatusBadge } from '@/components/story-status-badge';
 
 // Mock data hoặc server fetch từ Go backend
 const MOCK_TOP_STORIES: Story[] = [
@@ -25,7 +26,7 @@ const MOCK_TOP_STORIES: Story[] = [
     slug: 'vo-luyen-dinh-phong',
     author_name: 'Mạc Mặc',
     cover_image_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80',
-    status: 'completed',
+    status: 'ongoing',
     view_count: 98700,
     total_chapters: 6009,
     rating_avg: 4.8,
@@ -53,7 +54,7 @@ const MOCK_TOP_STORIES: Story[] = [
     slug: 'dau-pha-thuong-khung',
     author_name: 'Thiên Tằm Thổ Đậu',
     cover_image_url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&auto=format&fit=crop&q=80',
-    status: 'completed',
+    status: 'paused',
     view_count: 74100,
     total_chapters: 1641,
     rating_avg: 4.7,
@@ -183,6 +184,11 @@ export default function HomePage() {
                   {/* Rank Badge */}
                   <div className={`absolute top-2 left-2 px-2.5 py-0.5 rounded-lg text-xs font-black shadow-lg ${index < 3 ? rankBadges[index] : 'bg-black/80 text-white'}`}>
                     #{index + 1}
+                  </div>
+
+                  {/* Status Badge: Hoàn thành / Tạm ngưng / Còn tiếp */}
+                  <div className="absolute top-2 right-2">
+                    <StoryStatusBadge status={story.status} size="sm" />
                   </div>
 
                   {/* Rating Badge */}

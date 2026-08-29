@@ -4,10 +4,11 @@ import Link from 'next/link';
 import { Crown, Headphones, Star, BookOpen, Flame } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Story } from '@/types';
+import { StoryStatusBadge } from '@/components/story-status-badge';
 
 export const metadata: Metadata = {
-  title: 'Bảng Vàng Tiên Vương - Top Truyện Audio Nghe Nhiều Nhất',
-  description: 'Bảng xếp hạng truyện tiên hiệp audio, huyền huyễn có lượt nghe và đánh giá cao nhất trên Tiên Tôn Audio.',
+  title: 'Bảng Vàng Tu Tiên - Top Truyện Audio Hot Nhất',
+  description: 'Bảng xếp hạng những bộ truyện audio tiên hiệp, huyền huyễn có lượt nghe và đánh giá cao nhất trên Tiên Tôn Audio.',
 };
 
 export default async function RankingsPage() {
@@ -35,7 +36,7 @@ export default async function RankingsPage() {
       slug: 'vo-luyen-dinh-phong',
       author_name: 'Mạc Mặc',
       cover_image_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80',
-      status: 'completed',
+      status: 'ongoing',
       view_count: 98700,
       total_chapters: 6009,
       rating_avg: 4.8,
@@ -63,7 +64,7 @@ export default async function RankingsPage() {
       slug: 'dau-pha-thuong-khung',
       author_name: 'Thiên Tằm Thổ Đậu',
       cover_image_url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&auto=format&fit=crop&q=80',
-      status: 'completed',
+      status: 'paused',
       view_count: 74100,
       total_chapters: 1641,
       rating_avg: 4.7,
@@ -123,7 +124,10 @@ export default async function RankingsPage() {
                 <h3 className="text-sm sm:text-base font-bold text-white group-hover:text-amber-400 transition-colors line-clamp-1">
                   {story.title}
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">Tác giả: {story.author_name}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-xs text-slate-400">Tác giả: {story.author_name}</p>
+                  <StoryStatusBadge status={story.status} size="sm" />
+                </div>
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {story.categories.map((c) => (
                     <span key={c} className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300">
