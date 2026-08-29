@@ -88,41 +88,50 @@ export function Navbar() {
     <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-[#070a11]/90 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo Tiên Tôn Audio */}
-        <div className="flex items-center gap-8">
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#ffd166] via-[#ffb703] to-[#d48b00] p-[1.5px] shadow-lg shadow-amber-500/20 group-hover:scale-105 transition-transform">
+        <div className="flex items-center gap-4 xl:gap-8 flex-shrink-0">
+          <Link href="/" className="flex items-center gap-2.5 sm:gap-3 group flex-shrink-0">
+            <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#ffd166] via-[#ffb703] to-[#d48b00] p-[1.5px] shadow-lg shadow-amber-500/20 group-hover:scale-105 transition-transform flex-shrink-0">
               <div className="flex h-full w-full items-center justify-center rounded-[10px] bg-[#070a11]">
-                <Headphones className="h-5 w-5 text-[#ffd166]" />
+                <Headphones className="h-4 w-4 sm:h-5 sm:w-5 text-[#ffd166]" />
               </div>
             </div>
-            <div>
-              <span className="text-lg font-black tracking-wider text-white">
+            <div className="flex-shrink-0">
+              <span className="text-base sm:text-lg font-black tracking-wider text-white whitespace-nowrap">
                 TIÊN TÔN <span className="text-[#ffb703]">AUDIO</span>
               </span>
-              <span className="block text-[10px] font-semibold tracking-widest text-[#ffd166]/70 uppercase">
+              <span className="hidden sm:block text-[9px] sm:text-[10px] font-semibold tracking-widest text-[#ffd166]/70 uppercase">
                 Studio 320kbps
               </span>
             </div>
           </Link>
 
-          {/* Navigation Links */}
-          <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
-            <Link href="/" className="text-white hover:text-[#ffb703] transition-colors flex items-center gap-1.5">
-              <Compass className="w-4 h-4" />
-              Khám Phá
+          {/* Navigation Links (Desktop - Ẩn trên tablet/mobile để không bị ép chữ 2 dòng) */}
+          <nav className="hidden lg:flex items-center gap-4 xl:gap-6 text-sm font-medium flex-shrink-0">
+            <Link
+              href="/"
+              className="text-white hover:text-[#ffb703] transition-colors flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <Compass className="w-4 h-4 flex-shrink-0" />
+              <span>Khám Phá</span>
             </Link>
-            <Link href="/rankings" className="text-slate-300 hover:text-[#ffb703] transition-colors flex items-center gap-1.5">
-              <Crown className="w-4 h-4 text-[#ffb703]" />
-              Bảng Vàng
+            <Link
+              href="/rankings"
+              className="text-slate-300 hover:text-[#ffb703] transition-colors flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <Crown className="w-4 h-4 text-[#ffb703] flex-shrink-0" />
+              <span>Bảng Vàng</span>
             </Link>
-            <Link href="/categories" className="text-slate-300 hover:text-[#ffb703] transition-colors flex items-center gap-1.5">
-              <BookOpen className="w-4 h-4" />
-              Thể Loại
+            <Link
+              href="/categories"
+              className="text-slate-300 hover:text-[#ffb703] transition-colors flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <BookOpen className="w-4 h-4 flex-shrink-0" />
+              <span>Thể Loại</span>
             </Link>
 
-            {/* Dropdown Giới Thiệu (Cảnh Giới, Về Chúng Tôi, VIP...) */}
+            {/* Dropdown Giới Thiệu (Cảnh Giới, Về Chúng Tôi, VIP, AI, Liên Hệ...) */}
             <div
-              className="relative"
+              className="relative flex-shrink-0"
               ref={introRef}
               onMouseEnter={handleIntroMouseEnter}
               onMouseLeave={handleIntroMouseLeave}
@@ -130,13 +139,13 @@ export function Navbar() {
               <button
                 type="button"
                 onClick={() => setIntroDropdownOpen(!introDropdownOpen)}
-                className={`flex items-center gap-1.5 transition-colors font-medium cursor-pointer py-2 ${
+                className={`flex items-center gap-1.5 transition-colors font-medium cursor-pointer py-2 whitespace-nowrap ${
                   introDropdownOpen ? 'text-[#ffb703]' : 'text-slate-300 hover:text-[#ffb703]'
                 }`}
               >
                 <span>Giới Thiệu</span>
                 <ChevronDown
-                  className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                  className={`w-3.5 h-3.5 flex-shrink-0 transition-transform duration-200 ${
                     introDropdownOpen ? 'rotate-180 text-[#ffb703]' : ''
                   }`}
                 />
@@ -247,28 +256,27 @@ export function Navbar() {
               )}
             </div>
 
-            <Link href="/vip" className="text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 font-semibold">
-              <Sparkles className="w-4 h-4" />
-              Hội Viên VIP
-            </Link>
-            <Link href="/contact" className="text-slate-300 hover:text-white transition-colors flex items-center gap-1.5 font-medium">
-              <Mail className="w-4 h-4 text-slate-400" />
-              Liên Hệ
+            <Link
+              href="/vip"
+              className="text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 font-semibold whitespace-nowrap px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20"
+            >
+              <Sparkles className="w-4 h-4 flex-shrink-0" />
+              <span>Hội Viên VIP</span>
             </Link>
           </nav>
         </div>
 
         {/* Thanh tìm kiếm & Avatar Đạo Hữu */}
-        <div className="flex items-center gap-4">
-          <form onSubmit={handleSearch} className="relative hidden sm:block w-52 lg:w-72">
+        <div className="flex items-center gap-3 xl:gap-4 flex-shrink-0">
+          <form onSubmit={handleSearch} className="relative hidden sm:block w-40 md:w-48 lg:w-44 xl:w-64">
             <input
               type="text"
-              placeholder="Tìm kiếm truyện, tác giả..."
+              placeholder="Tìm kiếm truyện..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-full bg-slate-900/90 border border-white/10 px-4 py-2 pl-10 text-xs text-white placeholder-slate-400 focus:border-[#ffb703] focus:outline-none transition-all"
+              className="w-full rounded-full bg-slate-900/90 border border-white/10 px-3.5 py-2 pl-9 text-xs text-white placeholder-slate-400 focus:border-[#ffb703] focus:outline-none transition-all"
             />
-            <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
           </form>
 
           {/* User Avatar - Khi đăng nhập CHỈ hiện ảnh đại diện */}
@@ -436,11 +444,11 @@ export function Navbar() {
             </Link>
           )}
 
-          {/* Nút Hamburger Menu cho Mobile/Tablet (< md) */}
+          {/* Nút Hamburger Menu cho Mobile/Tablet (< lg) */}
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 border border-white/10 text-slate-300 hover:text-white hover:border-amber-400/50 transition-all focus:outline-none"
+            className="lg:hidden flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-slate-900 border border-white/10 text-slate-300 hover:text-white hover:border-amber-400/50 transition-all focus:outline-none"
             aria-label="Mở menu điều hướng"
           >
             {mobileMenuOpen ? <X className="w-5 h-5 text-amber-400" /> : <Menu className="w-5 h-5" />}
@@ -450,7 +458,7 @@ export function Navbar() {
 
       {/* Mobile Drawer Navigation (Hiển thị khi thu nhỏ màn hình và bấm hamburger) */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-x-0 top-16 bottom-0 z-50 bg-[#070a11]/98 backdrop-blur-3xl overflow-y-auto px-4 py-6 border-t border-white/10 animate-in fade-in-0 slide-in-from-top-4 duration-200">
+        <div className="lg:hidden fixed inset-x-0 top-16 bottom-0 z-50 bg-[#070a11]/98 backdrop-blur-3xl overflow-y-auto px-4 py-6 border-t border-white/10 animate-in fade-in-0 slide-in-from-top-4 duration-200">
           <div className="space-y-6 max-w-lg mx-auto">
             {/* Form tìm kiếm Mobile */}
             <form
