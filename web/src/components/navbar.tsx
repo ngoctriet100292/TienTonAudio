@@ -19,6 +19,9 @@ import {
   Flame,
   ChevronDown,
   Info,
+  Menu,
+  X,
+  Mail,
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 
@@ -28,6 +31,7 @@ export function Navbar() {
   const [searchQuery, setSearchQuery] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [introDropdownOpen, setIntroDropdownOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const introRef = useRef<HTMLDivElement>(null);
@@ -61,6 +65,17 @@ export function Navbar() {
       if (introTimeoutRef.current) clearTimeout(introTimeoutRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileMenuOpen]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -210,17 +225,35 @@ export function Navbar() {
                       </p>
                     </div>
                   </Link>
+
+                  <Link
+                    href="/contact"
+                    onClick={() => setIntroDropdownOpen(false)}
+                    className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-800/80 transition-colors group"
+                  >
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 group-hover:scale-105 transition-transform">
+                      <Mail className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-white group-hover:text-emerald-300 transition-colors">
+                        Liên Hệ & Hỗ Trợ
+                      </p>
+                      <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
+                        Góp ý, hợp tác & bản quyền DMCA
+                      </p>
+                    </div>
+                  </Link>
                 </div>
               )}
             </div>
 
-            <Link href="/ai" className="text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1.5 font-semibold">
-              <Bot className="w-4 h-4" />
-              AI Đạo Hữu
-            </Link>
             <Link href="/vip" className="text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 font-semibold">
               <Sparkles className="w-4 h-4" />
               Hội Viên VIP
+            </Link>
+            <Link href="/contact" className="text-slate-300 hover:text-white transition-colors flex items-center gap-1.5 font-medium">
+              <Mail className="w-4 h-4 text-slate-400" />
+              Liên Hệ
             </Link>
           </nav>
         </div>
@@ -402,8 +435,181 @@ export function Navbar() {
               Đăng Nhập
             </Link>
           )}
+
+          {/* Nút Hamburger Menu cho Mobile/Tablet (< md) */}
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 border border-white/10 text-slate-300 hover:text-white hover:border-amber-400/50 transition-all focus:outline-none"
+            aria-label="Mở menu điều hướng"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5 text-amber-400" /> : <Menu className="w-5 h-5" />}
+          </button>
         </div>
       </div>
+
+      {/* Mobile Drawer Navigation (Hiển thị khi thu nhỏ màn hình và bấm hamburger) */}
+      {mobileMenuOpen && (
+        <div className="md:hidden fixed inset-x-0 top-16 bottom-0 z-50 bg-[#070a11]/98 backdrop-blur-3xl overflow-y-auto px-4 py-6 border-t border-white/10 animate-in fade-in-0 slide-in-from-top-4 duration-200">
+          <div className="space-y-6 max-w-lg mx-auto">
+            {/* Form tìm kiếm Mobile */}
+            <form
+              onSubmit={(e) => {
+                handleSearch(e);
+                setMobileMenuOpen(false);
+              }}
+              className="relative"
+            >
+              <input
+                type="text"
+                placeholder="Tìm kiếm truyện, tác giả..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-2xl bg-slate-900 border border-white/15 px-4 py-3 pl-11 text-sm text-white placeholder-slate-400 focus:border-[#ffb703] focus:outline-none"
+              />
+              <Search className="absolute left-4 top-3.5 h-4 w-4 text-slate-400" />
+            </form>
+
+            {/* Menu chính */}
+            <div className="space-y-1">
+              <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-3 mb-2">
+                Điều Hướng Chính
+              </p>
+              <Link
+                href="/"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 rounded-2xl text-slate-200 hover:text-white hover:bg-slate-800/60 font-semibold text-sm transition-all"
+              >
+                <Compass className="w-5 h-5 text-sky-400" />
+                Khám Phá Truyện
+              </Link>
+              <Link
+                href="/rankings"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 rounded-2xl text-slate-200 hover:text-white hover:bg-slate-800/60 font-semibold text-sm transition-all"
+              >
+                <Crown className="w-5 h-5 text-amber-400" />
+                Bảng Vàng Tiên Vương
+              </Link>
+              <Link
+                href="/categories"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 rounded-2xl text-slate-200 hover:text-white hover:bg-slate-800/60 font-semibold text-sm transition-all"
+              >
+                <BookOpen className="w-5 h-5 text-emerald-400" />
+                Thể Loại Audio
+              </Link>
+              <Link
+                href="/vip"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-between px-4 py-3 rounded-2xl bg-gradient-to-r from-amber-500/10 to-transparent border border-amber-500/30 text-amber-300 font-bold text-sm"
+              >
+                <span className="flex items-center gap-3">
+                  <Sparkles className="w-5 h-5 text-amber-400" />
+                  Hội Viên VIP Tiên Tôn
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded font-mono font-black bg-amber-500/30 text-amber-300 uppercase">
+                  VIP
+                </span>
+              </Link>
+            </div>
+
+            {/* Giới thiệu & Khám phá thế giới */}
+            <div className="space-y-1 pt-3 border-t border-white/10">
+              <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-3 mb-2">
+                Giới Thiệu & Tiên Đạo
+              </p>
+              <Link
+                href="/cultivation"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-between px-4 py-3 rounded-2xl text-slate-200 hover:text-white hover:bg-slate-800/60 font-semibold text-sm transition-all"
+              >
+                <span className="flex items-center gap-3">
+                  <Flame className="w-5 h-5 text-amber-400" />
+                  17 Cảnh Giới Tu Tiên
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-amber-500/20 text-amber-300 uppercase">
+                  Mới
+                </span>
+              </Link>
+              <Link
+                href="/ai"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 rounded-2xl text-slate-200 hover:text-white hover:bg-slate-800/60 font-semibold text-sm transition-all"
+              >
+                <Bot className="w-5 h-5 text-indigo-400" />
+                AI Đạo Hữu (Hỏi Đáp)
+              </Link>
+              <Link
+                href="/about"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 rounded-2xl text-slate-200 hover:text-white hover:bg-slate-800/60 font-semibold text-sm transition-all"
+              >
+                <Info className="w-5 h-5 text-sky-400" />
+                Về Chúng Tôi
+              </Link>
+              <Link
+                href="/contact"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 rounded-2xl text-slate-200 hover:text-white hover:bg-slate-800/60 font-semibold text-sm transition-all"
+              >
+                <Mail className="w-5 h-5 text-emerald-400" />
+                Liên Hệ & Hỗ Trợ
+              </Link>
+            </div>
+
+            {/* Thông tin tài khoản Mobile */}
+            {mounted && isAuthenticated && user ? (
+              <div className="pt-3 border-t border-white/10 space-y-3">
+                <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-900 border border-white/10">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-tr from-[#ffd166] to-[#ffb703] text-black font-black">
+                    {user.username[0]?.toUpperCase() || 'U'}
+                  </div>
+                  <div className="truncate flex-1">
+                    <p className="text-sm font-bold text-white truncate">{user.username}</p>
+                    <p className="text-xs text-amber-400 font-medium">
+                      {user.cultivation_realm || 'Luyện Khí'} Cảnh (Cấp {user.cultivation_level || 1})
+                    </p>
+                  </div>
+                  <Link
+                    href="/settings"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="p-2.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white"
+                  >
+                    <Settings className="w-4 h-4" />
+                  </Link>
+                </div>
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    logout();
+                  }}
+                  className="w-full py-3 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-bold text-xs flex items-center justify-center gap-2 border border-rose-500/30 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" /> Đăng Xuất Tài Khoản
+                </button>
+              </div>
+            ) : (
+              <div className="pt-4 border-t border-white/10 grid grid-cols-2 gap-3">
+                <Link
+                  href="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="py-3 rounded-2xl bg-gradient-to-r from-[#ffd166] to-[#ffb703] text-black font-black text-xs text-center shadow-md shadow-amber-500/20"
+                >
+                  Đăng Nhập
+                </Link>
+                <Link
+                  href="/register"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="py-3 rounded-2xl bg-slate-800 text-white font-bold text-xs text-center border border-white/10 hover:bg-slate-700"
+                >
+                  Đăng Ký
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </header>
   );
 }

@@ -61,10 +61,10 @@ export function StickyAudioPlayer() {
         </div>
       </div>
 
-      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-3 sm:px-6 lg:px-8">
         {/* Tên truyện & Tên tập */}
-        <div className="flex items-center gap-4 w-1/3 min-w-[200px]">
-          <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl border border-amber-500/30 bg-slate-800 shadow-md">
+        <div className="flex items-center gap-2.5 sm:gap-4 flex-1 min-w-0 mr-2">
+          <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 overflow-hidden rounded-xl border border-amber-500/30 bg-slate-800 shadow-md">
             {currentStory.cover_image_url ? (
               <img
                 src={currentStory.cover_image_url}
@@ -72,33 +72,33 @@ export function StickyAudioPlayer() {
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-amber-400 font-bold">
+              <div className="flex h-full w-full items-center justify-center text-amber-400 font-bold text-xs">
                 TT
               </div>
             )}
           </div>
           <div className="truncate">
-            <h4 className="text-sm font-bold text-white truncate">{currentChapter.title}</h4>
-            <p className="text-xs text-slate-400 truncate">{currentStory.title}</p>
+            <h4 className="text-xs sm:text-sm font-bold text-white truncate">{currentChapter.title}</h4>
+            <p className="text-[10px] sm:text-xs text-slate-400 truncate">{currentStory.title}</p>
           </div>
         </div>
 
         {/* Cụm điều khiển Play / Pause / Tua 10s */}
-        <div className="flex flex-col items-center justify-center gap-1.5 w-1/3">
-          <div className="flex items-center gap-5">
+        <div className="flex flex-col items-center justify-center gap-1 flex-shrink-0 px-2">
+          <div className="flex items-center gap-2 sm:gap-5">
             <button
               onClick={() => skip(-10)}
               className="text-slate-400 hover:text-white transition-colors p-1"
               title="Lùi 10 giây"
             >
-              <RotateCcw className="w-4 h-4" />
+              <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
 
             <button
               onClick={togglePlay}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-tr from-[#ffd166] to-[#ffb703] text-black shadow-lg shadow-amber-500/30 hover:scale-105 active:scale-95 transition-all"
+              className="flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-gradient-to-tr from-[#ffd166] to-[#ffb703] text-black shadow-lg shadow-amber-500/30 hover:scale-105 active:scale-95 transition-all"
             >
-              {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
+              {isPlaying ? <Pause className="w-4 h-4 sm:w-5 sm:h-5 fill-current" /> : <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current ml-0.5" />}
             </button>
 
             <button
@@ -106,11 +106,11 @@ export function StickyAudioPlayer() {
               className="text-slate-400 hover:text-white transition-colors p-1"
               title="Tới 10 giây"
             >
-              <RotateCw className="w-4 h-4" />
+              <RotateCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
           </div>
 
-          <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono">
+          <div className="flex items-center gap-1 text-[10px] sm:text-[11px] text-slate-400 font-mono">
             <span>{formatTime(currentTime)}</span>
             <span>/</span>
             <span>{formatTime(duration)}</span>
@@ -118,7 +118,7 @@ export function StickyAudioPlayer() {
         </div>
 
         {/* Thanh âm lượng & Bộ chọn tốc độ phát */}
-        <div className="flex items-center justify-end gap-3 w-1/3">
+        <div className="flex items-center justify-end gap-2 sm:gap-3 flex-shrink-0">
           {/* Nút chọn Tốc độ phát (0.5x, 0.75x, 1x, 1.25x, 1.5x, 1.75x, 2x) */}
           <div className="relative" ref={speedMenuRef}>
             <button
