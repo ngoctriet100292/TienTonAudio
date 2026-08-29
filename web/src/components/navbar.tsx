@@ -13,10 +13,9 @@ import {
   Bot,
   User,
   LogOut,
-  ChevronDown,
+  Settings,
   ShieldCheck,
-  History,
-  Heart,
+  ShieldAlert,
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 
@@ -28,7 +27,6 @@ export function Navbar() {
   const [mounted, setMounted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Đảm bảo client render sau khi mount để tránh lỗi hydration mismatch với localStorage
   useEffect(() => {
     setMounted(true);
 
@@ -94,7 +92,7 @@ export function Navbar() {
           </nav>
         </div>
 
-        {/* Thanh tìm kiếm & Tài khoản Đạo Hữu */}
+        {/* Thanh tìm kiếm & Avatar Đạo Hữu */}
         <div className="flex items-center gap-4">
           <form onSubmit={handleSearch} className="relative hidden sm:block w-52 lg:w-72">
             <input
@@ -107,61 +105,80 @@ export function Navbar() {
             <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
           </form>
 
-          {/* User Account / Login Button */}
+          {/* User Avatar - Khi đăng nhập CHỈ hiện ảnh đại diện */}
           {mounted && isAuthenticated && user ? (
             <div className="relative" ref={dropdownRef}>
-              {/* Nút bấm Avatar mở Dropdown */}
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="flex items-center gap-2.5 p-1 pl-2.5 rounded-full border border-amber-500/30 bg-slate-900/80 hover:border-amber-400 transition-all shadow-md shadow-amber-500/10"
+                className="group relative flex h-10 w-10 items-center justify-center rounded-full p-[2px] bg-gradient-to-tr from-[#ffd166] via-[#ffb703] to-amber-700 shadow-lg shadow-amber-500/25 hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-amber-400/50"
+                title="Tài khoản Đạo Hữu"
               >
-                <div className="flex flex-col text-right hidden md:block">
-                  <span className="text-xs font-bold text-white leading-tight">
-                    {user.username}
-                  </span>
-                  <span className="text-[10px] font-semibold text-amber-400 uppercase tracking-wider">
-                    {user.role === 'admin' ? 'Quản Trị Viên' : 'Đạo Hữu'}
-                  </span>
-                </div>
-
-                {/* Avatar tròn viền vàng */}
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-tr from-[#ffd166] to-[#ffb703] text-black font-black text-xs shadow-md">
-                  {user.username[0]?.toUpperCase() || 'U'}
-                </div>
-
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 mr-1 hidden sm:block" />
+                {user.avatar_url ? (
+                  <img
+                    src={user.avatar_url}
+                    alt={user.username}
+                    className="h-full w-full rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center rounded-full bg-[#0d1424] text-[#ffd166] font-black text-sm group-hover:bg-[#141d33] transition-colors">
+                    {user.username[0]?.toUpperCase() || 'U'}
+                  </div>
+                )}
+                {/* Chấm tròn trạng thái trực tuyến */}
+                <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 border-2 border-[#070a11]" />
               </button>
 
-              {/* Menu Dropdown Thông Tin Người Dùng */}
+              {/* Menu Dropdown - Nơi hiển thị TOÀN BỘ thông tin & Cài Đặt */}
               {dropdownOpen && (
-                <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-white/10 bg-[#0f172a]/95 p-3 shadow-2xl backdrop-blur-2xl animate-in fade-in-0 zoom-in-95 z-50">
-                  {/* Header trong dropdown */}
-                  <div className="border-b border-white/10 pb-3 mb-2 px-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-tr from-[#ffd166] to-[#ffb703] text-black font-black text-sm">
+                <div className="absolute right-0 mt-3 w-72 rounded-2xl border border-white/10 bg-[#0c121e]/98 p-4 shadow-2xl backdrop-blur-2xl animate-in fade-in-0 zoom-in-95 z-50">
+                  {/* Thông tin đạo hữu */}
+                  <div className="border-b border-white/10 pb-3.5 mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#ffd166] to-[#ffb703] text-black font-black text-base shadow-md">
                         {user.username[0]?.toUpperCase() || 'U'}
                       </div>
                       <div className="truncate">
-                        <p className="text-sm font-bold text-white truncate">{user.username}</p>
-                        <p className="text-xs text-slate-400 truncate">{user.email}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold text-white truncate">{user.username}</p>
+                          <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-amber-500/20 text-[#ffd166] border border-amber-500/30">
+                            {user.role === 'admin' ? 'ADMIN' : 'VIP KIM ĐAN'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400 truncate mt-0.5">{user.email}</p>
                       </div>
                     </div>
 
-                    <div className="mt-2.5 flex items-center justify-between text-[11px] bg-slate-800/80 rounded-lg px-2.5 py-1">
+                    <div className="mt-3 flex items-center justify-between text-[11px] bg-slate-800/80 rounded-xl px-3 py-1.5 border border-white/5">
                       <span className="text-slate-400">Bảo mật 2FA:</span>
                       <span className={`font-bold flex items-center gap-1 ${user.two_factor_enabled ? 'text-emerald-400' : 'text-amber-400'}`}>
-                        <ShieldCheck className="w-3 h-3" />
-                        {user.two_factor_enabled ? 'Đã bật' : 'Chưa bật'}
+                        {user.two_factor_enabled ? (
+                          <>
+                            <ShieldCheck className="w-3.5 h-3.5" /> Đã Kích Hoạt
+                          </>
+                        ) : (
+                          <>
+                            <ShieldAlert className="w-3.5 h-3.5" /> Chưa Kích Hoạt
+                          </>
+                        )}
                       </span>
                     </div>
                   </div>
 
-                  {/* Danh sách tính năng */}
+                  {/* Danh sách tính năng & Cài đặt */}
                   <div className="space-y-1 text-xs text-slate-300">
+                    <Link
+                      href="/settings"
+                      onClick={() => setDropdownOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-800 hover:text-white transition-colors font-medium text-amber-300"
+                    >
+                      <Settings className="w-4 h-4 text-[#ffd166]" />
+                      Cài Đặt Tài Khoản Cá Nhân
+                    </Link>
+
                     <Link
                       href="/rankings"
                       onClick={() => setDropdownOpen(false)}
-                      className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-800 hover:text-white transition-colors"
+                      className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-800 hover:text-white transition-colors"
                     >
                       <Crown className="w-4 h-4 text-amber-400" />
                       Bảng Vàng Tiên Vương
@@ -170,7 +187,7 @@ export function Navbar() {
                     <Link
                       href="/vip"
                       onClick={() => setDropdownOpen(false)}
-                      className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-800 hover:text-amber-400 transition-colors"
+                      className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-800 hover:text-amber-400 transition-colors"
                     >
                       <Sparkles className="w-4 h-4 text-amber-400" />
                       Đặc Quyền Hội Viên VIP
@@ -179,13 +196,13 @@ export function Navbar() {
                     <Link
                       href="/ai"
                       onClick={() => setDropdownOpen(false)}
-                      className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-800 hover:text-indigo-400 transition-colors"
+                      className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-800 hover:text-indigo-400 transition-colors"
                     >
                       <Bot className="w-4 h-4 text-indigo-400" />
                       Đàm Đạo Với AI Đạo Hữu
                     </Link>
 
-                    <div className="border-t border-white/10 my-1 pt-1" />
+                    <div className="border-t border-white/10 my-1.5 pt-1.5" />
 
                     {/* Nút Đăng Xuất */}
                     <button
@@ -193,7 +210,7 @@ export function Navbar() {
                         setDropdownOpen(false);
                         logout();
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-colors font-semibold"
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-colors font-semibold"
                     >
                       <LogOut className="w-4 h-4" />
                       Đăng Xuất Tài Khoản
