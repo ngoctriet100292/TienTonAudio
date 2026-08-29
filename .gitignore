@@ -39,3 +39,12 @@ vendor/
 
 # Test coverage
 coverage.html
+
+# Node / Next.js
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+out/
+**/out/
+

@@ -15,10 +15,20 @@ help:
 	@echo "   make run-mobile      Khởi chạy ứng dụng Flutter trên máy ảo/máy thật"
 	@echo "   make test-mobile     Chạy unit tests Flutter"
 	@echo ""
+	@echo " Web (Next.js TS - Chuẩn SEO):"
+	@echo "   make run-web         Khởi chạy Next.js dev server (cổng 3000)"
+	@echo "   make build-web       Biên dịch production build Next.js"
+	@echo ""
 	@echo " Hạ tầng (Docker):"
 	@echo "   make docker-up       Khởi động PostgreSQL & Redis container"
 	@echo "   make docker-down     Dừng containers"
 	@echo ""
+
+run-web:
+	@cd web && npm run dev
+
+build-web:
+	@cd web && npm run build
 
 run-backend:
 	@$(MAKE) -C backend run
