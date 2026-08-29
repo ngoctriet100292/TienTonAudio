@@ -1,0 +1,41 @@
+# Binaries & Builds
+bin/
+**/bin/
+*.exe
+*.out
+build/
+**/build/
+
+# Environment files (contains credentials and secrets!)
+*.env
+*.env.*
+app.env
+**/app.env
+.env
+**/.env
+
+# But DO track example env templates
+!*.env.example
+!**/*.env.example
+
+# Flutter / Dart
+.dart_tool/
+**/.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+*.log
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+**/.DS_Store
+
+# Go build cache & vendor
+vendor/
+
+# Test coverage
+coverage.html

@@ -1,0 +1,188 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "TienTonAudio REST API",
+    "description": "High Performance Audio & Novel Streaming Platform API for TienTonAudio.",
+    "version": "1.0",
+    "contact": {
+      "name": "TienTonAudio Support",
+      "url": "http://tientonaudio.com/support",
+      "email": "support@tientonaudio.com"
+    }
+  },
+  "host": "localhost:8080",
+  "basePath": "/api/v1",
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "securityDefinitions": {
+    "BearerAuth": {
+      "type": "apiKey",
+      "name": "Authorization",
+      "in": "header",
+      "description": "Type 'Bearer ' followed by your JWT access token."
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "description": "Returns status ok if server is running.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Register a new user",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": ["username", "email", "password"],
+              "properties": {
+                "username": { "type": "string", "example": "daohuu123" },
+                "email": { "type": "string", "example": "user@tientonaudio.com" },
+                "password": { "type": "string", "example": "Password123!" }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": { "description": "User created successfully" },
+          "400": { "description": "Invalid input or user exists" }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Login user",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": ["email", "password"],
+              "properties": {
+                "email": { "type": "string", "example": "user@tientonaudio.com" },
+                "password": { "type": "string", "example": "Password123!" }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Login successful, returns JWT access token & user profile" },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/users/me": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get current user profile",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Current user profile" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/stories": {
+      "get": {
+        "tags": ["Stories"],
+        "summary": "List stories with pagination",
+        "parameters": [
+          { "name": "page", "in": "query", "type": "integer", "default": 1 },
+          { "name": "limit", "in": "query", "type": "integer", "default": 10 }
+        ],
+        "responses": {
+          "200": { "description": "List of stories" }
+        }
+      }
+    },
+    "/stories/filter": {
+      "get": {
+        "tags": ["Stories"],
+        "summary": "Advanced Search & Filtering",
+        "parameters": [
+          { "name": "q", "in": "query", "type": "string", "description": "Title or Author keyword" },
+          { "name": "category_id", "in": "query", "type": "integer" },
+          { "name": "status", "in": "query", "type": "string", "description": "ongoing / completed" },
+          { "name": "page", "in": "query", "type": "integer", "default": 1 },
+          { "name": "limit", "in": "query", "type": "integer", "default": 10 }
+        ],
+        "responses": {
+          "200": { "description": "Filtered stories" }
+        }
+      }
+    },
+    "/chapters/{id}": {
+      "get": {
+        "tags": ["Chapters"],
+        "summary": "Get chapter details (Audio URL + Novel Text Content)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "type": "string" }
+        ],
+        "responses": {
+          "200": { "description": "Chapter details" },
+          "404": { "description": "Chapter not found" }
+        }
+      }
+    },
+    "/payments/plans": {
+      "get": {
+        "tags": ["Payments"],
+        "summary": "List available VIP Subscription Plans",
+        "responses": {
+          "200": { "description": "VIP subscription plans" }
+        }
+      }
+    },
+    "/ai/chat": {
+      "post": {
+        "tags": ["AI Assistant"],
+        "summary": "Chat with Đạo Hữu AI Assistant",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": ["prompt"],
+              "properties": {
+                "story_id": { "type": "string" },
+                "prompt": { "type": "string", "example": "Main có bao nhiêu thê tử?" }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": { "description": "AI answer" }
+        }
+      }
+    },
+    "/admin/stats": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get Admin Dashboard Analytics & Revenue Stats",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Dashboard analytics stats" },
+          "403": { "description": "Admin access required" }
+        }
+      }
+    }
+  }
+}
