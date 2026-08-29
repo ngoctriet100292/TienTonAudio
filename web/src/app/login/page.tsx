@@ -29,20 +29,25 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await res.json();
+      const json = await res.json();
+      const payload = json.data || json;
 
       if (!res.ok) {
-        throw new Error(data.error || 'Đăng nhập thất bại. Vui lòng kiểm tra lại.');
+        throw new Error(payload.error || json.error || 'Đăng nhập thất bại. Vui lòng kiểm tra lại.');
       }
 
       // Nếu yêu cầu 2FA
-      if (data.mfa_required) {
-        setMfaToken(data.mfa_token);
+      if (payload.mfa_required) {
+        setMfaToken(payload.mfa_token);
         setLoading(false);
         return;
       }
 
-      login(data.access_token, data.refresh_token, data.user);
+      const accessToken = payload.tokens?.access_token || payload.access_token;
+      const refreshToken = payload.tokens?.refresh_token || payload.refresh_token;
+      const user = payload.user;
+
+      login(accessToken, refreshToken, user);
       router.push('/');
     } catch (err: any) {
       setError(err.message);
@@ -63,13 +68,18 @@ export default function LoginPage() {
         body: JSON.stringify({ mfa_token: mfaToken, code: otpCode }),
       });
 
-      const data = await res.json();
+      const json = await res.json();
+      const payload = json.data || json;
 
       if (!res.ok) {
-        throw new Error(data.error || 'Mã xác thực 2FA không chính xác.');
+        throw new Error(payload.error || json.error || 'Mã xác thực 2FA không chính xác.');
       }
 
-      login(data.access_token, data.refresh_token, data.user);
+      const accessToken = payload.tokens?.access_token || payload.access_token;
+      const refreshToken = payload.tokens?.refresh_token || payload.refresh_token;
+      const user = payload.user;
+
+      login(accessToken, refreshToken, user);
       router.push('/');
     } catch (err: any) {
       setError(err.message);
