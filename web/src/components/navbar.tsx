@@ -17,6 +17,8 @@ import {
   ShieldCheck,
   ShieldAlert,
   Flame,
+  ChevronDown,
+  Info,
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 
@@ -25,8 +27,22 @@ export function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [introDropdownOpen, setIntroDropdownOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const introRef = useRef<HTMLDivElement>(null);
+  const introTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleIntroMouseEnter = () => {
+    if (introTimeoutRef.current) clearTimeout(introTimeoutRef.current);
+    setIntroDropdownOpen(true);
+  };
+
+  const handleIntroMouseLeave = () => {
+    introTimeoutRef.current = setTimeout(() => {
+      setIntroDropdownOpen(false);
+    }, 150);
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -35,9 +51,15 @@ export function Navbar() {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setDropdownOpen(false);
       }
+      if (introRef.current && !introRef.current.contains(event.target as Node)) {
+        setIntroDropdownOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      if (introTimeoutRef.current) clearTimeout(introTimeoutRef.current);
+    };
   }, []);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -78,14 +100,120 @@ export function Navbar() {
               <Crown className="w-4 h-4 text-[#ffb703]" />
               Bảng Vàng
             </Link>
-            <Link href="/cultivation" className="text-slate-300 hover:text-amber-400 transition-colors flex items-center gap-1.5 font-semibold">
-              <Flame className="w-4 h-4 text-amber-400" />
-              Cảnh Giới
-            </Link>
             <Link href="/categories" className="text-slate-300 hover:text-[#ffb703] transition-colors flex items-center gap-1.5">
               <BookOpen className="w-4 h-4" />
               Thể Loại
             </Link>
+
+            {/* Dropdown Giới Thiệu (Cảnh Giới, Về Chúng Tôi, VIP...) */}
+            <div
+              className="relative"
+              ref={introRef}
+              onMouseEnter={handleIntroMouseEnter}
+              onMouseLeave={handleIntroMouseLeave}
+            >
+              <button
+                type="button"
+                onClick={() => setIntroDropdownOpen(!introDropdownOpen)}
+                className={`flex items-center gap-1.5 transition-colors font-medium cursor-pointer py-2 ${
+                  introDropdownOpen ? 'text-[#ffb703]' : 'text-slate-300 hover:text-[#ffb703]'
+                }`}
+              >
+                <span>Giới Thiệu</span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                    introDropdownOpen ? 'rotate-180 text-[#ffb703]' : ''
+                  }`}
+                />
+              </button>
+
+              {introDropdownOpen && (
+                <div className="absolute left-0 mt-1.5 w-72 rounded-2xl border border-white/10 bg-[#0c121e]/98 p-2.5 shadow-2xl backdrop-blur-2xl animate-in fade-in-0 zoom-in-95 z-50">
+                  <Link
+                    href="/cultivation"
+                    onClick={() => setIntroDropdownOpen(false)}
+                    className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-800/80 transition-colors group"
+                  >
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 group-hover:scale-105 transition-transform">
+                      <Flame className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">
+                          Cảnh Giới Tu Tiên
+                        </p>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase">
+                          Mới
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
+                        17 Cảnh giới & bí kíp tăng tu vi
+                      </p>
+                    </div>
+                  </Link>
+
+                  <Link
+                    href="/about"
+                    onClick={() => setIntroDropdownOpen(false)}
+                    className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-800/80 transition-colors group"
+                  >
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-sky-500/15 text-sky-400 border border-sky-500/30 group-hover:scale-105 transition-transform">
+                      <Info className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-white group-hover:text-sky-300 transition-colors">
+                        Về Chúng Tôi
+                      </p>
+                      <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
+                        Sứ mệnh & tôn chỉ Tiên Tôn Audio
+                      </p>
+                    </div>
+                  </Link>
+
+                  <Link
+                    href="/vip"
+                    onClick={() => setIntroDropdownOpen(false)}
+                    className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-800/80 transition-colors group"
+                  >
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 group-hover:scale-105 transition-transform">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">
+                          Hội Viên VIP
+                        </p>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase">
+                          VIP
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
+                        Âm thanh 320kbps, không quảng cáo
+                      </p>
+                    </div>
+                  </Link>
+
+                  <Link
+                    href="/ai"
+                    onClick={() => setIntroDropdownOpen(false)}
+                    className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-800/80 transition-colors group"
+                  >
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 group-hover:scale-105 transition-transform">
+                      <Bot className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-white group-hover:text-indigo-300 transition-colors">
+                        AI Đạo Hữu
+                      </p>
+                      <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
+                        Trợ lý AI đàm đạo thế giới tu chân
+                      </p>
+                    </div>
+                  </Link>
+                </div>
+              )}
+            </div>
+
             <Link href="/ai" className="text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1.5 font-semibold">
               <Bot className="w-4 h-4" />
               AI Đạo Hữu
