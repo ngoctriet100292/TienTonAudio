@@ -21,6 +21,7 @@ class AudioPlayerService extends ChangeNotifier {
   String? _errorMessage;
   Timer? _sleepTimer;
   Duration? _sleepDurationLeft;
+  double _playbackSpeed = 1.0;
 
   Story? get currentStory => _currentStory;
   Chapter? get currentChapter => _currentChapter;
@@ -28,6 +29,7 @@ class AudioPlayerService extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get hasActiveTrack => _currentChapter != null;
   Duration? get sleepDurationLeft => _sleepDurationLeft;
+  double get playbackSpeed => _playbackSpeed;
 
   AudioPlayerService._internal() {
     _initListeners();
@@ -128,6 +130,12 @@ class AudioPlayerService extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setPlaybackSpeed(double speed) async {
+    _playbackSpeed = speed;
+    await _player.setSpeed(speed);
+    notifyListeners();
+  }
+
   Future<void> _saveProgress() async {
     if (_currentChapter == null || _currentStory == null) return;
     try {
@@ -137,6 +145,7 @@ class AudioPlayerService extends ChangeNotifier {
           'chapter_id': _currentChapter!.id,
           'story_id': _currentStory!.id,
           'last_position_seconds': _player.position.inSeconds,
+          'playback_speed': _playbackSpeed,
           'is_completed': false,
         },
       );

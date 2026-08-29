@@ -336,15 +336,16 @@ class FullPlayerScreen extends StatelessWidget {
 
                 const Spacer(flex: 2),
 
-                // 7. Thanh tiện ích phía đáy (Bình luận, Playlist, Chất lượng)
+                // 7. Thanh tiện ích phía đáy (Tốc độ, Tập tiếp, Bình luận, Chất lượng)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      _buildBottomChip(Icons.speed_rounded, '${audioService.playbackSpeed}x', () => _showSpeedDialog(context, audioService)),
+                      _buildBottomChip(Icons.playlist_play_rounded, 'Tập tiếp', () {}),
                       _buildBottomChip(Icons.chat_bubble_outline_rounded, 'Bình luận', () {}),
-                      _buildBottomChip(Icons.playlist_play_rounded, 'Tập tiếp theo', () {}),
-                      _buildBottomChip(Icons.hd_outlined, '128k', () {}),
+                      _buildBottomChip(Icons.hd_outlined, '320k', () {}),
                     ],
                   ),
                 ),
@@ -441,7 +442,7 @@ class FullPlayerScreen extends StatelessWidget {
   }
 
   void _showSpeedDialog(BuildContext context, AudioPlayerService service) {
-    final speeds = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+    final speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
     showModalBottomSheet(
       context: context,
       backgroundColor: AppTheme.surface,
@@ -473,7 +474,7 @@ class FullPlayerScreen extends StatelessWidget {
                   spacing: 12,
                   runSpacing: 12,
                   children: speeds.map((s) {
-                    final isSelected = service.player.speed == s;
+                    final isSelected = service.playbackSpeed == s;
                     return ChoiceChip(
                       label: Text('${s}x'),
                       selected: isSelected,
@@ -484,7 +485,7 @@ class FullPlayerScreen extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                       onSelected: (_) {
-                        service.setSpeed(s);
+                        service.setPlaybackSpeed(s);
                         Navigator.pop(context);
                       },
                     );

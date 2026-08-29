@@ -6,6 +6,7 @@ import '../../data/models/story_model.dart';
 import '../../providers/story_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../story_detail/story_detail_screen.dart';
+import '../search/search_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -106,9 +107,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                   ),
                                   const SizedBox(height: 2),
-                                  const Text(
-                                    'Chúc một ngày tu vi tinh tiến ✨',
-                                    style: TextStyle(
+                                  Text(
+                                    auth.isAuthenticated
+                                        ? '🔥 ${auth.user!.cultivationRealm} Cảnh • Tu vi tinh tiến ✨'
+                                        : 'Chúc một ngày tu vi tinh tiến ✨',
+                                    style: const TextStyle(
                                       color: AppTheme.primaryLight,
                                       fontSize: 12,
                                       fontWeight: FontWeight.w500,
@@ -122,7 +125,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           // Nút tìm kiếm & thông báo tròn sang trọng
                           Row(
                             children: [
-                              _buildGlassIconButton(Icons.search_rounded, () {}),
+                              _buildGlassIconButton(
+                                Icons.search_rounded,
+                                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchScreen())),
+                              ),
                               const SizedBox(width: 8),
                               _buildGlassIconButton(Icons.notifications_none_rounded, () {}),
                             ],

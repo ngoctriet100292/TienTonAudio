@@ -41,4 +41,13 @@ class ApiConstants {
 
   // Reports
   static const String reports = '/reports';
+
+  // Cultivation (Tu Vi)
+  static const String cultivation = '/users/cultivation';
+  static const String cultivationRealms = '/cultivation/realms';
+
+  // AI & Payments
+  static const String aiChat = '/ai/chat';
+  static const String vipPlans = '/payments/plans';
+  static const String createPayment = '/payments/create';
 }

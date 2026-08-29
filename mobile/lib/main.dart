@@ -5,6 +5,7 @@ import 'core/theme/app_theme.dart';
 import 'data/services/audio_player_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/story_provider.dart';
+import 'providers/cultivation_provider.dart';
 import 'screens/main_navigation_screen.dart';
 
 void main() async {
@@ -31,6 +32,7 @@ class TienTonAudioApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AudioPlayerService()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => StoryProvider()),
+        ChangeNotifierProvider(create: (_) => CultivationProvider()),
       ],
       child: MaterialApp(
         title: 'Tiên Tôn Audio',
