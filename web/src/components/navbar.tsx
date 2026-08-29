@@ -78,6 +78,10 @@ export function Navbar() {
               <Crown className="w-4 h-4 text-[#ffb703]" />
               Bảng Vàng
             </Link>
+            <Link href="/cultivation" className="text-slate-300 hover:text-amber-400 transition-colors flex items-center gap-1.5 font-semibold">
+              <Flame className="w-4 h-4 text-amber-400" />
+              Cảnh Giới
+            </Link>
             <Link href="/categories" className="text-slate-300 hover:text-[#ffb703] transition-colors flex items-center gap-1.5">
               <BookOpen className="w-4 h-4" />
               Thể Loại
@@ -207,6 +211,15 @@ export function Navbar() {
                     >
                       <Settings className="w-4 h-4 text-[#ffd166]" />
                       Cài Đặt Tài Khoản Cá Nhân
+                    </Link>
+
+                    <Link
+                      href="/cultivation"
+                      onClick={() => setDropdownOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-800 hover:text-amber-400 transition-colors"
+                    >
+                      <Flame className="w-4 h-4 text-amber-400" />
+                      17 Cảnh Giới Tu Tiên
                     </Link>
 
                     <Link

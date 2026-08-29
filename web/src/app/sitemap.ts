@@ -30,6 +30,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'weekly' as const,
       priority: 0.7,
     },
+    {
+      url: `${baseUrl}/cultivation`,
+      lastModified: now,
+      changeFrequency: 'daily' as const,
+      priority: 0.9,
+    },
   ];
 
   return routes;
