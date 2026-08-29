@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -73,12 +74,53 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     final audioService = Provider.of<AudioPlayerService>(context);
 
     return Scaffold(
+      backgroundColor: AppTheme.background,
       body: CustomScrollView(
         slivers: [
-          // AppBar dạng Co-lapsing
+          // 1. SliverAppBar với Parallax & Blur Gradient
           SliverAppBar(
-            expandedHeight: 280,
+            expandedHeight: 320,
             pinned: true,
+            backgroundColor: AppTheme.background,
+            leading: Container(
+              margin: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.5),
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+            actions: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  icon: Icon(
+                    _story.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                    color: _story.isFavorite ? AppTheme.roseGlow : Colors.white,
+                  ),
+                  onPressed: _toggleFavorite,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                margin: const EdgeInsets.fromLTRB(0, 8, 16, 8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.share_rounded, size: 20),
+                  onPressed: () {},
+                ),
+              ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: Stack(
                 fit: StackFit.expand,
@@ -87,15 +129,17 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                       ? CachedNetworkImage(
                           imageUrl: _story.coverImageUrl!,
                           fit: BoxFit.cover,
-                          errorWidget: (_, __, ___) => Container(color: AppTheme.surface),
+                          errorWidget: (context, url, error) => Container(color: AppTheme.surface),
                         )
                       : Container(color: AppTheme.surface),
+
+                  // Lớp phủ Gradient mờ chuyển sắc xuống nền đen
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
                           Colors.transparent,
-                          AppTheme.background.withOpacity(0.8),
+                          AppTheme.background.withValues(alpha: 0.7),
                           AppTheme.background,
                         ],
                         begin: Alignment.topCenter,
@@ -106,127 +150,141 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 ],
               ),
             ),
-            actions: [
-              IconButton(
-                icon: Icon(
-                  _story.isFavorite ? Icons.favorite : Icons.favorite_border,
-                  color: _story.isFavorite ? Colors.redAccent : Colors.white,
-                ),
-                onPressed: _toggleFavorite,
-              ),
-              IconButton(
-                icon: const Icon(Icons.share),
-                onPressed: () {},
-              ),
-            ],
           ),
 
-          // Nội dung chi tiết
+          // 2. Phần Header Tác Phẩm
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Tên truyện & Tác giả
+                  // Tên truyện
                   Text(
                     _story.title,
                     style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
                       color: AppTheme.textPrimary,
+                      letterSpacing: 0.2,
+                      height: 1.25,
                     ),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Tác giả: ${_story.authorName ?? "Đang cập nhật"}',
+                    '✍️ Tác giả: ${_story.authorName ?? "Đang cập nhật"}',
                     style: const TextStyle(
                       fontSize: 14,
                       color: AppTheme.primary,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                     ),
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  // Thống kê: Lượt nghe, đánh giá, số chương
-                  Row(
-                    children: [
-                      _buildMetaChip(Icons.headset, '${_story.viewCount} lượt nghe'),
-                      const SizedBox(width: 8),
-                      _buildMetaChip(Icons.star, '${_story.ratingAvg.toStringAsFixed(1)}/5.0'),
-                      const SizedBox(width: 8),
-                      _buildMetaChip(Icons.menu_book, '${_story.totalChapters} chương'),
-                    ],
                   ),
 
                   const SizedBox(height: 16),
 
-                  // Nút nghe ngay tập đầu
+                  // Hộp thống kê Glassmorphic Capsule
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppTheme.borderGlass, width: 0.8),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildStatColumn(Icons.headset_rounded, '${_story.viewCount}', 'Lượt nghe'),
+                        _buildStatDivider(),
+                        _buildStatColumn(Icons.star_rounded, _story.ratingAvg.toStringAsFixed(1), 'Đánh giá'),
+                        _buildStatDivider(),
+                        _buildStatColumn(Icons.menu_book_rounded, '${_story.totalChapters}', 'Chương'),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Nút phát lớn Hoàng Kim
                   if (_chapters.isNotEmpty)
-                    SizedBox(
+                    Container(
                       width: double.infinity,
-                      height: 48,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        gradient: AppTheme.goldGradient,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.primary.withValues(alpha: 0.4),
+                            blurRadius: 20,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primary,
-                          foregroundColor: Colors.black,
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(16),
                           ),
                         ),
-                        icon: const Icon(Icons.play_arrow),
+                        icon: const Icon(Icons.play_arrow_rounded, color: Colors.black, size: 28),
                         label: const Text(
                           'PHÁT TẬP ĐẦU TIÊN',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            letterSpacing: 0.5,
+                          ),
                         ),
                         onPressed: () => _playChapter(context, audioService, _chapters.first),
                       ),
                     ),
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
 
-                  // Mô tả truyện
+                  // Tóm tắt nội dung
                   if (_story.description != null && _story.description!.isNotEmpty) ...[
                     const Text(
-                      'Tóm tắt nội dung',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      'Tóm Tắt Tác Phẩm',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     Text(
                       _story.description!,
                       style: const TextStyle(
                         fontSize: 13,
                         color: AppTheme.textSecondary,
-                        height: 1.5,
+                        height: 1.6,
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 28),
                   ],
 
-                  // Danh sách các tập
+                  // Tiêu đề danh sách chương
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
                         'Danh Sách Chương (${_chapters.length})',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
                       ),
-                      const Icon(Icons.sort, color: AppTheme.textMuted),
+                      const Icon(Icons.sort_rounded, color: AppTheme.textMuted, size: 20),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                 ],
               ),
             ),
           ),
 
-          // Sliver List các chương truyện
+          // 3. Danh sách chương với hiệu ứng Highlight khi đang phát
           if (_isLoading)
             const SliverToBoxAdapter(
               child: Center(
                 child: Padding(
-                  padding: EdgeInsets.all(32),
+                  padding: EdgeInsets.all(40),
                   child: CircularProgressIndicator(color: AppTheme.primary),
                 ),
               ),
@@ -235,100 +293,121 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             const SliverToBoxAdapter(
               child: Center(
                 child: Padding(
-                  padding: EdgeInsets.all(32),
+                  padding: EdgeInsets.all(40),
                   child: Text('Chưa có chương nào được đăng tải'),
                 ),
               ),
             )
           else
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final chapter = _chapters[index];
-                  final isCurrentPlaying = audioService.currentChapter?.id == chapter.id;
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final chapter = _chapters[index];
+                    final isCurrentPlaying = audioService.currentChapter?.id == chapter.id;
 
-                  return Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: isCurrentPlaying
-                          ? AppTheme.primary.withOpacity(0.1)
-                          : AppTheme.surface,
-                      borderRadius: BorderRadius.circular(10),
-                      border: isCurrentPlaying
-                          ? Border.all(color: AppTheme.primary.withOpacity(0.4))
-                          : null,
-                    ),
-                    child: ListTile(
-                      leading: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: isCurrentPlaying ? AppTheme.primary : AppTheme.surfaceLight,
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: isCurrentPlaying
+                            ? AppTheme.primary.withValues(alpha: 0.12)
+                            : AppTheme.surface,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isCurrentPlaying
+                              ? AppTheme.primary.withValues(alpha: 0.6)
+                              : AppTheme.borderGlass,
+                          width: 0.8,
                         ),
-                        child: Center(
-                          child: Icon(
-                            isCurrentPlaying ? Icons.volume_up : Icons.play_arrow,
-                            size: 18,
-                            color: isCurrentPlaying ? Colors.black : Colors.white,
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                        leading: Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: isCurrentPlaying ? AppTheme.goldGradient : null,
+                            color: isCurrentPlaying ? null : AppTheme.surfaceLight,
+                          ),
+                          child: Center(
+                            child: Icon(
+                              isCurrentPlaying ? Icons.volume_up_rounded : Icons.play_arrow_rounded,
+                              size: 20,
+                              color: isCurrentPlaying ? Colors.black : Colors.white,
+                            ),
                           ),
                         ),
-                      ),
-                      title: Text(
-                        chapter.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: isCurrentPlaying ? FontWeight.bold : FontWeight.w500,
-                          color: isCurrentPlaying ? AppTheme.primary : AppTheme.textPrimary,
+                        title: Text(
+                          chapter.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: isCurrentPlaying ? FontWeight.w800 : FontWeight.w600,
+                            color: isCurrentPlaying ? AppTheme.primary : AppTheme.textPrimary,
+                          ),
                         ),
-                      ),
-                      subtitle: Text(
-                        _formatDuration(chapter.durationSeconds),
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                      ),
-                      trailing: chapter.isPremium
-                          ? Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.amber.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: Colors.amber),
-                              ),
-                              child: const Text(
-                                'VIP',
-                                style: TextStyle(
-                                  color: Colors.amber,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
+                        subtitle: Row(
+                          children: [
+                            const Icon(Icons.access_time_rounded, size: 12, color: AppTheme.textMuted),
+                            const SizedBox(width: 4),
+                            Text(
+                              _formatDuration(chapter.durationSeconds),
+                              style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                            ),
+                          ],
+                        ),
+                        trailing: chapter.isPremium
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  gradient: AppTheme.goldGradient,
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                              ),
-                            )
-                          : null,
-                      onTap: () => _playChapter(context, audioService, chapter),
-                    ),
-                  );
-                },
-                childCount: _chapters.length,
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.lock_rounded, size: 11, color: Colors.black),
+                                    SizedBox(width: 3),
+                                    Text(
+                                      'VIP',
+                                      style: TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : null,
+                        onTap: () => _playChapter(context, audioService, chapter),
+                      ),
+                    );
+                  },
+                  childCount: _chapters.length,
+                ),
               ),
             ),
 
+          // 4. Truyện tương tự gợi ý
           if (_relatedStories.isNotEmpty) ...[
             const SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
+                padding: EdgeInsets.fromLTRB(20, 32, 20, 14),
                 child: Text(
-                  'Truyện Tương Tự',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  'Tác Phẩm Tương Tự',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
                 ),
               ),
             ),
             SliverToBoxAdapter(
               child: SizedBox(
-                height: 180,
+                height: 195,
                 child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
                   scrollDirection: Axis.horizontal,
                   itemCount: _relatedStories.length,
                   itemBuilder: (context, idx) {
@@ -337,37 +416,37 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                       onTap: () {
                         Navigator.pushReplacement(
                           context,
-                          MaterialPageRoute(
-                            builder: (_) => StoryDetailScreen(story: item),
-                          ),
+                          MaterialPageRoute(builder: (_) => StoryDetailScreen(story: item)),
                         );
                       },
                       child: Container(
-                        width: 110,
+                        width: 120,
                         margin: const EdgeInsets.symmetric(horizontal: 6),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(14),
                               child: item.coverImageUrl != null
                                   ? CachedNetworkImage(
                                       imageUrl: item.coverImageUrl!,
-                                      height: 130,
-                                      width: 110,
+                                      height: 145,
+                                      width: 120,
                                       fit: BoxFit.cover,
-                                      errorWidget: (context, url, error) =>
-                                          Container(color: AppTheme.surface),
+                                      errorWidget: (context, url, error) => Container(color: AppTheme.surface),
                                     )
                                   : Container(color: AppTheme.surface),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 6),
                             Text(
                               item.title,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                  fontSize: 12, fontWeight: FontWeight.w600),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.textPrimary,
+                              ),
                             ),
                           ],
                         ),
@@ -387,33 +466,40 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     );
   }
 
-  Widget _buildMetaChip(IconData icon, String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: AppTheme.primary),
-          const SizedBox(width: 4),
-          Text(
-            text,
-            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+  Widget _buildStatColumn(IconData icon, String value, String label) {
+    return Column(
+      children: [
+        Icon(icon, color: AppTheme.primary, size: 20),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            color: AppTheme.textPrimary,
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatDivider() {
+    return Container(
+      width: 1,
+      height: 28,
+      color: AppTheme.divider,
     );
   }
 
   void _playChapter(BuildContext context, AudioPlayerService audioService, Chapter chapter) {
     audioService.loadAndPlay(story: _story, chapter: chapter);
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const FullPlayerScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const FullPlayerScreen()),
     );
   }
 

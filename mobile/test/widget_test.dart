@@ -5,6 +5,8 @@ import 'package:tientonaudio_mobile/data/models/story_model.dart';
 import 'package:tientonaudio_mobile/data/models/chapter_model.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('Story model JSON parsing test', () {
     final json = {
       'id': 'test-story-1',
