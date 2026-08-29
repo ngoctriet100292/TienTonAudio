@@ -116,6 +116,10 @@ func NewRouter(opts RouterOptions) http.Handler {
 			w.Write(data)
 			return
 		}
+		if data, err := os.ReadFile("backend/docs/swagger.json"); err == nil {
+			w.Write(data)
+			return
+		}
 		utils.ErrorResponse(w, http.StatusNotFound, "Swagger doc not found")
 	})
 

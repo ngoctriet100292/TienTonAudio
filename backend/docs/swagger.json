@@ -2,11 +2,11 @@
   "swagger": "2.0",
   "info": {
     "title": "TienTonAudio REST API",
-    "description": "High Performance Audio & Novel Streaming Platform API for TienTonAudio.",
-    "version": "1.0",
+    "description": "API Platform hoàn chỉnh cho ứng dụng nghe truyện audio và đọc tiểu thuyết Tiên Hiệp TienTonAudio.",
+    "version": "1.0.0",
     "contact": {
-      "name": "TienTonAudio Support",
-      "url": "http://tientonaudio.com/support",
+      "name": "IREAKING Support",
+      "url": "https://github.com/IREAKING/TienTonAudio",
       "email": "support@tientonaudio.com"
     }
   },
@@ -21,166 +21,1039 @@
       "type": "apiKey",
       "name": "Authorization",
       "in": "header",
-      "description": "Type 'Bearer ' followed by your JWT access token."
+      "description": "Nhập token dạng: Bearer <your_jwt_access_token>"
     }
   },
+  "tags": [
+    { "name": "Auth", "description": "Xác thực, Đăng ký, Đăng nhập, Quên mật khẩu, 2FA OTP" },
+    { "name": "Users", "description": "Hồ sơ người dùng, Lịch sử nghe, Đổi mật khẩu, Yêu thích" },
+    { "name": "Stories", "description": "Danh sách truyện, Top Views, Tìm kiếm & Lọc thể loại" },
+    { "name": "Chapters", "description": "Tập truyện, Phát Audio có chữ ký (Signed Stream URL), Tiến độ nghe" },
+    { "name": "Comments", "description": "Bình luận lồng nhau đa cấp & Thả biểu cảm cảm xúc" },
+    { "name": "Playlists", "description": "Danh sách phát tùy chỉnh của người dùng" },
+    { "name": "Notifications", "description": "Thông báo tương tác, tập mới, hệ thống" },
+    { "name": "Authors & Narrators", "description": "Theo dõi Tác giả và MC Giọng đọc" },
+    { "name": "Reports", "description": "Báo cáo lỗi âm thanh hoặc vi phạm" },
+    { "name": "Payments", "description": "Gói hội viên VIP & Nâng cấp tài khoản" },
+    { "name": "AI Assistant", "description": "Trợ lý AI Đạo Hữu hỏi đáp cốt truyện & Tóm tắt cảnh giới" },
+    { "name": "Admin", "description": "Thống kê doanh thu, Quản trị người dùng, Tác giả, MC và Báo cáo" }
+  ],
   "paths": {
-    "/health": {
-      "get": {
-        "summary": "Health check",
-        "description": "Returns status ok if server is running.",
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
     "/auth/register": {
       "post": {
         "tags": ["Auth"],
-        "summary": "Register a new user",
-        "parameters": [
-          {
-            "in": "body",
-            "name": "body",
-            "required": true,
-            "schema": {
-              "type": "object",
-              "required": ["username", "email", "password"],
-              "properties": {
-                "username": { "type": "string", "example": "daohuu123" },
-                "email": { "type": "string", "example": "user@tientonaudio.com" },
-                "password": { "type": "string", "example": "Password123!" }
-              }
+        "summary": "Đăng ký tài khoản mới",
+        "parameters": [{
+          "in": "body",
+          "name": "body",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": ["username", "email", "password"],
+            "properties": {
+              "username": { "type": "string", "example": "daohuu123" },
+              "email": { "type": "string", "example": "daohuu@gmail.com" },
+              "password": { "type": "string", "example": "MatKhau123@" }
             }
           }
-        ],
+        }],
         "responses": {
-          "201": { "description": "User created successfully" },
-          "400": { "description": "Invalid input or user exists" }
+          "201": { "description": "Đăng ký thành công, gửi mã xác thực email" },
+          "400": { "description": "Dữ liệu không hợp lệ hoặc email đã tồn tại" }
+        }
+      }
+    },
+    "/auth/verify-email": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Xác thực email bằng mã OTP / Token",
+        "parameters": [{
+          "in": "body",
+          "name": "body",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": ["email", "token"],
+            "properties": {
+              "email": { "type": "string", "example": "daohuu@gmail.com" },
+              "token": { "type": "string", "example": "123456" }
+            }
+          }
+        }],
+        "responses": {
+          "200": { "description": "Xác thực email thành công" },
+          "400": { "description": "Token không hợp lệ hoặc đã hết hạn" }
+        }
+      }
+    },
+    "/auth/resend-verification": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Gửi lại mã xác thực email",
+        "parameters": [{
+          "in": "body",
+          "name": "body",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": ["email"],
+            "properties": {
+              "email": { "type": "string", "example": "daohuu@gmail.com" }
+            }
+          }
+        }],
+        "responses": {
+          "200": { "description": "Đã gửi lại email xác thực" }
         }
       }
     },
     "/auth/login": {
       "post": {
         "tags": ["Auth"],
-        "summary": "Login user",
-        "parameters": [
-          {
-            "in": "body",
-            "name": "body",
-            "required": true,
-            "schema": {
-              "type": "object",
-              "required": ["email", "password"],
-              "properties": {
-                "email": { "type": "string", "example": "user@tientonaudio.com" },
-                "password": { "type": "string", "example": "Password123!" }
-              }
+        "summary": "Đăng nhập",
+        "description": "Nếu tài khoản đã bật 2FA, hệ thống trả về mfa_required: true kèm mfa_token để xác minh bước 2.",
+        "parameters": [{
+          "in": "body",
+          "name": "body",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": ["email", "password"],
+            "properties": {
+              "email": { "type": "string", "example": "daohuu@gmail.com" },
+              "password": { "type": "string", "example": "MatKhau123@" }
             }
           }
-        ],
+        }],
         "responses": {
-          "200": { "description": "Login successful, returns JWT access token & user profile" },
-          "401": { "description": "Invalid credentials" }
+          "200": { "description": "Đăng nhập thành công, trả về Access Token & Refresh Token" },
+          "401": { "description": "Sai email hoặc mật khẩu" }
+        }
+      }
+    },
+    "/auth/2fa/verify": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Xác minh đăng nhập bước 2 (2FA TOTP hoặc Backup Code)",
+        "parameters": [{
+          "in": "body",
+          "name": "body",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": ["mfa_token", "code"],
+            "properties": {
+              "mfa_token": { "type": "string", "example": "eyJhbGciOiJIUzI1NiIsIn..." },
+              "code": { "type": "string", "example": "123456" }
+            }
+          }
+        }],
+        "responses": {
+          "200": { "description": "Xác thực 2FA thành công, cấp Access Token" },
+          "401": { "description": "Mã OTP không hợp lệ" }
+        }
+      }
+    },
+    "/auth/2fa/setup": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Tạo Secret Key và QR Code để cài đặt Google Authenticator",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Trả về secret và otpauth_url để quét mã QR" }
+        }
+      }
+    },
+    "/auth/2fa/enable": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Kích hoạt 2FA sau khi quét mã QR",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{
+          "in": "body",
+          "name": "body",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": ["secret", "code"],
+            "properties": {
+              "secret": { "type": "string" },
+              "code": { "type": "string", "example": "123456" }
+            }
+          }
+        }],
+        "responses": {
+          "200": { "description": "Bật 2FA thành công, trả về 8 mã dự phòng (Backup Codes)" }
+        }
+      }
+    },
+    "/auth/2fa/disable": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Tắt xác thực 2FA",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{
+          "in": "body",
+          "name": "body",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": ["code"],
+            "properties": {
+              "code": { "type": "string", "example": "123456" }
+            }
+          }
+        }],
+        "responses": {
+          "200": { "description": "Đã tắt 2FA thành công" }
+        }
+      }
+    },
+    "/auth/forgot-password": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Yêu cầu khôi phục mật khẩu qua Email",
+        "parameters": [{
+          "in": "body",
+          "name": "body",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": ["email"],
+            "properties": {
+              "email": { "type": "string", "example": "daohuu@gmail.com" }
+            }
+          }
+        }],
+        "responses": {
+          "200": { "description": "Đã gửi email khôi phục mật khẩu nếu tài khoản tồn tại" }
+        }
+      }
+    },
+    "/auth/reset-password": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Đặt mật khẩu mới bằng Token khôi phục",
+        "parameters": [{
+          "in": "body",
+          "name": "body",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": ["token", "new_password"],
+            "properties": {
+              "token": { "type": "string" },
+              "new_password": { "type": "string", "example": "MatKhauMoi123@" }
+            }
+          }
+        }],
+        "responses": {
+          "200": { "description": "Mật khẩu đã được thay đổi thành công" }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Xoay vòng Refresh Token lấy Access Token mới",
+        "parameters": [{
+          "in": "body",
+          "name": "body",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": ["refresh_token"],
+            "properties": {
+              "refresh_token": { "type": "string" }
+            }
+          }
+        }],
+        "responses": {
+          "200": { "description": "Cấp Access Token mới" }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Đăng xuất tài khoản và thu hồi Refresh Token",
+        "parameters": [{
+          "in": "body",
+          "name": "body",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": ["refresh_token"],
+            "properties": {
+              "refresh_token": { "type": "string" }
+            }
+          }
+        }],
+        "responses": {
+          "200": { "description": "Đăng xuất thành công" }
         }
       }
     },
     "/users/me": {
       "get": {
         "tags": ["Users"],
-        "summary": "Get current user profile",
+        "summary": "Lấy thông tin tài khoản hiện tại",
         "security": [{ "BearerAuth": [] }],
         "responses": {
-          "200": { "description": "Current user profile" },
-          "401": { "description": "Unauthorized" }
+          "200": { "description": "Thông tin người dùng, vai trò, trạng thái 2FA" }
+        }
+      },
+      "put": {
+        "tags": ["Users"],
+        "summary": "Cập nhật hồ sơ (Tên hiển thị, Ảnh đại diện)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{
+          "in": "body",
+          "name": "body",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "properties": {
+              "username": { "type": "string" },
+              "avatar_url": { "type": "string" }
+            }
+          }
+        }],
+        "responses": {
+          "200": { "description": "Cập nhật hồ sơ thành công" }
+        }
+      }
+    },
+    "/users/password": {
+      "put": {
+        "tags": ["Users"],
+        "summary": "Đổi mật khẩu tài khoản",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{
+          "in": "body",
+          "name": "body",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": ["old_password", "new_password"],
+            "properties": {
+              "old_password": { "type": "string" },
+              "new_password": { "type": "string" }
+            }
+          }
+        }],
+        "responses": {
+          "200": { "description": "Đổi mật khẩu thành công" }
+        }
+      }
+    },
+    "/users/history": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Lấy lịch sử nghe audio của người dùng",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "type": "integer", "default": 1 },
+          { "name": "limit", "in": "query", "type": "integer", "default": 20 }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách lịch sử nghe kèm thời gian dừng" }
+        }
+      }
+    },
+    "/users/favorites": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Lấy danh sách truyện yêu thích trong Tủ Truyện",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Danh sách truyện đã đánh dấu yêu thích" }
+        }
+      }
+    },
+    "/users/following-authors": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Danh sách các tác giả đang theo dõi",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Danh sách tác giả" }
+        }
+      }
+    },
+    "/users/following-narrators": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Danh sách các MC Giọng đọc đang theo dõi",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Danh sách narrator" }
         }
       }
     },
     "/stories": {
       "get": {
         "tags": ["Stories"],
-        "summary": "List stories with pagination",
+        "summary": "Lấy danh sách truyện mới cập nhật (phân trang)",
         "parameters": [
           { "name": "page", "in": "query", "type": "integer", "default": 1 },
+          { "name": "limit", "in": "query", "type": "integer", "default": 20 }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách truyện mới nhất" }
+        }
+      },
+      "post": {
+        "tags": ["Stories"],
+        "summary": "Tạo mới tác phẩm truyện",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{
+          "in": "body",
+          "name": "body",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": ["title", "slug"],
+            "properties": {
+              "title": { "type": "string", "example": "Võ Luyện Đỉnh Phong" },
+              "slug": { "type": "string", "example": "vo-luyen-dinh-phong" },
+              "description": { "type": "string" },
+              "author_id": { "type": "string" },
+              "cover_image_url": { "type": "string" },
+              "category_ids": { "type": "array", "items": { "type": "integer" } }
+            }
+          }
+        }],
+        "responses": {
+          "201": { "description": "Tạo truyện thành công" }
+        }
+      }
+    },
+    "/stories/top-views": {
+      "get": {
+        "tags": ["Stories"],
+        "summary": "Bảng Vàng Tiên Vương (Top truyện nghe nhiều nhất)",
+        "parameters": [
           { "name": "limit", "in": "query", "type": "integer", "default": 10 }
         ],
         "responses": {
-          "200": { "description": "List of stories" }
+          "200": { "description": "Top truyện nhiều lượt nghe nhất" }
+        }
+      }
+    },
+    "/stories/search": {
+      "get": {
+        "tags": ["Stories"],
+        "summary": "Tìm kiếm nhanh truyện theo từ khóa",
+        "parameters": [
+          { "name": "q", "in": "query", "type": "string", "required": true, "example": "Phàm nhân" },
+          { "name": "limit", "in": "query", "type": "integer", "default": 10 }
+        ],
+        "responses": {
+          "200": { "description": "Kết quả tìm kiếm" }
         }
       }
     },
     "/stories/filter": {
       "get": {
         "tags": ["Stories"],
-        "summary": "Advanced Search & Filtering",
+        "summary": "Bộ lọc nâng cao (Thể loại, Trạng thái, Sắp xếp)",
         "parameters": [
-          { "name": "q", "in": "query", "type": "string", "description": "Title or Author keyword" },
+          { "name": "q", "in": "query", "type": "string" },
           { "name": "category_id", "in": "query", "type": "integer" },
-          { "name": "status", "in": "query", "type": "string", "description": "ongoing / completed" },
+          { "name": "status", "in": "query", "type": "string", "enum": ["ongoing", "completed"] },
+          { "name": "sort_by", "in": "query", "type": "string", "enum": ["views", "latest", "rating"], "default": "latest" },
           { "name": "page", "in": "query", "type": "integer", "default": 1 },
-          { "name": "limit", "in": "query", "type": "integer", "default": 10 }
+          { "name": "limit", "in": "query", "type": "integer", "default": 20 }
         ],
         "responses": {
-          "200": { "description": "Filtered stories" }
+          "200": { "description": "Danh sách truyện thỏa mãn điều kiện lọc" }
+        }
+      }
+    },
+    "/stories/categories": {
+      "get": {
+        "tags": ["Stories"],
+        "summary": "Lấy danh mục tất cả thể loại truyện",
+        "responses": {
+          "200": { "description": "Danh mục thể loại (Tiên Hiệp, Kiếm Hiệp, Huyền Huyễn...)" }
+        }
+      }
+    },
+    "/stories/{slug}": {
+      "get": {
+        "tags": ["Stories"],
+        "summary": "Lấy chi tiết truyện theo Slug hoặc ID",
+        "parameters": [
+          { "name": "slug", "in": "path", "required": true, "type": "string", "example": "vo-luyen-dinh-phong" }
+        ],
+        "responses": {
+          "200": { "description": "Chi tiết tác phẩm, tác giả, đánh giá, tổng số chương" },
+          "404": { "description": "Truyện không tồn tại" }
+        }
+      }
+    },
+    "/stories/{id}/related": {
+      "get": {
+        "tags": ["Stories"],
+        "summary": "Lấy danh sách các tác phẩm tương tự",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "type": "string" },
+          { "name": "limit", "in": "query", "type": "integer", "default": 6 }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách truyện tương tự" }
+        }
+      }
+    },
+    "/stories/{storyId}/chapters": {
+      "get": {
+        "tags": ["Stories"],
+        "summary": "Lấy danh sách tất cả các tập của một bộ truyện",
+        "parameters": [
+          { "name": "storyId", "in": "path", "required": true, "type": "string" },
+          { "name": "page", "in": "query", "type": "integer", "default": 1 },
+          { "name": "limit", "in": "query", "type": "integer", "default": 50 }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách các tập, nhãn VIP, thời lượng" }
+        }
+      }
+    },
+    "/stories/{id}/favorite": {
+      "post": {
+        "tags": ["Stories"],
+        "summary": "Thêm / Bỏ truyện khỏi Tủ Truyện Yêu Thích",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "type": "string" }
+        ],
+        "responses": {
+          "200": { "description": "Trạng thái yêu thích mới (true/false)" }
+        }
+      },
+      "get": {
+        "tags": ["Stories"],
+        "summary": "Kiểm tra xem truyện đã được yêu thích chưa",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "type": "string" }
+        ],
+        "responses": {
+          "200": { "description": "Trả về is_favorite: true/false" }
         }
       }
     },
     "/chapters/{id}": {
       "get": {
         "tags": ["Chapters"],
-        "summary": "Get chapter details (Audio URL + Novel Text Content)",
+        "summary": "Lấy chi tiết tập truyện & nội dung chữ nếu có",
         "parameters": [
           { "name": "id", "in": "path", "required": true, "type": "string" }
         ],
         "responses": {
-          "200": { "description": "Chapter details" },
-          "404": { "description": "Chapter not found" }
+          "200": { "description": "Chi tiết chương và các file audio đa chất lượng" }
         }
       }
     },
-    "/payments/plans": {
+    "/chapters/{id}/stream": {
       "get": {
-        "tags": ["Payments"],
-        "summary": "List available VIP Subscription Plans",
+        "tags": ["Chapters"],
+        "summary": "Lấy Stream URL có chữ ký HMAC bảo mật để phát audio",
+        "description": "Tự động kiểm tra quyền VIP đối với các chương trả phí và tạo đường link Cloudflare R2 có chữ ký giới hạn thời gian.",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "type": "string" },
+          { "name": "quality", "in": "query", "type": "string", "enum": ["64k", "128k", "320k"], "default": "128k" }
+        ],
         "responses": {
-          "200": { "description": "VIP subscription plans" }
+          "200": { "description": "Trả về signed_url có hiệu lực trong 1 giờ" },
+          "403": { "description": "Yêu cầu tài khoản Hội Viên VIP để nghe chương này" }
         }
       }
     },
-    "/ai/chat": {
+    "/chapters": {
       "post": {
-        "tags": ["AI Assistant"],
-        "summary": "Chat with Đạo Hữu AI Assistant",
+        "tags": ["Chapters"],
+        "summary": "Tạo tập truyện mới",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{
+          "in": "body",
+          "name": "body",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": ["story_id", "chapter_number", "title"],
+            "properties": {
+              "story_id": { "type": "string" },
+              "chapter_number": { "type": "number", "example": 1.0 },
+              "title": { "type": "string", "example": "Chương 1: Sơn Thôn Thiếu Niên" },
+              "content_text": { "type": "string" },
+              "is_premium": { "type": "boolean", "default": false }
+            }
+          }
+        }],
+        "responses": {
+          "201": { "description": "Tạo tập thành công" }
+        }
+      }
+    },
+    "/chapters/progress": {
+      "post": {
+        "tags": ["Chapters"],
+        "summary": "Lưu tiến độ nghe audio của người dùng",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{
+          "in": "body",
+          "name": "body",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": ["chapter_id", "progress_seconds"],
+            "properties": {
+              "chapter_id": { "type": "string" },
+              "progress_seconds": { "type": "integer", "example": 145 },
+              "is_completed": { "type": "boolean", "default": false }
+            }
+          }
+        }],
+        "responses": {
+          "200": { "description": "Đã lưu tiến độ nghe thành công" }
+        }
+      }
+    },
+    "/chapters/{id}/comments": {
+      "get": {
+        "tags": ["Comments"],
+        "summary": "Lấy danh sách bình luận của một tập",
         "parameters": [
+          { "name": "id", "in": "path", "required": true, "type": "string" },
+          { "name": "page", "in": "query", "type": "integer", "default": 1 },
+          { "name": "limit", "in": "query", "type": "integer", "default": 20 }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách bình luận gốc kèm tổng số phản hồi" }
+        }
+      },
+      "post": {
+        "tags": ["Comments"],
+        "summary": "Đăng bình luận mới vào tập",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "type": "string" },
           {
             "in": "body",
             "name": "body",
             "required": true,
             "schema": {
               "type": "object",
-              "required": ["prompt"],
+              "required": ["content"],
               "properties": {
-                "story_id": { "type": "string" },
-                "prompt": { "type": "string", "example": "Main có bao nhiêu thê tử?" }
+                "content": { "type": "string", "example": "Giọng MC đọc chương này cuốn quá đạo hữu ơi!" }
               }
             }
           }
         ],
         "responses": {
-          "200": { "description": "AI answer" }
+          "201": { "description": "Đăng bình luận thành công" }
+        }
+      }
+    },
+    "/comments/{id}/replies": {
+      "get": {
+        "tags": ["Comments"],
+        "summary": "Lấy danh sách các câu trả lời cho một bình luận",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "type": "string" }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách phản hồi lồng nhau" }
+        }
+      }
+    },
+    "/comments/{id}/reply": {
+      "post": {
+        "tags": ["Comments"],
+        "summary": "Trả lời một bình luận",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "type": "string" },
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": ["content"],
+              "properties": {
+                "content": { "type": "string", "example": "Đồng tình với đạo hữu!" }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": { "description": "Đã gửi câu trả lời thành công" }
+        }
+      }
+    },
+    "/comments/{id}/reactions": {
+      "post": {
+        "tags": ["Comments"],
+        "summary": "Thả cảm xúc biểu cảm cho bình luận (like, heart, haha...)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "type": "string" },
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": ["type"],
+              "properties": {
+                "type": { "type": "string", "enum": ["like", "heart", "laugh", "cry"], "example": "like" }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Đã ghi nhận cảm xúc" }
+        }
+      }
+    },
+    "/playlists": {
+      "get": {
+        "tags": ["Playlists"],
+        "summary": "Lấy danh sách Playlist của người dùng hiện tại",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Danh sách Playlist" }
+        }
+      },
+      "post": {
+        "tags": ["Playlists"],
+        "summary": "Tạo một Playlist mới",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{
+          "in": "body",
+          "name": "body",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string", "example": "Audio Nghe Đêm Khuya" },
+              "is_public": { "type": "boolean", "default": false }
+            }
+          }
+        }],
+        "responses": {
+          "201": { "description": "Tạo Playlist thành công" }
+        }
+      }
+    },
+    "/playlists/{id}": {
+      "get": {
+        "tags": ["Playlists"],
+        "summary": "Xem chi tiết một Playlist và các tập bên trong",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "type": "string" }
+        ],
+        "responses": {
+          "200": { "description": "Chi tiết playlist và các items" }
+        }
+      },
+      "delete": {
+        "tags": ["Playlists"],
+        "summary": "Xóa Playlist",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "type": "string" }
+        ],
+        "responses": {
+          "200": { "description": "Đã xóa Playlist" }
+        }
+      }
+    },
+    "/playlists/{id}/items": {
+      "post": {
+        "tags": ["Playlists"],
+        "summary": "Thêm một tập audio vào Playlist",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "type": "string" },
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": ["chapter_id"],
+              "properties": {
+                "chapter_id": { "type": "string" }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": { "description": "Đã thêm tập vào Playlist" }
+        }
+      }
+    },
+    "/notifications": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "Lấy danh sách thông báo của người dùng",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "type": "integer", "default": 1 },
+          { "name": "limit", "in": "query", "type": "integer", "default": 20 }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách thông báo" }
+        }
+      }
+    },
+    "/notifications/unread-count": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "Đếm số lượng thông báo chưa đọc",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Số lượng thông báo chưa đọc" }
+        }
+      }
+    },
+    "/notifications/read-all": {
+      "put": {
+        "tags": ["Notifications"],
+        "summary": "Đánh dấu tất cả thông báo là đã đọc",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Đã đánh dấu đã đọc toàn bộ" }
+        }
+      }
+    },
+    "/authors/{id}/follow": {
+      "post": {
+        "tags": ["Authors & Narrators"],
+        "summary": "Theo dõi hoặc Bỏ theo dõi Tác giả",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "type": "string" }
+        ],
+        "responses": {
+          "200": { "description": "Trạng thái theo dõi mới (true/false)" }
+        }
+      }
+    },
+    "/narrators/{id}/follow": {
+      "post": {
+        "tags": ["Authors & Narrators"],
+        "summary": "Theo dõi hoặc Bỏ theo dõi MC Giọng đọc",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "type": "string" }
+        ],
+        "responses": {
+          "200": { "description": "Trạng thái theo dõi mới (true/false)" }
+        }
+      }
+    },
+    "/reports": {
+      "post": {
+        "tags": ["Reports"],
+        "summary": "Gửi báo cáo lỗi âm thanh hoặc vi phạm",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{
+          "in": "body",
+          "name": "body",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": ["target_type", "target_id", "reason"],
+            "properties": {
+              "target_type": { "type": "string", "enum": ["chapter", "comment", "story"], "example": "chapter" },
+              "target_id": { "type": "string" },
+              "reason": { "type": "string", "example": "Âm thanh bị mất tiếng ở phút 05:20" }
+            }
+          }
+        }],
+        "responses": {
+          "201": { "description": "Báo cáo đã được gửi tới ban quản trị" }
+        }
+      }
+    },
+    "/payments/plans": {
+      "get": {
+        "tags": ["Payments"],
+        "summary": "Lấy danh sách các gói Hội Viên VIP",
+        "responses": {
+          "200": { "description": "Danh sách các gói 1 tháng, 3 tháng, 1 năm kèm giá tiền" }
+        }
+      }
+    },
+    "/payments/create": {
+      "post": {
+        "tags": ["Payments"],
+        "summary": "Tạo giao dịch thanh toán nâng cấp VIP",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{
+          "in": "body",
+          "name": "body",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": ["plan_id", "provider"],
+            "properties": {
+              "plan_id": { "type": "string" },
+              "provider": { "type": "string", "enum": ["vnpay", "momo", "stripe"], "example": "vnpay" }
+            }
+          }
+        }],
+        "responses": {
+          "200": { "description": "Trả về checkout_url thanh toán" }
+        }
+      }
+    },
+    "/payments/my-subscription": {
+      "get": {
+        "tags": ["Payments"],
+        "summary": "Xem trạng thái gói VIP hiện tại của người dùng",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Thông tin gói VIP, ngày hết hạn" }
+        }
+      }
+    },
+    "/ai/chat": {
+      "post": {
+        "tags": ["AI Assistant"],
+        "summary": "Trò chuyện & Hỏi đáp với Trợ Lý AI Đạo Hữu",
+        "parameters": [{
+          "in": "body",
+          "name": "body",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": ["prompt"],
+            "properties": {
+              "story_id": { "type": "string", "example": "c56a4180-65aa-42ec-a945-5fd21dec0538" },
+              "prompt": { "type": "string", "example": "Tóm tắt cảnh giới võ công của nhân vật chính đến chương 50?" }
+            }
+          }
+        }],
+        "responses": {
+          "200": { "description": "Phản hồi thông thái từ AI Đạo Hữu" }
+        }
+      }
+    },
+    "/ai/stories/{id}/realms": {
+      "get": {
+        "tags": ["AI Assistant"],
+        "summary": "Lấy bảng tổng hợp cảnh giới tu luyện của bộ truyện",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "type": "string" }
+        ],
+        "responses": {
+          "200": { "description": "Hệ thống cảnh giới tu chân của tác phẩm" }
+        }
+      }
+    },
+    "/ai/stories/{id}/summary": {
+      "get": {
+        "tags": ["AI Assistant"],
+        "summary": "Tóm tắt ngắn gọn cốt truyện qua AI",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "type": "string" }
+        ],
+        "responses": {
+          "200": { "description": "Tóm tắt cốt truyện súc tích" }
         }
       }
     },
     "/admin/stats": {
       "get": {
         "tags": ["Admin"],
-        "summary": "Get Admin Dashboard Analytics & Revenue Stats",
+        "summary": "Thống kê tổng quan Dashboard dành cho Quản Trị Viên",
         "security": [{ "BearerAuth": [] }],
         "responses": {
-          "200": { "description": "Dashboard analytics stats" },
-          "403": { "description": "Admin access required" }
+          "200": { "description": "Doanh thu, số lượng người dùng, tổng lượt nghe" },
+          "403": { "description": "Yêu cầu quyền Quản trị viên (Admin)" }
+        }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Quản lý danh sách người dùng trong hệ thống",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "type": "integer", "default": 1 },
+          { "name": "limit", "in": "query", "type": "integer", "default": 20 }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách người dùng và vai trò" }
+        }
+      }
+    },
+    "/admin/users/{id}/role": {
+      "put": {
+        "tags": ["Admin"],
+        "summary": "Phân quyền người dùng (user, moderator, admin)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "type": "string" },
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": ["role"],
+              "properties": {
+                "role": { "type": "string", "enum": ["user", "moderator", "admin"], "example": "moderator" }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Đã cập nhật vai trò người dùng" }
+        }
+      }
+    },
+    "/admin/reports": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Danh sách báo cáo sự cố và vi phạm cần xử lý",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Danh sách báo cáo" }
+        }
+      }
+    },
+    "/admin/reports/{id}/status": {
+      "put": {
+        "tags": ["Admin"],
+        "summary": "Cập nhật trạng thái xử lý báo cáo (pending, resolved, dismissed)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "type": "string" },
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": ["status"],
+              "properties": {
+                "status": { "type": "string", "enum": ["pending", "resolved", "dismissed"], "example": "resolved" }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Đã cập nhật trạng thái báo cáo" }
         }
       }
     }
