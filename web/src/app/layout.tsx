@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/context/auth-context";
 import { AudioProvider } from "@/context/audio-context";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
@@ -93,12 +94,14 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-[#070a11] text-slate-100 antialiased flex flex-col selection:bg-amber-500 selection:text-black">
-        <AudioProvider>
-          <Navbar />
-          <main className="flex-1 pb-24">{children}</main>
-          <StickyAudioPlayer />
-          <Footer />
-        </AudioProvider>
+        <AuthProvider>
+          <AudioProvider>
+            <Navbar />
+            <main className="flex-1 pb-24">{children}</main>
+            <StickyAudioPlayer />
+            <Footer />
+          </AudioProvider>
+        </AuthProvider>
       </body>
     </html>
   );
