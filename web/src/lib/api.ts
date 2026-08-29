@@ -1,4 +1,4 @@
-import { Story, Chapter, Category } from '@/types';
+import { Story, Chapter, Category, User, UserCultivation, CultivationRealmInfo } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
 
@@ -238,6 +238,33 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ plan_id: planId, provider }),
     });
+  }
+
+  // ---- USER PROFILE ----
+  async getMe(): Promise<User | null> {
+    try {
+      return await this.request<User>('/users/me');
+    } catch {
+      return null;
+    }
+  }
+
+  // ---- CULTIVATION (TU VI) ----
+  async getCultivation(): Promise<UserCultivation | null> {
+    try {
+      return await this.request<UserCultivation>('/users/cultivation');
+    } catch {
+      return null;
+    }
+  }
+
+  async getCultivationRealms(): Promise<CultivationRealmInfo[]> {
+    try {
+      const res = await this.request<any>('/cultivation/realms');
+      return res.items || res;
+    } catch {
+      return [];
+    }
   }
 }
 

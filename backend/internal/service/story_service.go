@@ -37,11 +37,17 @@ type StoryService interface {
 }
 
 type storyService struct {
-	repo repository.StoryRepository
+	repo        repository.StoryRepository
+	userRepo    repository.UserRepository
+	paymentRepo repository.PaymentRepository
 }
 
-func NewStoryService(repo repository.StoryRepository) StoryService {
-	return &storyService{repo: repo}
+func NewStoryService(repo repository.StoryRepository, userRepo repository.UserRepository, paymentRepo repository.PaymentRepository) StoryService {
+	return &storyService{
+		repo:        repo,
+		userRepo:    userRepo,
+		paymentRepo: paymentRepo,
+	}
 }
 
 func (s *storyService) ListStories(ctx context.Context, pagination utils.PaginationParams) ([]domain.StoryResp, error) {
@@ -378,7 +384,7 @@ func (s *storyService) SaveListeningProgress(ctx context.Context, userID uuid.UU
 		speed = *req.PlaybackSpeed
 	}
 
-	return s.repo.UpsertListeningProgress(ctx, db.UpsertListeningProgressParams{
+	err := s.repo.UpsertListeningProgress(ctx, db.UpsertListeningProgressParams{
 		UserID:              userID,
 		ChapterID:           req.ChapterID,
 		StoryID:             req.StoryID,
@@ -386,6 +392,44 @@ func (s *storyService) SaveListeningProgress(ctx context.Context, userID uuid.UU
 		PlaybackSpeed:       utils.Float64ToNumeric(speed),
 		IsCompleted:         &isCompleted,
 	})
+	if err != nil {
+		return err
+	}
+
+	// Tăng điểm Tu Vi (EXP) khi nghe audio (Mỗi lần đồng bộ tiến độ hấp thu linh khí)
+	if s.userRepo != nil {
+		userCult, err := s.userRepo.GetUserCultivation(ctx, userID)
+		if err == nil {
+			currExp := int64(0)
+			if userCult.CultivationExp != nil {
+				currExp = *userCult.CultivationExp
+			}
+
+			// Thưởng tu vi cơ bản: 5 điểm/lần nghe. Nếu hoàn thành tập: +15 điểm
+			gain := int64(5)
+			if isCompleted {
+				gain += 15
+			}
+
+			// Nếu đang có VIP, nhân đôi (2x) tốc độ hấp thu linh khí
+			if s.paymentRepo != nil {
+				sub, err := s.paymentRepo.GetUserActiveSubscription(ctx, userID)
+				if err == nil && sub.Status != nil && *sub.Status == "active" {
+					gain = int64(float64(gain) * 2.0)
+				}
+			}
+
+			newExp := currExp + gain
+			newRealm, _, _, _, _, _ := domain.CalculateCultivationRealm(newExp)
+			_, _ = s.userRepo.AddUserCultivationExp(ctx, db.AddUserCultivationExpParams{
+				ID:               userID,
+				CultivationExp:   &gain,
+				CultivationRealm: &newRealm,
+			})
+		}
+	}
+
+	return nil
 }
 
 func (s *storyService) GetUserListeningHistory(ctx context.Context, userID uuid.UUID, pagination utils.PaginationParams) ([]domain.ListeningHistoryResp, error) {

@@ -39,6 +39,10 @@ type UserRepository interface {
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (db.RefreshToken, error)
 	RevokeRefreshToken(ctx context.Context, tokenHash string) error
 	RevokeAllUserRefreshTokens(ctx context.Context, userID uuid.UUID) error
+
+	// Cultivation (Tu Vi)
+	AddUserCultivationExp(ctx context.Context, arg db.AddUserCultivationExpParams) (db.AddUserCultivationExpRow, error)
+	GetUserCultivation(ctx context.Context, id uuid.UUID) (db.GetUserCultivationRow, error)
 }
 
 type userRepo struct {
@@ -139,4 +143,12 @@ func (r *userRepo) RevokeRefreshToken(ctx context.Context, tokenHash string) err
 
 func (r *userRepo) RevokeAllUserRefreshTokens(ctx context.Context, userID uuid.UUID) error {
 	return r.q.RevokeAllUserRefreshTokens(ctx, userID)
+}
+
+func (r *userRepo) AddUserCultivationExp(ctx context.Context, arg db.AddUserCultivationExpParams) (db.AddUserCultivationExpRow, error) {
+	return r.q.AddUserCultivationExp(ctx, arg)
+}
+
+func (r *userRepo) GetUserCultivation(ctx context.Context, id uuid.UUID) (db.GetUserCultivationRow, error) {
+	return r.q.GetUserCultivation(ctx, id)
 }

@@ -155,11 +155,15 @@ func NewRouter(opts RouterOptions) http.Handler {
 			})
 		})
 
+		// Cultivation Realms (Public)
+		r.Get("/cultivation/realms", opts.UserHandler.GetAllCultivationRealms)
+
 		// Users (Protected)
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.AuthMiddleware(opts.JWTService))
 			r.Route("/users", func(r chi.Router) {
 				r.Get("/me", opts.UserHandler.GetMe)
+				r.Get("/cultivation", opts.UserHandler.GetCultivation)
 				r.Put("/me", opts.UserHandler.UpdateProfile)
 				r.Put("/password", opts.UserHandler.UpdatePassword)
 				r.Get("/history", opts.StoryHandler.GetListeningHistory)

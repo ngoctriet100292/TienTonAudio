@@ -22,11 +22,12 @@ type PaymentService interface {
 }
 
 type paymentService struct {
-	repo repository.PaymentRepository
+	repo     repository.PaymentRepository
+	userRepo repository.UserRepository
 }
 
-func NewPaymentService(repo repository.PaymentRepository) PaymentService {
-	return &paymentService{repo: repo}
+func NewPaymentService(repo repository.PaymentRepository, userRepo repository.UserRepository) PaymentService {
+	return &paymentService{repo: repo, userRepo: userRepo}
 }
 
 func (s *paymentService) ListSubscriptionPlans(ctx context.Context) ([]domain.SubscriptionPlanResp, error) {
@@ -110,6 +111,25 @@ func (s *paymentService) HandleWebhookCallback(ctx context.Context, req domain.W
 				PlanID:    updatedPayment.PlanID,
 				ExpiresAt: expiresAt,
 			})
+
+			// Thưởng Đan Dược Đột Phá Tu Vi (Cultivation EXP theo số ngày nạp VIP)
+			if s.userRepo != nil {
+				bonusExp := int64(plan.DurationDays) * 50 // 30 ngày = +1.500 EXP, 365 ngày = +18.250 EXP
+				userCult, err := s.userRepo.GetUserCultivation(ctx, payment.UserID)
+				if err == nil {
+					currExp := int64(0)
+					if userCult.CultivationExp != nil {
+						currExp = *userCult.CultivationExp
+					}
+					newExp := currExp + bonusExp
+					newRealm, _, _, _, _, _ := domain.CalculateCultivationRealm(newExp)
+					_, _ = s.userRepo.AddUserCultivationExp(ctx, db.AddUserCultivationExpParams{
+						ID:               payment.UserID,
+						CultivationExp:   &bonusExp,
+						CultivationRealm: &newRealm,
+					})
+				}
+			}
 		}
 	}
 

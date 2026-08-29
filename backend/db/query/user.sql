@@ -8,20 +8,20 @@ INSERT INTO users (
 ) VALUES (
     $1, $2, $3, $4, $5
 )
-RETURNING id, username, email, avatar_url, role, is_email_verified, two_factor_enabled, created_at, updated_at;
+RETURNING id, username, email, avatar_url, role, is_email_verified, two_factor_enabled, cultivation_exp, cultivation_realm, created_at, updated_at;
 
 -- name: GetUserByID :one
-SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, deleted_at, created_at, updated_at
+SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, deleted_at, created_at, updated_at
 FROM users
 WHERE id = $1 AND deleted_at IS NULL;
 
 -- name: GetUserByEmail :one
-SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, deleted_at, created_at, updated_at
+SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, deleted_at, created_at, updated_at
 FROM users
 WHERE email = $1 AND deleted_at IS NULL;
 
 -- name: GetUserByUsername :one
-SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, deleted_at, created_at, updated_at
+SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, deleted_at, created_at, updated_at
 FROM users
 WHERE username = $1 AND deleted_at IS NULL;
 
@@ -32,7 +32,21 @@ SET
     avatar_url = $3,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = $1 AND deleted_at IS NULL
-RETURNING id, username, email, avatar_url, role, is_email_verified, two_factor_enabled, created_at, updated_at;
+RETURNING id, username, email, avatar_url, role, is_email_verified, two_factor_enabled, cultivation_exp, cultivation_realm, created_at, updated_at;
+
+-- name: AddUserCultivationExp :one
+UPDATE users
+SET 
+    cultivation_exp = cultivation_exp + $2,
+    cultivation_realm = $3,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1 AND deleted_at IS NULL
+RETURNING id, username, email, avatar_url, role, is_email_verified, two_factor_enabled, cultivation_exp, cultivation_realm, created_at, updated_at;
+
+-- name: GetUserCultivation :one
+SELECT id, username, cultivation_exp, cultivation_realm
+FROM users
+WHERE id = $1 AND deleted_at IS NULL;
 
 -- name: UpdateUserPassword :exec
 UPDATE users

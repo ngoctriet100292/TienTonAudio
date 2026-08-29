@@ -32,6 +32,7 @@ type AuthService interface {
 	ResetPassword(ctx context.Context, req domain.ResetPasswordReq) error
 	RefreshToken(ctx context.Context, req domain.RefreshTokenReq) (*domain.TokenResp, error)
 	Logout(ctx context.Context, req domain.LogoutReq) error
+	GetCultivation(ctx context.Context, userID uuid.UUID) (*domain.UserCultivationResp, error)
 }
 
 type authService struct {
@@ -55,7 +56,16 @@ func getRole(r *string) string {
 	return "user"
 }
 
-func toUserResp(id uuid.UUID, username, email string, avatarURL *string, role *string, isVerified, twoFactorEnabled bool, createdAt, updatedAt time.Time) *domain.UserResp {
+func toUserResp(id uuid.UUID, username, email string, avatarURL *string, role *string, isVerified, twoFactorEnabled bool, exp *int64, realm *string, createdAt, updatedAt time.Time) *domain.UserResp {
+	cultivationExp := int64(0)
+	if exp != nil {
+		cultivationExp = *exp
+	}
+	realmName, level, _, _, color, _ := domain.CalculateCultivationRealm(cultivationExp)
+	if realm != nil && *realm != "" {
+		realmName = *realm
+	}
+
 	return &domain.UserResp{
 		ID:               id,
 		Username:         username,
@@ -64,6 +74,10 @@ func toUserResp(id uuid.UUID, username, email string, avatarURL *string, role *s
 		Role:             getRole(role),
 		IsEmailVerified:  isVerified,
 		TwoFactorEnabled: twoFactorEnabled,
+		CultivationRealm: realmName,
+		CultivationExp:   cultivationExp,
+		CultivationLevel: level,
+		CultivationColor: color,
 		CreatedAt:        createdAt,
 		UpdatedAt:        updatedAt,
 	}
@@ -149,6 +163,8 @@ func (s *authService) Register(ctx context.Context, req domain.RegisterReq) (*do
 		userRow.Role,
 		userRow.IsEmailVerified,
 		userRow.TwoFactorEnabled,
+		userRow.CultivationExp,
+		userRow.CultivationRealm,
 		userRow.CreatedAt.Time,
 		userRow.UpdatedAt.Time,
 	)
@@ -250,6 +266,8 @@ func (s *authService) Login(ctx context.Context, req domain.LoginReq) (*domain.L
 		user.Role,
 		user.IsEmailVerified,
 		user.TwoFactorEnabled,
+		user.CultivationExp,
+		user.CultivationRealm,
 		user.CreatedAt.Time,
 		user.UpdatedAt.Time,
 	)
@@ -422,6 +440,8 @@ func (s *authService) VerifyTwoFactorLogin(ctx context.Context, req domain.TwoFa
 		user.Role,
 		user.IsEmailVerified,
 		user.TwoFactorEnabled,
+		user.CultivationExp,
+		user.CultivationRealm,
 		user.CreatedAt.Time,
 		user.UpdatedAt.Time,
 	)
@@ -559,6 +579,8 @@ func (s *authService) GetProfile(ctx context.Context, userID uuid.UUID) (*domain
 		user.Role,
 		user.IsEmailVerified,
 		user.TwoFactorEnabled,
+		user.CultivationExp,
+		user.CultivationRealm,
 		user.CreatedAt.Time,
 		user.UpdatedAt.Time,
 	), nil
@@ -587,9 +609,41 @@ func (s *authService) UpdateProfile(ctx context.Context, userID uuid.UUID, req d
 		updated.Role,
 		updated.IsEmailVerified,
 		updated.TwoFactorEnabled,
+		updated.CultivationExp,
+		updated.CultivationRealm,
 		updated.CreatedAt.Time,
 		updated.UpdatedAt.Time,
 	), nil
+}
+
+func (s *authService) GetCultivation(ctx context.Context, userID uuid.UUID) (*domain.UserCultivationResp, error) {
+	row, err := s.userRepo.GetUserCultivation(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("user not found: %w", err)
+	}
+
+	exp := int64(0)
+	if row.CultivationExp != nil {
+		exp = *row.CultivationExp
+	}
+
+	realmName, level, nextExp, progressPct, color, desc := domain.CalculateCultivationRealm(exp)
+	if row.CultivationRealm != nil && *row.CultivationRealm != "" {
+		realmName = *row.CultivationRealm
+	}
+
+	return &domain.UserCultivationResp{
+		CurrentRealm:  realmName,
+		Level:         level,
+		CurrentExp:    exp,
+		NextRealmExp:  nextExp,
+		ProgressPct:   progressPct,
+		ExpMultiplier: 1.0,
+		VipStatus:     "Đạo Hữu",
+		Color:         color,
+		Description:   desc,
+		AllRealms:     domain.CultivationRealms,
+	}, nil
 }
 
 func (s *authService) UpdatePassword(ctx context.Context, userID uuid.UUID, req domain.UpdatePasswordReq) error {

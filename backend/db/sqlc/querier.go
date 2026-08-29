@@ -17,6 +17,7 @@ type Querier interface {
 	AddFavorite(ctx context.Context, arg AddFavoriteParams) error
 	AddPlaylistItem(ctx context.Context, arg AddPlaylistItemParams) (PlaylistItem, error)
 	AddStoryCategory(ctx context.Context, arg AddStoryCategoryParams) error
+	AddUserCultivationExp(ctx context.Context, arg AddUserCultivationExpParams) (AddUserCultivationExpRow, error)
 	AdvancedSearchStories(ctx context.Context, arg AdvancedSearchStoriesParams) ([]AdvancedSearchStoriesRow, error)
 	CreateAuthor(ctx context.Context, arg CreateAuthorParams) (Author, error)
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error)
@@ -80,6 +81,7 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
 	GetUserCommentReaction(ctx context.Context, arg GetUserCommentReactionParams) (string, error)
+	GetUserCultivation(ctx context.Context, id uuid.UUID) (GetUserCultivationRow, error)
 	GetUserFavorites(ctx context.Context, arg GetUserFavoritesParams) ([]GetUserFavoritesRow, error)
 	GetUserListeningHistory(ctx context.Context, arg GetUserListeningHistoryParams) ([]GetUserListeningHistoryRow, error)
 	GetUserNotifications(ctx context.Context, arg GetUserNotificationsParams) ([]Notification, error)

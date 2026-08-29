@@ -12,6 +12,55 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addUserCultivationExp = `-- name: AddUserCultivationExp :one
+UPDATE users
+SET 
+    cultivation_exp = cultivation_exp + $2,
+    cultivation_realm = $3,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1 AND deleted_at IS NULL
+RETURNING id, username, email, avatar_url, role, is_email_verified, two_factor_enabled, cultivation_exp, cultivation_realm, created_at, updated_at
+`
+
+type AddUserCultivationExpParams struct {
+	ID               uuid.UUID `json:"id"`
+	CultivationExp   *int64    `json:"cultivation_exp"`
+	CultivationRealm *string   `json:"cultivation_realm"`
+}
+
+type AddUserCultivationExpRow struct {
+	ID               uuid.UUID          `json:"id"`
+	Username         string             `json:"username"`
+	Email            string             `json:"email"`
+	AvatarUrl        *string            `json:"avatar_url"`
+	Role             *string            `json:"role"`
+	IsEmailVerified  bool               `json:"is_email_verified"`
+	TwoFactorEnabled bool               `json:"two_factor_enabled"`
+	CultivationExp   *int64             `json:"cultivation_exp"`
+	CultivationRealm *string            `json:"cultivation_realm"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) AddUserCultivationExp(ctx context.Context, arg AddUserCultivationExpParams) (AddUserCultivationExpRow, error) {
+	row := q.db.QueryRow(ctx, addUserCultivationExp, arg.ID, arg.CultivationExp, arg.CultivationRealm)
+	var i AddUserCultivationExpRow
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.AvatarUrl,
+		&i.Role,
+		&i.IsEmailVerified,
+		&i.TwoFactorEnabled,
+		&i.CultivationExp,
+		&i.CultivationRealm,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createEmailVerificationToken = `-- name: CreateEmailVerificationToken :one
 INSERT INTO email_verification_tokens (
     user_id,
@@ -142,7 +191,7 @@ INSERT INTO users (
 ) VALUES (
     $1, $2, $3, $4, $5
 )
-RETURNING id, username, email, avatar_url, role, is_email_verified, two_factor_enabled, created_at, updated_at
+RETURNING id, username, email, avatar_url, role, is_email_verified, two_factor_enabled, cultivation_exp, cultivation_realm, created_at, updated_at
 `
 
 type CreateUserParams struct {
@@ -161,6 +210,8 @@ type CreateUserRow struct {
 	Role             *string            `json:"role"`
 	IsEmailVerified  bool               `json:"is_email_verified"`
 	TwoFactorEnabled bool               `json:"two_factor_enabled"`
+	CultivationExp   *int64             `json:"cultivation_exp"`
+	CultivationRealm *string            `json:"cultivation_realm"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
@@ -182,6 +233,8 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 		&i.Role,
 		&i.IsEmailVerified,
 		&i.TwoFactorEnabled,
+		&i.CultivationExp,
+		&i.CultivationRealm,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -310,7 +363,7 @@ func (q *Queries) GetUnusedTwoFactorBackupCodesByUserID(ctx context.Context, use
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, deleted_at, created_at, updated_at
+SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, deleted_at, created_at, updated_at
 FROM users
 WHERE email = $1 AND deleted_at IS NULL
 `
@@ -328,6 +381,8 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.IsEmailVerified,
 		&i.TwoFactorEnabled,
 		&i.TwoFactorSecret,
+		&i.CultivationExp,
+		&i.CultivationRealm,
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -336,7 +391,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, deleted_at, created_at, updated_at
+SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, deleted_at, created_at, updated_at
 FROM users
 WHERE id = $1 AND deleted_at IS NULL
 `
@@ -354,6 +409,8 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.IsEmailVerified,
 		&i.TwoFactorEnabled,
 		&i.TwoFactorSecret,
+		&i.CultivationExp,
+		&i.CultivationRealm,
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -362,7 +419,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, deleted_at, created_at, updated_at
+SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, deleted_at, created_at, updated_at
 FROM users
 WHERE username = $1 AND deleted_at IS NULL
 `
@@ -380,9 +437,36 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.IsEmailVerified,
 		&i.TwoFactorEnabled,
 		&i.TwoFactorSecret,
+		&i.CultivationExp,
+		&i.CultivationRealm,
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getUserCultivation = `-- name: GetUserCultivation :one
+SELECT id, username, cultivation_exp, cultivation_realm
+FROM users
+WHERE id = $1 AND deleted_at IS NULL
+`
+
+type GetUserCultivationRow struct {
+	ID               uuid.UUID `json:"id"`
+	Username         string    `json:"username"`
+	CultivationExp   *int64    `json:"cultivation_exp"`
+	CultivationRealm *string   `json:"cultivation_realm"`
+}
+
+func (q *Queries) GetUserCultivation(ctx context.Context, id uuid.UUID) (GetUserCultivationRow, error) {
+	row := q.db.QueryRow(ctx, getUserCultivation, id)
+	var i GetUserCultivationRow
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.CultivationExp,
+		&i.CultivationRealm,
 	)
 	return i, err
 }
@@ -472,7 +556,7 @@ SET
     avatar_url = $3,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = $1 AND deleted_at IS NULL
-RETURNING id, username, email, avatar_url, role, is_email_verified, two_factor_enabled, created_at, updated_at
+RETURNING id, username, email, avatar_url, role, is_email_verified, two_factor_enabled, cultivation_exp, cultivation_realm, created_at, updated_at
 `
 
 type UpdateUserProfileParams struct {
@@ -489,6 +573,8 @@ type UpdateUserProfileRow struct {
 	Role             *string            `json:"role"`
 	IsEmailVerified  bool               `json:"is_email_verified"`
 	TwoFactorEnabled bool               `json:"two_factor_enabled"`
+	CultivationExp   *int64             `json:"cultivation_exp"`
+	CultivationRealm *string            `json:"cultivation_realm"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
@@ -504,6 +590,8 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.Role,
 		&i.IsEmailVerified,
 		&i.TwoFactorEnabled,
+		&i.CultivationExp,
+		&i.CultivationRealm,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

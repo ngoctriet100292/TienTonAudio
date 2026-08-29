@@ -303,7 +303,7 @@ func (m *mockStoryRepo) GetFollowedNarrators(ctx context.Context, userID uuid.UU
 
 func TestStoryService_ViewsAndFavorites(t *testing.T) {
 	repo := newMockStoryRepo()
-	svc := NewStoryService(repo)
+	svc := NewStoryService(repo, nil, nil)
 	ctx := context.Background()
 
 	// 1. Tạo truyện
@@ -385,7 +385,7 @@ func TestStoryService_ViewsAndFavorites(t *testing.T) {
 
 func TestStoryService_RelatedAndFollows(t *testing.T) {
 	repo := newMockStoryRepo()
-	svc := NewStoryService(repo)
+	svc := NewStoryService(repo, nil, nil)
 	ctx := context.Background()
 
 	s1, _ := repo.CreateStory(ctx, db.CreateStoryParams{Title: "Truyện 1", Slug: "truyen-1"})

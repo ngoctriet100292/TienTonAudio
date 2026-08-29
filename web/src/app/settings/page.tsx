@@ -14,14 +14,22 @@ import {
   Check,
   Crown,
   Settings as SettingsIcon,
+  Flame,
+  Zap,
+  Sparkles,
+  Award,
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
+import { api } from '@/lib/api';
+import { UserCultivation } from '@/types';
 
 export default function SettingsPage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading, login } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'password' | '2fa'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'password' | '2fa' | 'cultivation'>('profile');
+  const [cultivationData, setCultivationData] = useState<UserCultivation | null>(null);
+  const [cultivationLoading, setCultivationLoading] = useState(false);
 
   // Form profile
   const [username, setUsername] = useState('');
@@ -54,6 +62,17 @@ export default function SettingsPage() {
       setAvatarUrl(user.avatar_url || '');
     }
   }, [user, isAuthenticated, isLoading, router]);
+
+  useEffect(() => {
+    if (activeTab === 'cultivation') {
+      setCultivationLoading(true);
+      api.getCultivation().then((res) => {
+        setCultivationData(res);
+      }).finally(() => {
+        setCultivationLoading(false);
+      });
+    }
+  }, [activeTab]);
 
   // 1. Cập nhật hồ sơ
   const handleUpdateProfile = async (e: React.FormEvent) => {
@@ -256,6 +275,17 @@ export default function SettingsPage() {
           }`}
         >
           <ShieldCheck className="w-4 h-4" /> Bảo Mật 2 Lớp (2FA)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('cultivation')}
+          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold rounded-t-xl transition-all ${
+            activeTab === 'cultivation'
+              ? 'bg-slate-800 text-amber-400 border-b-2 border-amber-400'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Flame className="w-4 h-4 text-amber-400" /> Động Phủ Tu Vi
         </button>
       </div>
 
@@ -482,6 +512,150 @@ export default function SettingsPage() {
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Tab 4: Động Phủ Tu Vi */}
+      {activeTab === 'cultivation' && (
+        <div className="space-y-8 animate-in fade-in-0 duration-300">
+          {/* Thẻ Cảnh Giới Đạo Hữu */}
+          <div className="relative overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-b from-[#131b2e] to-[#0a0f1d] p-6 sm:p-8 shadow-2xl">
+            <div className="absolute top-0 right-0 -mr-16 -mt-16 h-64 w-64 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
+
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 pb-6 border-b border-white/10">
+              <div className="flex items-center gap-4">
+                <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-200 text-black shadow-lg shadow-amber-500/30">
+                  <Flame className="w-8 h-8" />
+                  <span className="absolute -top-2 -right-2 px-2 py-0.5 rounded-full bg-slate-900 border border-amber-400/40 text-[10px] font-black text-amber-300">
+                    Cấp {cultivationData?.level || user.cultivation_level || 1}
+                  </span>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-2xl font-black text-white">
+                      {cultivationData?.current_realm || user.cultivation_realm || 'Luyện Khí'} Cảnh
+                    </h3>
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-[#ffd166] border border-amber-500/40">
+                      Chính Đạo
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {cultivationData?.description || 'Sơ nhập tiên đạo, cảm ứng thiên địa linh khí'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <div className="px-4 py-2 rounded-xl bg-slate-800/80 border border-white/10 text-right w-full sm:w-auto">
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Hấp Thu Linh Khí</p>
+                  <p className="text-base font-black text-emerald-400 font-mono">
+                    {cultivationData?.exp_multiplier ? `${cultivationData.exp_multiplier}x` : '1.0x'} Tốc Độ
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Tiến độ Đột Phá */}
+            <div className="mt-6 space-y-2">
+              <div className="flex justify-between text-xs font-mono">
+                <span className="text-slate-400 flex items-center gap-1.5 font-sans font-medium">
+                  <Zap className="w-4 h-4 text-amber-400" />
+                  Tu Vi Hiện Tại: <strong className="text-white">{cultivationData?.current_exp ?? user.cultivation_exp ?? 0}</strong>
+                </span>
+                <span className="text-amber-400 font-bold">
+                  {cultivationData?.next_realm_exp === -1
+                    ? 'Đỉnh Phong Viên Mãn'
+                    : `Cần ${cultivationData?.next_realm_exp || 60} để Đột Phá (${(cultivationData?.progress_pct || 0).toFixed(1)}%)`}
+                </span>
+              </div>
+
+              <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden p-0.5 border border-white/10">
+                <div
+                  className="h-full bg-gradient-to-r from-[#ffd166] via-[#ffb703] to-amber-500 rounded-full shadow-lg transition-all duration-700"
+                  style={{
+                    width: `${Math.min(100, Math.max(5, cultivationData?.progress_pct || 15))}%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Khuyến nghị tăng tu vi */}
+            <div className="mt-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Sparkles className="w-5 h-5 text-amber-400 flex-shrink-0" />
+                <p className="text-xs text-slate-300">
+                  <strong className="text-amber-300">Đan Dược Tiến Giai:</strong> Nâng cấp Hội Viên VIP nhận ngay tới <span className="text-white font-bold">+20.000 Tu Vi</span> và nhân đôi tốc độ hấp thu linh khí khi nghe truyện.
+                </p>
+              </div>
+              <button
+                onClick={() => router.push('/vip')}
+                className="flex-shrink-0 px-4 py-2 rounded-xl bg-gradient-to-r from-[#ffd166] to-[#ffb703] text-black font-black text-xs shadow-md shadow-amber-500/20 hover:scale-105 transition-all"
+              >
+                Ghé Các Các VIP
+              </button>
+            </div>
+          </div>
+
+          {/* Lộ Trình 17 Cảnh Giới Tu Tiên */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Award className="w-5 h-5 text-amber-400" />
+                <h4 className="text-base font-black text-white">17 Cảnh Giới Tu Tiên Tiên Tôn</h4>
+              </div>
+              <span className="text-xs text-slate-400 font-mono">Bản đồ tu vi</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {(cultivationData?.all_realms || []).map((realm) => {
+                const currentLevel = cultivationData?.level || user.cultivation_level || 1;
+                const isCurrent = realm.level === currentLevel;
+                const isPassed = realm.level < currentLevel;
+
+                return (
+                  <div
+                    key={realm.level}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      isCurrent
+                        ? 'border-amber-400 bg-amber-500/10 shadow-lg shadow-amber-500/10'
+                        : isPassed
+                        ? 'border-emerald-500/20 bg-slate-900/40 opacity-75'
+                        : 'border-white/5 bg-slate-900/20 opacity-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className="flex h-7 w-7 items-center justify-center rounded-lg text-xs font-black"
+                          style={{
+                            backgroundColor: `${realm.color}20`,
+                            color: realm.color,
+                            border: `1px solid ${realm.color}40`,
+                          }}
+                        >
+                          {realm.level}
+                        </span>
+                        <div>
+                          <h5 className="text-sm font-bold text-white">{realm.name}</h5>
+                          <p className="text-[11px] text-slate-400">{realm.description}</p>
+                        </div>
+                      </div>
+
+                      <span
+                        className="text-[10px] font-bold px-2 py-0.5 rounded uppercase font-mono tracking-wider"
+                        style={{
+                          backgroundColor: isCurrent ? '#f59e0b25' : isPassed ? '#10b98120' : '#64748b20',
+                          color: isCurrent ? '#fbbf24' : isPassed ? '#34d399' : '#94a3b8',
+                        }}
+                      >
+                        {isCurrent ? 'Đang Tu' : isPassed ? 'Đã Vượt' : `${realm.min_exp} EXP`}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
     </div>

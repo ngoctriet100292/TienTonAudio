@@ -259,6 +259,8 @@ type User struct {
 	IsEmailVerified  bool               `json:"is_email_verified"`
 	TwoFactorEnabled bool               `json:"two_factor_enabled"`
 	TwoFactorSecret  *string            `json:"two_factor_secret"`
+	CultivationExp   *int64             `json:"cultivation_exp"`
+	CultivationRealm *string            `json:"cultivation_realm"`
 	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`

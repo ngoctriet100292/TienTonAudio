@@ -282,6 +282,50 @@ func (m *mockUserRepo) RevokeAllUserRefreshTokens(ctx context.Context, userID uu
 	return nil
 }
 
+func (m *mockUserRepo) AddUserCultivationExp(ctx context.Context, arg db.AddUserCultivationExpParams) (db.AddUserCultivationExpRow, error) {
+	u, ok := m.users[arg.ID]
+	if !ok {
+		return db.AddUserCultivationExpRow{}, errors.New("user not found")
+	}
+	newExp := int64(0)
+	if u.CultivationExp != nil {
+		newExp = *u.CultivationExp
+	}
+	if arg.CultivationExp != nil {
+		newExp += *arg.CultivationExp
+	}
+	u.CultivationExp = &newExp
+	u.CultivationRealm = arg.CultivationRealm
+	m.users[arg.ID] = u
+
+	return db.AddUserCultivationExpRow{
+		ID:               u.ID,
+		Username:         u.Username,
+		Email:            u.Email,
+		AvatarUrl:        u.AvatarUrl,
+		Role:             u.Role,
+		IsEmailVerified:  u.IsEmailVerified,
+		TwoFactorEnabled: u.TwoFactorEnabled,
+		CultivationExp:   u.CultivationExp,
+		CultivationRealm: u.CultivationRealm,
+		CreatedAt:        u.CreatedAt,
+		UpdatedAt:        u.UpdatedAt,
+	}, nil
+}
+
+func (m *mockUserRepo) GetUserCultivation(ctx context.Context, id uuid.UUID) (db.GetUserCultivationRow, error) {
+	u, ok := m.users[id]
+	if !ok {
+		return db.GetUserCultivationRow{}, errors.New("user not found")
+	}
+	return db.GetUserCultivationRow{
+		ID:               u.ID,
+		Username:         u.Username,
+		CultivationExp:   u.CultivationExp,
+		CultivationRealm: u.CultivationRealm,
+	}, nil
+}
+
 type mockEmailService struct {
 	sentVerificationTokens map[string]string // email -> token
 	sentResetTokens        map[string]string // email -> token
@@ -589,5 +633,73 @@ func TestAuthService_RefreshTokenAndLogout(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("refreshing with logged-out token should fail")
+	}
+}
+
+func TestCultivationRealmsAndProgression(t *testing.T) {
+	// 1. Kiểm tra đủ 17 cảnh giới
+	expectedRealms := []string{
+		"Luyện Khí", "Trúc Cơ", "Nguyên Anh", "Hoá Thần", "Luyện Hư",
+		"Hợp Đạo", "Đại Thừa", "Nhân Tiên", "Địa Tiên", "Thiên Tiên",
+		"Kim Tiên", "Thái Ất Kim Tiên", "Đại La Kim Tiên", "Tiên Quân",
+		"Tiên Vương", "Tiên Tôn", "Tiên Đế",
+	}
+
+	if len(domain.CultivationRealms) != 17 {
+		t.Fatalf("expected 17 realms, got %d", len(domain.CultivationRealms))
+	}
+
+	for i, name := range expectedRealms {
+		if domain.CultivationRealms[i].Name != name {
+			t.Errorf("expected realm %d to be %s, got %s", i+1, name, domain.CultivationRealms[i].Name)
+		}
+	}
+
+	// 2. Test tính toán thăng cấp cảnh giới
+	r1, lvl1, _, _, _, _ := domain.CalculateCultivationRealm(0)
+	if r1 != "Luyện Khí" || lvl1 != 1 {
+		t.Errorf("expected Luyện Khí (1), got %s (%d)", r1, lvl1)
+	}
+
+	r2, lvl2, _, _, _, _ := domain.CalculateCultivationRealm(100)
+	if r2 != "Trúc Cơ" || lvl2 != 2 {
+		t.Errorf("expected Trúc Cơ (2), got %s (%d)", r2, lvl2)
+	}
+
+	r3, lvl3, _, _, _, _ := domain.CalculateCultivationRealm(350)
+	if r3 != "Nguyên Anh" || lvl3 != 3 {
+		t.Errorf("expected Nguyên Anh (3), got %s (%d)", r3, lvl3)
+	}
+
+	rEnd, lvlEnd, _, _, _, _ := domain.CalculateCultivationRealm(3000000)
+	if rEnd != "Tiên Đế" || lvlEnd != 17 {
+		t.Errorf("expected Tiên Đế (17), got %s (%d)", rEnd, lvlEnd)
+	}
+
+	// 3. Test Service GetCultivation
+	userRepo := newMockUserRepo()
+	jwtSvc := auth.NewJWTService("secret-for-testing-purposes-only-123456", "issuer")
+	emailSvc := newMockEmailService()
+	svc := NewAuthService(userRepo, jwtSvc, emailSvc)
+	ctx := context.Background()
+
+	regUser, err := svc.Register(ctx, domain.RegisterReq{
+		Username: "daohuutuvi",
+		Email:    "tuvi@tientonaudio.com",
+		Password: "password123",
+	})
+	if err != nil {
+		t.Fatalf("register failed: %v", err)
+	}
+
+	cult, err := svc.GetCultivation(ctx, regUser.ID)
+	if err != nil {
+		t.Fatalf("GetCultivation failed: %v", err)
+	}
+	if cult.CurrentRealm != "Luyện Khí" {
+		t.Errorf("expected initial realm Luyện Khí, got %s", cult.CurrentRealm)
+	}
+	if len(cult.AllRealms) != 17 {
+		t.Errorf("expected all 17 realms returned in resp")
 	}
 }

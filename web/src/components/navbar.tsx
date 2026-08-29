@@ -16,6 +16,7 @@ import {
   Settings,
   ShieldCheck,
   ShieldAlert,
+  Flame,
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 
@@ -148,7 +149,40 @@ export function Navbar() {
                       </div>
                     </div>
 
-                    <div className="mt-3 flex items-center justify-between text-[11px] bg-slate-800/80 rounded-xl px-3 py-1.5 border border-white/5">
+                    {/* Cảnh Giới Tu Tiên */}
+                    <div className="mt-3 bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-transparent p-2.5 rounded-xl border border-amber-500/20">
+                      <div className="flex items-center justify-between text-[11px] mb-1">
+                        <span className="text-slate-400 flex items-center gap-1">
+                          <Flame className="w-3.5 h-3.5 text-amber-400" />
+                          Cảnh Giới:
+                        </span>
+                        <span
+                          className="font-black px-2 py-0.5 rounded-md text-[10px] tracking-wider uppercase shadow-sm"
+                          style={{
+                            backgroundColor: `${user.cultivation_color || '#38BDF8'}20`,
+                            color: user.cultivation_color || '#38BDF8',
+                            borderColor: `${user.cultivation_color || '#38BDF8'}40`,
+                            borderWidth: 1,
+                          }}
+                        >
+                          {user.cultivation_realm || 'Luyện Khí'} Cảnh
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mb-1">
+                        <span>Tu Vi: {user.cultivation_exp || 0} điểm</span>
+                        <span>Cấp {user.cultivation_level || 1}/17</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-[#ffd166] to-[#ffb703] rounded-full transition-all duration-500"
+                          style={{
+                            width: `${Math.min(100, Math.max(12, ((user.cultivation_exp || 0) % 300) / 3))}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-2.5 flex items-center justify-between text-[11px] bg-slate-800/80 rounded-xl px-3 py-1.5 border border-white/5">
                       <span className="text-slate-400">Bảo mật 2FA:</span>
                       <span className={`font-bold flex items-center gap-1 ${user.two_factor_enabled ? 'text-emerald-400' : 'text-amber-400'}`}>
                         {user.two_factor_enabled ? (

@@ -20,10 +20,15 @@ CREATE TABLE IF NOT EXISTS users (
     is_email_verified BOOLEAN DEFAULT FALSE NOT NULL,
     two_factor_enabled BOOLEAN DEFAULT FALSE NOT NULL,
     two_factor_secret VARCHAR(255),
+    cultivation_exp BIGINT DEFAULT 0,
+    cultivation_realm VARCHAR(50) DEFAULT 'Luyện Khí',
     deleted_at TIMESTAMPTZ,               -- Soft delete: giữ lại review/lịch sử khi user "xóa" tài khoản
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS cultivation_exp BIGINT DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS cultivation_realm VARCHAR(50) DEFAULT 'Luyện Khí';
 
 CREATE INDEX IF NOT EXISTS idx_users_not_deleted ON users(id) WHERE deleted_at IS NULL;
 

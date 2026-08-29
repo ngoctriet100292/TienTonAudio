@@ -133,7 +133,7 @@ func main() {
 		reportSvc = service.NewReportService(reportRepo)
 	}
 	if storyRepo != nil {
-		storySvc = service.NewStoryService(storyRepo)
+		storySvc = service.NewStoryService(storyRepo, userRepo, paymentRepo)
 		commentSvc = service.NewCommentService(storyRepo, notificationRepo)
 		aiSvc = service.NewAIService(aiClient, storyRepo)
 	}
@@ -141,7 +141,7 @@ func main() {
 		chapterSvc = service.NewChapterService(chapterRepo, paymentRepo, streamSigner)
 	}
 	if paymentRepo != nil {
-		paymentSvc = service.NewPaymentService(paymentRepo)
+		paymentSvc = service.NewPaymentService(paymentRepo, userRepo)
 	}
 	if adminRepo != nil {
 		adminSvc = service.NewAdminService(adminRepo)

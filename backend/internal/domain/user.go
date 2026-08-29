@@ -25,6 +25,10 @@ type UserResp struct {
 	Role             string    `json:"role"`
 	IsEmailVerified  bool      `json:"is_email_verified"`
 	TwoFactorEnabled bool      `json:"two_factor_enabled"`
+	CultivationRealm string    `json:"cultivation_realm"`
+	CultivationExp   int64     `json:"cultivation_exp"`
+	CultivationLevel int       `json:"cultivation_level"`
+	CultivationColor string    `json:"cultivation_color"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
 }

@@ -76,3 +76,25 @@ func (h *UserHandler) UpdatePassword(w http.ResponseWriter, r *http.Request) {
 
 	utils.JSONWithMessage(w, http.StatusOK, "Password updated successfully", nil)
 }
+
+// GetCultivation trả về thông tin cảnh giới tu tiên của người dùng hiện tại
+func (h *UserHandler) GetCultivation(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.GetClaimsFromContext(r.Context())
+	if !ok {
+		utils.ErrorResponse(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	cult, err := h.authService.GetCultivation(r.Context(), claims.UserID)
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	utils.JSON(w, http.StatusOK, cult)
+}
+
+// GetAllCultivationRealms trả về 17 cảnh giới tu tiên chính thống
+func (h *UserHandler) GetAllCultivationRealms(w http.ResponseWriter, r *http.Request) {
+	utils.JSON(w, http.StatusOK, domain.CultivationRealms)
+}

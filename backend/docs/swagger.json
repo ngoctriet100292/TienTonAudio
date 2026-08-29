@@ -324,6 +324,25 @@
         }
       }
     },
+    "/cultivation/realms": {
+      "get": {
+        "tags": ["Cultivation"],
+        "summary": "Lấy danh sách 17 Cảnh Giới Tu Tiên chính thống (Luyện Khí -> Tiên Đế)",
+        "responses": {
+          "200": { "description": "Danh sách 17 cảnh giới, mức exp tối thiểu/tối đa, mô tả và màu sắc" }
+        }
+      }
+    },
+    "/users/cultivation": {
+      "get": {
+        "tags": ["Cultivation"],
+        "summary": "Lấy thông tin cảnh giới tu vi, điểm exp, % đột phá và hệ số tu luyện của Đạo Hữu",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Thông tin chi tiết cảnh giới tu tiên của người dùng hiện tại" }
+        }
+      }
+    },
     "/users/password": {
       "put": {
         "tags": ["Users"],

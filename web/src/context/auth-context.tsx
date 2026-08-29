@@ -1,15 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-
-interface User {
-  id: string;
-  username: string;
-  email: string;
-  role: string;
-  avatar_url?: string;
-  two_factor_enabled: boolean;
-}
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { User } from '@/types';
+import { api } from '@/lib/api';
 
 interface AuthContextType {
   user: User | null;
@@ -17,6 +10,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (token: string, refreshToken: string, user: User) => void;
   logout: () => void;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,18 +19,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const refreshProfile = useCallback(async () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+    try {
+      const me = await api.getMe();
+      if (me) {
+        setUser(me);
+        localStorage.setItem('user_profile', JSON.stringify(me));
+      }
+    } catch {
+      // Ignored
+    }
+  }, []);
+
   useEffect(() => {
     const storedUser = localStorage.getItem('user_profile');
     const token = localStorage.getItem('access_token');
     if (storedUser && token) {
       try {
         setUser(JSON.parse(storedUser));
+        // Làm mới dữ liệu ngầm để lấy Tu Vi mới nhất
+        refreshProfile();
       } catch {
         localStorage.removeItem('user_profile');
       }
     }
     setIsLoading(false);
-  }, []);
+  }, [refreshProfile]);
 
   const login = (token: string, refreshToken: string, userData: User) => {
     localStorage.setItem('access_token', token);
@@ -60,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         login,
         logout,
+        refreshProfile,
       }}
     >
       {children}
