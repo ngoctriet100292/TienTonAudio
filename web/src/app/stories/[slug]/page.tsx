@@ -211,15 +211,42 @@ export default async function StoryDetailPage({ params }: Props) {
           <p className="text-sm text-slate-300 leading-relaxed max-w-3xl">
             {story.description}
           </p>
+
+          {/* Cụm nút tác vụ chính: Đọc truyện chữ & Nghe Audio */}
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            {chapters.length > 0 && (
+              <Link
+                href={`/stories/${story.slug}/chapters/${chapters[0].id}`}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#ffd166] to-[#ffb703] text-black font-black text-sm shadow-lg shadow-amber-500/25 hover:scale-105 active:scale-95 transition-all"
+              >
+                <BookOpen className="w-4.5 h-4.5" />
+                ĐỌC TRUYỆN CHỮ (TẬP 1)
+              </Link>
+            )}
+            {chapters.length > 0 && (
+              <Link
+                href={`/stories/${story.slug}/chapters/${chapters[0].id}`}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 font-bold text-sm transition-colors"
+              >
+                <Headphones className="w-4.5 h-4.5" />
+                Nghe Audio Tập 1
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Danh sách chương có khả năng bấm phát trực tiếp */}
+      {/* Danh sách chương: Đọc chữ hoặc nghe Audio */}
       <div className="space-y-4 pt-6 border-t border-white/10">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          <BookOpen className="w-5 h-5 text-amber-400" />
-          Danh Sách Tập Audio ({chapters.length})
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-amber-400" />
+            Danh Sách Chương ({chapters.length})
+          </h2>
+          <span className="text-xs text-slate-400">
+            Nhấp vào tên chương để đọc chữ • Bấm nút nghe để phát audio
+          </span>
+        </div>
 
         <ChapterListClient story={story} chapters={chapters} />
       </div>

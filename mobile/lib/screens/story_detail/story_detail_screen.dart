@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -8,6 +7,7 @@ import '../../data/models/story_model.dart';
 import '../../data/services/audio_player_service.dart';
 import '../../providers/story_provider.dart';
 import '../player/full_player_screen.dart';
+import '../reader/chapter_reader_screen.dart';
 
 class StoryDetailScreen extends StatefulWidget {
   final Story story;
@@ -257,42 +257,87 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
 
                   const SizedBox(height: 20),
 
-                  // Nút phát lớn Hoàng Kim
+                  // Cụm nút tác vụ: Đọc truyện chữ & Nghe Audio
                   if (_chapters.isNotEmpty)
-                    Container(
-                      width: double.infinity,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        gradient: AppTheme.goldGradient,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.primary.withValues(alpha: 0.4),
-                            blurRadius: 20,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            height: 48,
+                            decoration: BoxDecoration(
+                              gradient: AppTheme.goldGradient,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.primary.withValues(alpha: 0.35),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              icon: const Icon(Icons.menu_book_rounded, color: Colors.black, size: 20),
+                              label: const Text(
+                                'ĐỌC TRUYỆN',
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ChapterReaderScreen(
+                                      story: _story,
+                                      chapter: _chapters.first,
+                                      allChapters: _chapters,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
                           ),
                         ),
-                        icon: const Icon(Icons.play_arrow_rounded, color: Colors.black, size: 28),
-                        label: const Text(
-                          'PHÁT TẬP ĐẦU TIÊN',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 15,
-                            letterSpacing: 0.5,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Container(
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: AppTheme.surfaceLight,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: AppTheme.primary.withValues(alpha: 0.5)),
+                            ),
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              icon: const Icon(Icons.play_arrow_rounded, color: AppTheme.primary, size: 22),
+                              label: const Text(
+                                'NGHE AUDIO',
+                                style: TextStyle(
+                                  color: AppTheme.primary,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              onPressed: () => _playChapter(context, audioService, _chapters.first),
+                            ),
                           ),
                         ),
-                        onPressed: () => _playChapter(context, audioService, _chapters.first),
-                      ),
+                      ],
                     ),
 
                   const SizedBox(height: 24),
@@ -381,14 +426,14 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                           height: 38,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            gradient: isCurrentPlaying ? AppTheme.goldGradient : null,
-                            color: isCurrentPlaying ? null : AppTheme.surfaceLight,
+                            color: AppTheme.surfaceLight,
+                            border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
                           ),
-                          child: Center(
+                          child: const Center(
                             child: Icon(
-                              isCurrentPlaying ? Icons.volume_up_rounded : Icons.play_arrow_rounded,
-                              size: 20,
-                              color: isCurrentPlaying ? Colors.black : Colors.white,
+                              Icons.menu_book_rounded,
+                              size: 18,
+                              color: AppTheme.primary,
                             ),
                           ),
                         ),
@@ -404,39 +449,54 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                         ),
                         subtitle: Row(
                           children: [
-                            const Icon(Icons.access_time_rounded, size: 12, color: AppTheme.textMuted),
-                            const SizedBox(width: 4),
                             Text(
-                              _formatDuration(chapter.durationSeconds),
+                              'Chương ${chapter.chapterNumber.toInt()}',
                               style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
                             ),
+                            const SizedBox(width: 6),
+                            const Text('•', style: TextStyle(color: Colors.white24)),
+                            const SizedBox(width: 6),
+                            if (chapter.durationSeconds > 0) ...[
+                              const Icon(Icons.access_time_rounded, size: 12, color: AppTheme.textMuted),
+                              const SizedBox(width: 3),
+                              Text(
+                                _formatDuration(chapter.durationSeconds),
+                                style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                              ),
+                            ] else
+                              const Text(
+                                'Bản chữ',
+                                style: TextStyle(fontSize: 12, color: AppTheme.secondary, fontWeight: FontWeight.bold),
+                              ),
                           ],
                         ),
-                        trailing: chapter.isPremium
-                            ? Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  gradient: AppTheme.goldGradient,
-                                  borderRadius: BorderRadius.circular(8),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (chapter.durationSeconds > 0)
+                              IconButton(
+                                icon: Icon(
+                                  isCurrentPlaying ? Icons.volume_up_rounded : Icons.play_circle_fill_rounded,
+                                  color: isCurrentPlaying ? AppTheme.primary : Colors.white70,
+                                  size: 26,
                                 ),
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.lock_rounded, size: 11, color: Colors.black),
-                                    SizedBox(width: 3),
-                                    Text(
-                                      'VIP',
-                                      style: TextStyle(
-                                        color: Colors.black,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : null,
-                        onTap: () => _playChapter(context, audioService, chapter),
+                                onPressed: () => _playChapter(context, audioService, chapter),
+                              ),
+                            const Icon(Icons.chevron_right_rounded, color: Colors.white38, size: 20),
+                          ],
+                        ),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ChapterReaderScreen(
+                                story: _story,
+                                chapter: chapter,
+                                allChapters: _chapters,
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     );
                   },

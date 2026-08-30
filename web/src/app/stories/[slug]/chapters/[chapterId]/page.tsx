@@ -1,9 +1,9 @@
 import React from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { ArrowLeft, ArrowRight, BookOpen, Headphones, Share2, MessageSquare, Star } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { api } from '@/lib/api';
+import { Chapter } from '@/types';
 import ChapterReaderClient from './chapter-reader-client';
 
 interface Props {
@@ -22,11 +22,15 @@ export default async function ChapterPage({ params }: Props) {
   const { slug, chapterId } = await params;
 
   let story = await api.getStoryBySlug(slug);
+  let chapters: Chapter[] = [];
+  if (story) {
+    chapters = await api.getStoryChapters(story.id, 1, 1000);
+  }
+
   let chapter = await api.getChapter(chapterId);
 
   // Nếu không tìm thấy theo ID, có thể chapterId là số thứ tự chương (VD: /chapters/1)
-  if (story && !chapter) {
-    const chapters = await api.getStoryChapters(story.id, 1, 1000);
+  if (story && !chapter && chapters.length > 0) {
     const found = chapters.find(
       (c) => c.id === chapterId || c.chapter_number.toString() === chapterId
     );
@@ -57,6 +61,7 @@ export default async function ChapterPage({ params }: Props) {
       story_id: story.id,
       chapter_number: 1,
       title: `Chương ${chapterId}`,
+      content: `Nội dung chương đang được cập nhật...`,
       content_text: `Nội dung chương đang được cập nhật...`,
       is_premium: false,
       duration_seconds: 0,
@@ -65,23 +70,22 @@ export default async function ChapterPage({ params }: Props) {
       created_at: new Date().toISOString(),
     };
   } else {
-    // Đảm bảo content_text có dữ liệu
     chapter.content_text = chapter.content || chapter.content_text || '';
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pt-6 space-y-8">
+    <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pt-6 space-y-8 pb-16">
       {/* Breadcrumb Navigation */}
       <div className="flex items-center justify-between text-xs text-slate-400 border-b border-white/10 pb-4">
         <Link href={`/stories/${slug}`} className="hover:text-amber-400 flex items-center gap-1.5 font-semibold">
           <ArrowLeft className="w-3.5 h-3.5" />
           {story.title}
         </Link>
-        <span className="font-mono text-amber-400">{chapter.title}</span>
+        <span className="font-mono text-amber-400 font-bold">{chapter.title}</span>
       </div>
 
       {/* Reader Client with Theme Customizer & Audio Connect */}
-      <ChapterReaderClient story={story} chapter={chapter} />
+      <ChapterReaderClient story={story} chapter={chapter} chapters={chapters} />
     </div>
   );
 }
