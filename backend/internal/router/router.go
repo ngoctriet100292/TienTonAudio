@@ -235,6 +235,7 @@ func NewRouter(opts RouterOptions) http.Handler {
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.AuthMiddleware(opts.JWTService))
 				r.Post("/", opts.ChapterHandler.CreateChapter)
+				r.Post("/bulk", opts.ChapterHandler.BulkCreateChapters)
 				r.Post("/{id}/audio", opts.ChapterHandler.AddAudioFile)
 				r.Post("/{id}/comments", opts.CommentHandler.CreateComment)
 				r.Post("/progress", opts.StoryHandler.SaveListeningProgress)

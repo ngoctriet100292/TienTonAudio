@@ -71,6 +71,22 @@ func (h *ChapterHandler) CreateChapter(w http.ResponseWriter, r *http.Request) {
 	utils.JSONWithMessage(w, http.StatusCreated, "Chapter created successfully", chapter)
 }
 
+func (h *ChapterHandler) BulkCreateChapters(w http.ResponseWriter, r *http.Request) {
+	var req domain.BulkCreateChaptersReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.ErrorResponse(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	resp, err := h.chapterService.BulkCreateChapters(r.Context(), req)
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	utils.JSONWithMessage(w, http.StatusCreated, "Chapters processed successfully", resp)
+}
+
 type AddAudioFileReq struct {
 	Quality       string `json:"quality" validate:"required"`
 	AudioURL      string `json:"audio_url" validate:"required"`

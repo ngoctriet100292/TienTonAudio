@@ -18,6 +18,7 @@ type ChapterService interface {
 	ListChaptersByStory(ctx context.Context, storyID uuid.UUID) ([]domain.ChapterResp, error)
 	GetChapterByID(ctx context.Context, id uuid.UUID) (*domain.ChapterResp, error)
 	CreateChapter(ctx context.Context, req domain.CreateChapterReq) (*domain.ChapterResp, error)
+	BulkCreateChapters(ctx context.Context, req domain.BulkCreateChaptersReq) (*domain.BulkCreateChaptersResp, error)
 	AddChapterAudioFile(ctx context.Context, chapterID uuid.UUID, quality string, audioURL string, fileSize *int64, isPrimary bool) (*domain.ChapterAudioFileResp, error)
 	GetSignedStreamURL(ctx context.Context, userID *uuid.UUID, chapterID uuid.UUID, quality string, speed *float64) (*domain.StreamURLResp, error)
 	GetPlaybackSpeeds() []domain.PlaybackSpeedInfo
@@ -138,6 +139,50 @@ func (s *chapterService) CreateChapter(ctx context.Context, req domain.CreateCha
 		ListenCount:     row.ListenCount,
 		CreatedAt:       row.CreatedAt.Time,
 		UpdatedAt:       row.UpdatedAt.Time,
+	}, nil
+}
+
+func (s *chapterService) BulkCreateChapters(ctx context.Context, req domain.BulkCreateChaptersReq) (*domain.BulkCreateChaptersResp, error) {
+	if len(req.Chapters) == 0 {
+		return nil, errors.New("no chapters provided")
+	}
+
+	successCount := 0
+	failedCount := 0
+
+	for _, c := range req.Chapters {
+		chapterNum := utils.Float64ToNumeric(c.ChapterNumber)
+		dur := int32(0)
+		if c.DurationSeconds != nil {
+			dur = *c.DurationSeconds
+		}
+
+		storyID := req.StoryID
+		if c.StoryID != uuid.Nil {
+			storyID = c.StoryID
+		}
+
+		_, err := s.repo.UpsertChapter(ctx, db.UpsertChapterParams{
+			StoryID:         storyID,
+			NarratorID:      c.NarratorID,
+			ChapterNumber:   chapterNum,
+			Title:           c.Title,
+			Content:         c.Content,
+			IsPremium:       c.IsPremium,
+			DurationSeconds: dur,
+			WaveformData:    c.WaveformData,
+		})
+		if err != nil {
+			failedCount++
+		} else {
+			successCount++
+		}
+	}
+
+	return &domain.BulkCreateChaptersResp{
+		TotalProcessed: len(req.Chapters),
+		SuccessCount:   successCount,
+		FailedCount:    failedCount,
 	}, nil
 }
 

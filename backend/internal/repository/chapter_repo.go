@@ -9,6 +9,7 @@ import (
 
 type ChapterRepository interface {
 	CreateChapter(ctx context.Context, arg db.CreateChapterParams) (db.Chapter, error)
+	UpsertChapter(ctx context.Context, arg db.UpsertChapterParams) (db.Chapter, error)
 	GetChapterByID(ctx context.Context, id uuid.UUID) (db.GetChapterByIDRow, error)
 	GetChapterByNumber(ctx context.Context, arg db.GetChapterByNumberParams) (db.GetChapterByNumberRow, error)
 	ListChaptersByStory(ctx context.Context, storyID uuid.UUID) ([]db.ListChaptersByStoryRow, error)
@@ -29,6 +30,10 @@ func NewChapterRepository(q db.Querier) ChapterRepository {
 
 func (r *chapterRepo) CreateChapter(ctx context.Context, arg db.CreateChapterParams) (db.Chapter, error) {
 	return r.q.CreateChapter(ctx, arg)
+}
+
+func (r *chapterRepo) UpsertChapter(ctx context.Context, arg db.UpsertChapterParams) (db.Chapter, error) {
+	return r.q.UpsertChapter(ctx, arg)
 }
 
 func (r *chapterRepo) GetChapterByID(ctx context.Context, id uuid.UUID) (db.GetChapterByIDRow, error) {

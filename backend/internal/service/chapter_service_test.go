@@ -77,6 +77,23 @@ func (m *mockChapterRepo) CreateChapter(ctx context.Context, arg db.CreateChapte
 	return ch, nil
 }
 
+func (m *mockChapterRepo) UpsertChapter(ctx context.Context, arg db.UpsertChapterParams) (db.Chapter, error) {
+	id := uuid.New()
+	ch := db.Chapter{
+		ID:              id,
+		StoryID:         arg.StoryID,
+		ChapterNumber:   arg.ChapterNumber,
+		Title:           arg.Title,
+		Content:         arg.Content,
+		DurationSeconds: arg.DurationSeconds,
+		IsPremium:       arg.IsPremium,
+		CreatedAt:       pgtype.Timestamptz{Time: time.Now(), Valid: true},
+		UpdatedAt:       pgtype.Timestamptz{Time: time.Now(), Valid: true},
+	}
+	m.chapters[id] = ch
+	return ch, nil
+}
+
 func (m *mockChapterRepo) AddChapterAudioFile(ctx context.Context, arg db.AddChapterAudioFileParams) (db.ChapterAudioFile, error) {
 	af := db.ChapterAudioFile{
 		ID:        uuid.New(),

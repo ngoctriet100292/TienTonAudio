@@ -13,6 +13,27 @@ INSERT INTO chapters (
 )
 RETURNING id, story_id, narrator_id, chapter_number, title, content, is_premium, duration_seconds, waveform_data, listen_count, created_at, updated_at;
 
+-- name: UpsertChapter :one
+INSERT INTO chapters (
+    story_id,
+    narrator_id,
+    chapter_number,
+    title,
+    content,
+    is_premium,
+    duration_seconds,
+    waveform_data
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8
+)
+ON CONFLICT (story_id, chapter_number) DO UPDATE
+SET 
+    title = EXCLUDED.title,
+    content = EXCLUDED.content,
+    is_premium = COALESCE(EXCLUDED.is_premium, chapters.is_premium),
+    updated_at = CURRENT_TIMESTAMP
+RETURNING id, story_id, narrator_id, chapter_number, title, content, is_premium, duration_seconds, waveform_data, listen_count, created_at, updated_at;
+
 -- name: GetChapterByID :one
 SELECT 
     c.id, c.story_id, c.narrator_id, c.chapter_number, c.title, c.content, c.is_premium,

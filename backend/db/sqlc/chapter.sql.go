@@ -370,3 +370,65 @@ func (q *Queries) UpdateChapter(ctx context.Context, arg UpdateChapterParams) (C
 	)
 	return i, err
 }
+
+const upsertChapter = `-- name: UpsertChapter :one
+INSERT INTO chapters (
+    story_id,
+    narrator_id,
+    chapter_number,
+    title,
+    content,
+    is_premium,
+    duration_seconds,
+    waveform_data
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8
+)
+ON CONFLICT (story_id, chapter_number) DO UPDATE
+SET 
+    title = EXCLUDED.title,
+    content = EXCLUDED.content,
+    is_premium = COALESCE(EXCLUDED.is_premium, chapters.is_premium),
+    updated_at = CURRENT_TIMESTAMP
+RETURNING id, story_id, narrator_id, chapter_number, title, content, is_premium, duration_seconds, waveform_data, listen_count, created_at, updated_at
+`
+
+type UpsertChapterParams struct {
+	StoryID         uuid.UUID       `json:"story_id"`
+	NarratorID      *int32          `json:"narrator_id"`
+	ChapterNumber   pgtype.Numeric  `json:"chapter_number"`
+	Title           string          `json:"title"`
+	Content         *string         `json:"content"`
+	IsPremium       *bool           `json:"is_premium"`
+	DurationSeconds int32           `json:"duration_seconds"`
+	WaveformData    json.RawMessage `json:"waveform_data"`
+}
+
+func (q *Queries) UpsertChapter(ctx context.Context, arg UpsertChapterParams) (Chapter, error) {
+	row := q.db.QueryRow(ctx, upsertChapter,
+		arg.StoryID,
+		arg.NarratorID,
+		arg.ChapterNumber,
+		arg.Title,
+		arg.Content,
+		arg.IsPremium,
+		arg.DurationSeconds,
+		arg.WaveformData,
+	)
+	var i Chapter
+	err := row.Scan(
+		&i.ID,
+		&i.StoryID,
+		&i.NarratorID,
+		&i.ChapterNumber,
+		&i.Title,
+		&i.Content,
+		&i.IsPremium,
+		&i.DurationSeconds,
+		&i.WaveformData,
+		&i.ListenCount,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}

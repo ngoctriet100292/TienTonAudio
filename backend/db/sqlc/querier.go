@@ -128,6 +128,7 @@ type Querier interface {
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (UpdateUserProfileRow, error)
 	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (UpdateUserRoleRow, error)
 	UpdateUserTwoFactor(ctx context.Context, arg UpdateUserTwoFactorParams) error
+	UpsertChapter(ctx context.Context, arg UpsertChapterParams) (Chapter, error)
 	UpsertListeningProgress(ctx context.Context, arg UpsertListeningProgressParams) error
 	UpsertReview(ctx context.Context, arg UpsertReviewParams) (Review, error)
 }

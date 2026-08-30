@@ -47,6 +47,17 @@ type CreateChapterReq struct {
 	WaveformData    json.RawMessage `json:"waveform_data,omitempty"`
 }
 
+type BulkCreateChaptersReq struct {
+	StoryID  uuid.UUID          `json:"story_id" validate:"required"`
+	Chapters []CreateChapterReq `json:"chapters" validate:"required,min=1"`
+}
+
+type BulkCreateChaptersResp struct {
+	TotalProcessed int `json:"total_processed"`
+	SuccessCount   int `json:"success_count"`
+	FailedCount    int `json:"failed_count"`
+}
+
 type ChapterResp struct {
 	ID              uuid.UUID              `json:"id"`
 	StoryID         uuid.UUID              `json:"story_id"`
