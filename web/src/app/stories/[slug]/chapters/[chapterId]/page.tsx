@@ -21,38 +21,53 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ChapterPage({ params }: Props) {
   const { slug, chapterId } = await params;
 
-  // Mock chapter content hoặc fetch từ Go API
-  const chapter = {
-    id: chapterId,
-    story_id: 'story-1',
-    chapter_number: 1,
-    title: `Chương 1: Sơn Thôn Thiếu Niên`,
-    content_text: `Nhị Lăng Tử nắm chặt góc áo thô sơ, đôi mắt to tròn nhìn chăm chú vào vách đá phía xa. Gió núi rít gào từng cơn qua khe đá, mang theo cái lạnh cắt da cắt thịt của mùa đông chốn thâm sơn cùng cốc.
+  let story = await api.getStoryBySlug(slug);
+  let chapter = await api.getChapter(chapterId);
 
-Hắn vốn chỉ là một thiếu niên bình thường ở một thôn làng hẻo lánh dưới chân núi Thất Huyền. Nhà nghèo nhiều miệng ăn, vì miếng cơm manh áo mà cha mẹ gửi gắm hắn vào Thất Huyền Môn thử vận may tham gia khảo hạch nhập môn.
+  // Nếu không tìm thấy theo ID, có thể chapterId là số thứ tự chương (VD: /chapters/1)
+  if (story && !chapter) {
+    const chapters = await api.getStoryChapters(story.id, 1, 1000);
+    const found = chapters.find(
+      (c) => c.id === chapterId || c.chapter_number.toString() === chapterId
+    );
+    if (found) {
+      chapter = (await api.getChapter(found.id)) || found;
+    }
+  }
 
-Nếu trúng tuyển thành ngoại môn đệ tử, mỗi tháng không những có bạc gửi về nhà, mà trong thôn làng cũng coi như có chỗ dựa oai phong.
+  // Fallback nếu offline hoặc dữ liệu mẫu
+  if (!story) {
+    story = {
+      id: 'story-1',
+      title: slug === 'pham-nhan-tu-tien' ? 'Phàm Nhân Tu Tiên' : slug,
+      slug: slug,
+      status: 'completed' as const,
+      view_count: 125000,
+      total_chapters: 1395,
+      rating_avg: 4.9,
+      rating_count: 1400,
+      favorite_count: 900,
+      categories: ['Tiên Hiệp'],
+    };
+  }
 
-Thế nhưng con đường tiên lộ nào có dễ dàng như thế...`,
-    is_premium: false,
-    duration_seconds: 1240,
-    listen_count: 8900,
-    narrator_name: 'MC Hải Triều',
-    created_at: '2026-01-01',
-  };
-
-  const story = {
-    id: 'story-1',
-    title: 'Phàm Nhân Tu Tiên',
-    slug: slug,
-    status: 'completed' as const,
-    view_count: 125000,
-    total_chapters: 1395,
-    rating_avg: 4.9,
-    rating_count: 1400,
-    favorite_count: 900,
-    categories: ['Tiên Hiệp'],
-  };
+  if (!chapter) {
+    chapter = {
+      id: chapterId,
+      story_id: story.id,
+      chapter_number: 1,
+      title: `Chương ${chapterId}`,
+      content_text: `Nội dung chương đang được cập nhật...`,
+      is_premium: false,
+      duration_seconds: 0,
+      listen_count: 0,
+      narrator_name: 'Hệ Thống',
+      created_at: new Date().toISOString(),
+    };
+  } else {
+    // Đảm bảo content_text có dữ liệu
+    chapter.content_text = chapter.content || chapter.content_text || '';
+  }
 
   return (
     <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pt-6 space-y-8">

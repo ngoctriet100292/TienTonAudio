@@ -3,8 +3,9 @@ import Link from 'next/link';
 import { Play, Star, Headphones, Sparkles, Flame, BookOpen, Crown, ChevronRight, MessageSquare } from 'lucide-react';
 import { Story } from '@/types';
 import { StoryStatusBadge } from '@/components/story-status-badge';
+import { api } from '@/lib/api';
 
-// Mock data hoặc server fetch từ Go backend
+// Mock data dự phòng khi backend chưa khởi động
 const MOCK_TOP_STORIES: Story[] = [
   {
     id: 'story-1',
@@ -73,7 +74,15 @@ const CATEGORIES = [
   { name: 'Đô Thị Tu Tiên', icon: '🏙️', count: 12 },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const [apiStories, topViewed] = await Promise.all([
+    api.getStories(1, 12),
+    api.getTopViewStories(12),
+  ]);
+
+  const stories = topViewed.length > 0 ? topViewed : (apiStories.length > 0 ? apiStories : MOCK_TOP_STORIES);
+  const heroStory = stories[0] || MOCK_TOP_STORIES[0];
+
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-16 pt-8">
       {/* 1. Hero Spotlight Banner */}
@@ -95,11 +104,11 @@ export default function HomePage() {
 
           <div className="flex flex-wrap items-center gap-4 pt-2">
             <Link
-              href="/stories/pham-nhan-tu-tien"
+              href={`/stories/${heroStory.slug}`}
               className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#ffd166] to-[#ffb703] px-6 py-3 text-sm font-black text-black shadow-lg shadow-amber-500/30 hover:scale-105 active:scale-95 transition-all"
             >
               <Play className="h-4 w-4 fill-current" />
-              Nghe Tác Phẩm Nổi Bật
+              Nghe: {heroStory.title.length > 25 ? heroStory.title.slice(0, 25) + '...' : heroStory.title}
             </Link>
             <Link
               href="/categories"
@@ -160,7 +169,7 @@ export default function HomePage() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-          {MOCK_TOP_STORIES.map((story, index) => {
+          {stories.map((story, index) => {
             const rankBadges = [
               'bg-gradient-to-r from-amber-300 to-amber-500 text-black', // #1
               'bg-gradient-to-r from-slate-200 to-slate-400 text-black', // #2

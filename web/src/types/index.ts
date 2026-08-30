@@ -16,7 +16,7 @@ export interface Story {
   rating_count: number;
   favorite_count: number;
   is_favorite?: boolean;
-  categories: string[];
+  categories: any[];
 }
 
 export interface Chapter {
@@ -24,6 +24,7 @@ export interface Chapter {
   story_id: string;
   chapter_number: number;
   title: string;
+  content?: string;
   content_text?: string;
   is_premium: boolean;
   duration_seconds: number;

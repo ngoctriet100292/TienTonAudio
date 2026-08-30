@@ -51,13 +51,13 @@ def read_chapter_file(file_path, chapter_num):
     if not lines:
         return None, None
 
+    int_num = int(chapter_num) if chapter_num.is_integer() else chapter_num
     first_line = lines[0]
-    # Nếu dòng đầu tiên có chữ "Chương" hoặc "Hồi" hoặc ngắn (< 80 ký tự), dùng làm tiêu đề
-    if re.search(r'^(chương|chuong|hồi|hoi|tập|tap)\s*\d+', first_line, re.IGNORECASE) or len(first_line) < 60:
+    # Chỉ khi dòng đầu tiên bắt đầu bằng "Chương ...", "Hồi ...", "Tập ..."
+    if re.match(r'^(chương|chuong|hồi|hoi|tập|tap|tiết|tiet)\s*\d+', first_line, re.IGNORECASE):
         title = first_line
         content = "\n\n".join(lines[1:]) if len(lines) > 1 else raw_text
     else:
-        int_num = int(chapter_num) if chapter_num.is_integer() else chapter_num
         title = f"Chương {int_num}"
         content = raw_text
 

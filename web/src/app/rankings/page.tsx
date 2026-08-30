@@ -129,11 +129,14 @@ export default async function RankingsPage() {
                   <StoryStatusBadge status={story.status} size="sm" />
                 </div>
                 <div className="flex flex-wrap gap-1.5 mt-2">
-                  {story.categories.map((c) => (
-                    <span key={c} className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300">
-                      {c}
-                    </span>
-                  ))}
+                  {(story.categories || []).map((c: any, i: number) => {
+                    const name = typeof c === 'string' ? c : c?.name || '';
+                    return (
+                      <span key={i} className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+                        {name}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
             </div>

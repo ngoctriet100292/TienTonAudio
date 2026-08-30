@@ -5,6 +5,8 @@ bin/
 *.out
 build/
 **/build/
+truyen_dich/
+data/
 
 # Environment files (contains credentials and secrets!)
 *.env

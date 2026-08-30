@@ -6,66 +6,94 @@ import { Star, Headphones, BookOpen, Crown, Share2, Heart, Play } from 'lucide-r
 import { Story, Chapter } from '@/types';
 import ChapterListClient from './chapter-list-client';
 import { StoryStatusBadge } from '@/components/story-status-badge';
+import { api } from '@/lib/api';
 
 interface Props {
   params: Promise<{ slug: string }>;
 }
 
-// Giả lập dữ liệu truyện (Khi chạy thật sẽ fetch từ Golang API backend)
+const MOCK_STORY: Story = {
+  id: 'story-pham-nhan',
+  title: 'Phàm Nhân Tu Tiên Chi Tiên Giới Thiên',
+  slug: 'pham-nhan-tu-tien',
+  author_name: 'Vong Ngữ',
+  description: 'Hàn Lập sau khi phi thăng Tiên Giới bị mất đi ký ức và tu vi, lưu lạc đến Linh Hoàn Giới. Từ một phàm nhân bắt đầu lại con đường tu tiên đầy chông gai, nghịch thiên cải mệnh, vén màn bí mật của Tiên Giới...',
+  cover_image_url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80',
+  status: 'completed',
+  view_count: 125400,
+  total_chapters: 1395,
+  rating_avg: 4.9,
+  rating_count: 1420,
+  favorite_count: 980,
+  categories: ['Tiên Hiệp', 'Tu Chân', 'Cổ Điển'],
+};
+
+const MOCK_CHAPTERS: Chapter[] = [
+  {
+    id: 'ch-1',
+    story_id: 'story-pham-nhan',
+    chapter_number: 1,
+    title: 'Chương 1: Linh Hoàn Giới Tỉnh Lại',
+    is_premium: false,
+    duration_seconds: 1420,
+    listen_count: 15420,
+    narrator_name: 'MC Hải Triều',
+    created_at: '2026-01-01',
+  },
+  {
+    id: 'ch-2',
+    story_id: 'story-pham-nhan',
+    chapter_number: 2,
+    title: 'Chương 2: Khôi Phục Ký Ức',
+    is_premium: false,
+    duration_seconds: 1350,
+    listen_count: 12800,
+    narrator_name: 'MC Hải Triều',
+    created_at: '2026-01-02',
+  },
+];
+
 async function getStory(slug: string): Promise<{ story: Story; chapters: Chapter[] } | null> {
-  const story: Story = {
-    id: 'story-pham-nhan',
-    title: 'Phàm Nhân Tu Tiên Chi Tiên Giới Thiên',
-    slug: slug,
-    author_name: 'Vong Ngữ',
-    description: 'Hàn Lập sau khi phi thăng Tiên Giới bị mất đi ký ức và tu vi, lưu lạc đến Linh Hoàn Giới. Từ một phàm nhân bắt đầu lại con đường tu tiên đầy chông gai, nghịch thiên cải mệnh, vén màn bí mật của Tiên Giới...',
-    cover_image_url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80',
-    status: 'completed',
-    view_count: 125400,
-    total_chapters: 1395,
-    rating_avg: 4.9,
-    rating_count: 1420,
-    favorite_count: 980,
-    categories: ['Tiên Hiệp', 'Tu Chân', 'Cổ Điển'],
-  };
+  try {
+    const story = await api.getStoryBySlug(slug);
+    if (story) {
+      const rawChapters = await api.getStoryChapters(story.id, 1, 1000);
+      const chapters: Chapter[] = rawChapters.map((c: any) => ({
+        id: c.id,
+        story_id: c.story_id || story.id,
+        chapter_number: c.chapter_number,
+        title: c.title,
+        content: c.content,
+        content_text: c.content || c.content_text,
+        is_premium: c.is_premium || false,
+        duration_seconds: c.duration_seconds || 0,
+        listen_count: c.listen_count || 0,
+        narrator_name: c.narrator_name || 'Hệ Thống',
+        created_at: c.created_at || new Date().toISOString(),
+      }));
 
-  const chapters: Chapter[] = [
-    {
-      id: 'ch-1',
-      story_id: story.id,
-      chapter_number: 1,
-      title: 'Chương 1: Linh Hoàn Giới Tỉnh Lại',
-      is_premium: false,
-      duration_seconds: 1420,
-      listen_count: 15420,
-      narrator_name: 'MC Hải Triều',
-      created_at: '2026-01-01',
-    },
-    {
-      id: 'ch-2',
-      story_id: story.id,
-      chapter_number: 2,
-      title: 'Chương 2: Khôi Phục Ký Ức',
-      is_premium: false,
-      duration_seconds: 1350,
-      listen_count: 12800,
-      narrator_name: 'MC Hải Triều',
-      created_at: '2026-01-02',
-    },
-    {
-      id: 'ch-3',
-      story_id: story.id,
-      chapter_number: 3,
-      title: 'Chương 3: Tiên Phủ Thần Bí',
-      is_premium: true,
-      duration_seconds: 1580,
-      listen_count: 9600,
-      narrator_name: 'MC Hải Triều',
-      created_at: '2026-01-03',
-    },
-  ];
+      // Chuẩn hóa categories dạng string[]
+      const normalizedCats: string[] = (story.categories || []).map((cat: any) =>
+        typeof cat === 'string' ? cat : (cat?.name || '')
+      ).filter(Boolean);
 
-  return { story, chapters };
+      story.categories = normalizedCats.length > 0 ? normalizedCats : ['Tiên Hiệp'];
+      if (!story.cover_image_url) {
+        story.cover_image_url = 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80';
+      }
+
+      return { story, chapters };
+    }
+  } catch (err) {
+    console.error('Error fetching story from API:', err);
+  }
+
+  // Fallback dự phòng
+  if (slug === 'pham-nhan-tu-tien' || slug === 'story-pham-nhan') {
+    return { story: MOCK_STORY, chapters: MOCK_CHAPTERS };
+  }
+
+  return null;
 }
 
 // 1. Dynamic SEO Metadata cho từng bộ truyện trên Google
@@ -85,8 +113,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       story.title,
       `${story.title} audio`,
       `nghe audio ${story.title}`,
-      `tác giả ${story.author_name}`,
-      ...story.categories,
+      `tác giả ${story.author_name || 'Đang cập nhật'}`,
+      ...((story.categories || []).map((c: any) => (typeof c === 'string' ? c : c?.name || '')).filter(Boolean)),
     ],
     openGraph: {
       title,
@@ -143,11 +171,14 @@ export default async function StoryDetailPage({ params }: Props) {
             {/* Trạng thái truyện: Hoàn thành, Tạm ngưng, Còn tiếp */}
             <StoryStatusBadge status={story.status} size="md" />
 
-            {story.categories.map((c) => (
-              <span key={c} className="text-xs px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30 font-semibold">
-                {c}
-              </span>
-            ))}
+            {(story.categories || []).map((c: any, i: number) => {
+              const name = typeof c === 'string' ? c : c?.name || '';
+              return (
+                <span key={i} className="text-xs px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30 font-semibold">
+                  {name}
+                </span>
+              );
+            })}
           </div>
 
           <h1 className="text-2xl sm:text-4xl font-black text-white leading-tight">

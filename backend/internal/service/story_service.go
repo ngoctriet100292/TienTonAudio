@@ -127,6 +127,9 @@ func (s *storyService) ListTopViewedStories(ctx context.Context, pagination util
 func (s *storyService) GetStoryBySlug(ctx context.Context, slug string) (*domain.StoryResp, error) {
 	row, err := s.repo.GetStoryBySlug(ctx, slug)
 	if err != nil {
+		if id, parseErr := uuid.Parse(slug); parseErr == nil {
+			return s.GetStoryByID(ctx, id)
+		}
 		return nil, fmt.Errorf("story not found: %w", err)
 	}
 

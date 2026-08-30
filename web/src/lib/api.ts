@@ -45,9 +45,11 @@ class ApiClient {
   async getStories(page = 1, limit = 20): Promise<Story[]> {
     try {
       const res = await this.request<any>(`/stories?page=${page}&limit=${limit}`, {
-        next: { revalidate: 60 },
+        next: { revalidate: 30 },
       });
-      return res.items || res;
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray(res.items)) return res.items;
+      return [];
     } catch {
       return [];
     }
@@ -56,9 +58,11 @@ class ApiClient {
   async getTopViewStories(limit = 10): Promise<Story[]> {
     try {
       const res = await this.request<any>(`/stories/top-views?limit=${limit}`, {
-        next: { revalidate: 300 },
+        next: { revalidate: 30 },
       });
-      return res.items || res;
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray(res.items)) return res.items;
+      return [];
     } catch {
       return [];
     }
@@ -67,19 +71,21 @@ class ApiClient {
   async getStoryBySlug(slug: string): Promise<Story | null> {
     try {
       return await this.request<Story>(`/stories/${slug}`, {
-        next: { revalidate: 60 },
+        next: { revalidate: 30 },
       });
     } catch {
       return null;
     }
   }
 
-  async getStoryChapters(storyId: string, page = 1, limit = 100): Promise<Chapter[]> {
+  async getStoryChapters(storyId: string, page = 1, limit = 1000): Promise<Chapter[]> {
     try {
       const res = await this.request<any>(`/stories/${storyId}/chapters?page=${page}&limit=${limit}`, {
-        next: { revalidate: 60 },
+        next: { revalidate: 30 },
       });
-      return res.items || res;
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray(res.items)) return res.items;
+      return [];
     } catch {
       return [];
     }
