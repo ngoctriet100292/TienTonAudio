@@ -43,6 +43,11 @@ type UserRepository interface {
 	// Cultivation (Tu Vi)
 	AddUserCultivationExp(ctx context.Context, arg db.AddUserCultivationExpParams) (db.AddUserCultivationExpRow, error)
 	GetUserCultivation(ctx context.Context, id uuid.UUID) (db.GetUserCultivationRow, error)
+
+	// OAuth Accounts (Google, Facebook, Apple)
+	CreateOAuthAccount(ctx context.Context, arg db.CreateOAuthAccountParams) (db.OauthAccount, error)
+	GetOAuthAccountByProvider(ctx context.Context, arg db.GetOAuthAccountByProviderParams) (db.OauthAccount, error)
+	GetOAuthAccountsByUserID(ctx context.Context, userID uuid.UUID) ([]db.OauthAccount, error)
 }
 
 type userRepo struct {
@@ -151,4 +156,16 @@ func (r *userRepo) AddUserCultivationExp(ctx context.Context, arg db.AddUserCult
 
 func (r *userRepo) GetUserCultivation(ctx context.Context, id uuid.UUID) (db.GetUserCultivationRow, error) {
 	return r.q.GetUserCultivation(ctx, id)
+}
+
+func (r *userRepo) CreateOAuthAccount(ctx context.Context, arg db.CreateOAuthAccountParams) (db.OauthAccount, error) {
+	return r.q.CreateOAuthAccount(ctx, arg)
+}
+
+func (r *userRepo) GetOAuthAccountByProvider(ctx context.Context, arg db.GetOAuthAccountByProviderParams) (db.OauthAccount, error) {
+	return r.q.GetOAuthAccountByProvider(ctx, arg)
+}
+
+func (r *userRepo) GetOAuthAccountsByUserID(ctx context.Context, userID uuid.UUID) ([]db.OauthAccount, error) {
+	return r.q.GetOAuthAccountsByUserID(ctx, userID)
 }

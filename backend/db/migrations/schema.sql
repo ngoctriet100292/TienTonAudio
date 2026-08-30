@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     username VARCHAR(50) UNIQUE NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255),
     avatar_url VARCHAR(500),
     role VARCHAR(20) DEFAULT 'user' CHECK (role IN ('user', 'admin', 'narrator')),
     is_email_verified BOOLEAN DEFAULT FALSE NOT NULL,
@@ -22,15 +22,35 @@ CREATE TABLE IF NOT EXISTS users (
     two_factor_secret VARCHAR(255),
     cultivation_exp BIGINT DEFAULT 0,
     cultivation_realm VARCHAR(50) DEFAULT 'Luyện Khí',
+    provider VARCHAR(50) DEFAULT 'local',
+    provider_id VARCHAR(255),
     deleted_at TIMESTAMPTZ,               -- Soft delete: giữ lại review/lịch sử khi user "xóa" tài khoản
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
+ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS cultivation_exp BIGINT DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS cultivation_realm VARCHAR(50) DEFAULT 'Luyện Khí';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS provider VARCHAR(50) DEFAULT 'local';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS provider_id VARCHAR(255);
 
 CREATE INDEX IF NOT EXISTS idx_users_not_deleted ON users(id) WHERE deleted_at IS NULL;
+
+-- Bảng lưu thông tin tài khoản liên kết OAuth (Google, Facebook, Apple)
+CREATE TABLE IF NOT EXISTS oauth_accounts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    provider VARCHAR(50) NOT NULL, -- 'google', 'facebook', 'apple'
+    provider_user_id VARCHAR(255) NOT NULL,
+    email VARCHAR(255),
+    avatar_url VARCHAR(500),
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(provider, provider_user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_oauth_accounts_user ON oauth_accounts(user_id);
+CREATE INDEX IF NOT EXISTS idx_oauth_accounts_provider ON oauth_accounts(provider, provider_user_id);
 
 -- Bảng token xác thực email khi đăng ký
 CREATE TABLE IF NOT EXISTS email_verification_tokens (

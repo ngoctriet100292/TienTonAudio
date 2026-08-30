@@ -326,6 +326,26 @@ func (m *mockUserRepo) GetUserCultivation(ctx context.Context, id uuid.UUID) (db
 	}, nil
 }
 
+func (m *mockUserRepo) CreateOAuthAccount(ctx context.Context, arg db.CreateOAuthAccountParams) (db.OauthAccount, error) {
+	return db.OauthAccount{
+		ID:             uuid.New(),
+		UserID:         arg.UserID,
+		Provider:       arg.Provider,
+		ProviderUserID: arg.ProviderUserID,
+		Email:          arg.Email,
+		AvatarUrl:      arg.AvatarUrl,
+		CreatedAt:      pgtype.Timestamptz{Time: time.Now(), Valid: true},
+	}, nil
+}
+
+func (m *mockUserRepo) GetOAuthAccountByProvider(ctx context.Context, arg db.GetOAuthAccountByProviderParams) (db.OauthAccount, error) {
+	return db.OauthAccount{}, errors.New("oauth account not found")
+}
+
+func (m *mockUserRepo) GetOAuthAccountsByUserID(ctx context.Context, userID uuid.UUID) ([]db.OauthAccount, error) {
+	return nil, nil
+}
+
 type mockEmailService struct {
 	sentVerificationTokens map[string]string // email -> token
 	sentResetTokens        map[string]string // email -> token

@@ -140,6 +140,7 @@ func NewRouter(opts RouterOptions) http.Handler {
 			r.Post("/verify-email", opts.AuthHandler.VerifyEmail)
 			r.Post("/resend-verification", opts.AuthHandler.ResendVerification)
 			r.Post("/login", opts.AuthHandler.Login)
+			r.Post("/social", opts.AuthHandler.SocialLogin)
 			r.Post("/2fa/verify", opts.AuthHandler.VerifyTwoFactorLogin)
 			r.Post("/forgot-password", opts.AuthHandler.ForgotPassword)
 			r.Post("/reset-password", opts.AuthHandler.ResetPassword)

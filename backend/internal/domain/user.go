@@ -29,8 +29,28 @@ type UserResp struct {
 	CultivationExp   int64     `json:"cultivation_exp"`
 	CultivationLevel int       `json:"cultivation_level"`
 	CultivationColor string    `json:"cultivation_color"`
+	Provider         *string   `json:"provider,omitempty"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+type SocialLoginReq struct {
+	Provider       string  `json:"provider" validate:"required,oneof=google facebook apple"`
+	Token          string  `json:"token,omitempty"`
+	ProviderUserID string  `json:"provider_user_id,omitempty"`
+	Email          string  `json:"email" validate:"required,email"`
+	Name           string  `json:"name,omitempty"`
+	AvatarURL      *string `json:"avatar_url,omitempty"`
+}
+
+type OAuthAccount struct {
+	ID             uuid.UUID `json:"id"`
+	UserID         uuid.UUID `json:"user_id"`
+	Provider       string    `json:"provider"`
+	ProviderUserID string    `json:"provider_user_id"`
+	Email          *string   `json:"email,omitempty"`
+	AvatarURL      *string   `json:"avatar_url,omitempty"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 type UpdateProfileReq struct {

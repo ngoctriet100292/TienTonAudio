@@ -76,6 +76,67 @@ class AuthProvider extends ChangeNotifier {
     return false;
   }
 
+  Future<bool> socialLogin({
+    required String provider,
+    required String email,
+    String? name,
+    String? avatarUrl,
+    String? providerUserId,
+    String? token,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    _requires2FA = false;
+    notifyListeners();
+
+    try {
+      final res = await _api.dio.post(
+        ApiConstants.socialLogin,
+        data: {
+          'provider': provider,
+          'email': email,
+          'name': name,
+          'avatar_url': avatarUrl,
+          'provider_user_id': providerUserId,
+          'token': token,
+        },
+      );
+
+      final isSuccess = (res.statusCode == 200 || res.statusCode == 201) &&
+          (res.data['success'] == true || res.data['data'] != null);
+
+      if (isSuccess) {
+        final data = res.data['data'] ?? res.data;
+        final tokens = data['tokens'] ?? data;
+        final accessToken = tokens['access_token'] ?? data['access_token'];
+        final refreshToken = tokens['refresh_token'] ?? data['refresh_token'];
+
+        final prefs = await SharedPreferences.getInstance();
+        if (accessToken != null) {
+          await prefs.setString('access_token', accessToken);
+        }
+        if (refreshToken != null) {
+          await prefs.setString('refresh_token', refreshToken);
+        }
+
+        if (data['user'] != null) {
+          _user = User.fromJson(data['user']);
+        }
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = res.data['message'] ?? 'Đăng nhập xã hội thất bại';
+      }
+    } catch (e) {
+      _errorMessage = 'Lỗi kết nối: $e';
+    }
+
+    _isLoading = false;
+    notifyListeners();
+    return false;
+  }
+
   Future<bool> verify2FA(String code) async {
     if (_twoFactorTempToken == null) return false;
     _isLoading = true;

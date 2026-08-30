@@ -21,6 +21,7 @@ type AuthService interface {
 	VerifyEmail(ctx context.Context, token string) error
 	ResendVerificationEmail(ctx context.Context, emailAddr string) error
 	Login(ctx context.Context, req domain.LoginReq) (*domain.LoginResp, error)
+	SocialLogin(ctx context.Context, req domain.SocialLoginReq) (*domain.LoginResp, error)
 	GetProfile(ctx context.Context, userID uuid.UUID) (*domain.UserResp, error)
 	UpdateProfile(ctx context.Context, userID uuid.UUID, req domain.UpdateProfileReq) (*domain.UserResp, error)
 	UpdatePassword(ctx context.Context, userID uuid.UUID, req domain.UpdatePasswordReq) error
@@ -127,7 +128,7 @@ func (s *authService) Register(ctx context.Context, req domain.RegisterReq) (*do
 	userRow, err := s.userRepo.CreateUser(ctx, db.CreateUserParams{
 		Username:     req.Username,
 		Email:        req.Email,
-		PasswordHash: *hashedPass,
+		PasswordHash: hashedPass,
 		AvatarUrl:    nil,
 		Role:         &roleStr,
 	})
@@ -238,7 +239,7 @@ func (s *authService) Login(ctx context.Context, req domain.LoginReq) (*domain.L
 		return nil, errors.New("invalid email or password")
 	}
 
-	if !auth.VerifyPassword(req.Password, &user.PasswordHash) {
+	if !auth.VerifyPassword(req.Password, user.PasswordHash) {
 		return nil, errors.New("invalid email or password")
 	}
 
@@ -271,6 +272,125 @@ func (s *authService) Login(ctx context.Context, req domain.LoginReq) (*domain.L
 		user.CreatedAt.Time,
 		user.UpdatedAt.Time,
 	)
+
+	tokenResp, err := s.issueTokenPair(ctx, user.ID, user.Email, user.Role)
+	if err != nil {
+		return nil, err
+	}
+
+	return &domain.LoginResp{
+		User:        userResp,
+		Tokens:      tokenResp,
+		MFARequired: false,
+	}, nil
+}
+
+func (s *authService) SocialLogin(ctx context.Context, req domain.SocialLoginReq) (*domain.LoginResp, error) {
+	if req.Email == "" {
+		return nil, errors.New("email is required for social login")
+	}
+	if req.Provider == "" {
+		return nil, errors.New("provider is required")
+	}
+
+	providerUserID := req.ProviderUserID
+	if providerUserID == "" {
+		providerUserID = req.Email
+	}
+
+	var user db.User
+
+	// 1. Kiểm tra xem đã có tài khoản oauth liên kết chưa
+	oauthAcc, err := s.userRepo.GetOAuthAccountByProvider(ctx, db.GetOAuthAccountByProviderParams{
+		Provider:       req.Provider,
+		ProviderUserID: providerUserID,
+	})
+
+	if err == nil {
+		// Đã có oauth_account, lấy user tương ứng
+		user, err = s.userRepo.GetUserByID(ctx, oauthAcc.UserID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get user: %w", err)
+		}
+	} else {
+		// Chưa có oauth_account, kiểm tra theo email
+		existingUser, err := s.userRepo.GetUserByEmail(ctx, req.Email)
+		if err == nil {
+			// User đã tồn tại -> Liên kết thêm provider này vào oauth_accounts
+			user = existingUser
+			_, _ = s.userRepo.CreateOAuthAccount(ctx, db.CreateOAuthAccountParams{
+				UserID:         user.ID,
+				Provider:       req.Provider,
+				ProviderUserID: providerUserID,
+				Email:          &req.Email,
+				AvatarUrl:      req.AvatarURL,
+			})
+			if !user.IsEmailVerified {
+				_ = s.userRepo.SetUserEmailVerified(ctx, user.ID)
+				user.IsEmailVerified = true
+			}
+		} else {
+			// Tạo user mới
+			baseUsername := ""
+			if req.Name != "" {
+				baseUsername = strings.ToLower(strings.ReplaceAll(req.Name, " ", "_"))
+			} else {
+				parts := strings.Split(req.Email, "@")
+				baseUsername = parts[0]
+			}
+			username := fmt.Sprintf("%s_%d", baseUsername, time.Now().Unix()%10000)
+			if len(username) > 40 {
+				username = username[:40]
+			}
+
+			roleStr := "user"
+			createdUser, err := s.userRepo.CreateUser(ctx, db.CreateUserParams{
+				Username:     username,
+				Email:        req.Email,
+				PasswordHash: nil,
+				AvatarUrl:    req.AvatarURL,
+				Role:         &roleStr,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to create social user: %w", err)
+			}
+
+			// Đánh dấu email đã xác thực
+			_ = s.userRepo.SetUserEmailVerified(ctx, createdUser.ID)
+
+			// Lưu vào oauth_accounts
+			_, _ = s.userRepo.CreateOAuthAccount(ctx, db.CreateOAuthAccountParams{
+				UserID:         createdUser.ID,
+				Provider:       req.Provider,
+				ProviderUserID: providerUserID,
+				Email:          &req.Email,
+				AvatarUrl:      req.AvatarURL,
+			})
+
+			// Lấy lại user đầy đủ
+			user, err = s.userRepo.GetUserByID(ctx, createdUser.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to retrieve created user: %w", err)
+			}
+			user.IsEmailVerified = true
+		}
+	}
+
+	userResp := toUserResp(
+		user.ID,
+		user.Username,
+		user.Email,
+		user.AvatarUrl,
+		user.Role,
+		user.IsEmailVerified,
+		user.TwoFactorEnabled,
+		user.CultivationExp,
+		user.CultivationRealm,
+		user.CreatedAt.Time,
+		user.UpdatedAt.Time,
+	)
+	providerStr := req.Provider
+	userResp.Provider = &providerStr
 
 	tokenResp, err := s.issueTokenPair(ctx, user.ID, user.Email, user.Role)
 	if err != nil {
@@ -513,7 +633,7 @@ func (s *authService) ResetPassword(ctx context.Context, req domain.ResetPasswor
 
 	if err := s.userRepo.UpdateUserPassword(ctx, db.UpdateUserPasswordParams{
 		ID:           record.UserID,
-		PasswordHash: *newHash,
+		PasswordHash: newHash,
 	}); err != nil {
 		return fmt.Errorf("update password error: %w", err)
 	}
@@ -652,7 +772,7 @@ func (s *authService) UpdatePassword(ctx context.Context, userID uuid.UUID, req 
 		return errors.New("user not found")
 	}
 
-	if !auth.VerifyPassword(req.OldPassword, &user.PasswordHash) {
+	if !auth.VerifyPassword(req.OldPassword, user.PasswordHash) {
 		return errors.New("incorrect old password")
 	}
 
@@ -663,7 +783,7 @@ func (s *authService) UpdatePassword(ctx context.Context, userID uuid.UUID, req 
 
 	if err := s.userRepo.UpdateUserPassword(ctx, db.UpdateUserPasswordParams{
 		ID:           userID,
-		PasswordHash: *newHash,
+		PasswordHash: newHash,
 	}); err != nil {
 		return err
 	}

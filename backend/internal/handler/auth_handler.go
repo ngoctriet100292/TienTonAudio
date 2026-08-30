@@ -105,6 +105,27 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// SocialLogin xử lý đăng nhập hoặc đăng ký nhanh qua Google, Facebook, Apple
+func (h *AuthHandler) SocialLogin(w http.ResponseWriter, r *http.Request) {
+	var req domain.SocialLoginReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.ErrorResponse(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	loginResp, err := h.authService.SocialLogin(r.Context(), req)
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	utils.JSONWithMessage(w, http.StatusOK, "Đăng nhập thành công", map[string]any{
+		"user":         loginResp.User,
+		"tokens":       loginResp.Tokens,
+		"mfa_required": false,
+	})
+}
+
 // VerifyTwoFactorLogin xác thực mã OTP 2FA trong quá trình đăng nhập
 func (h *AuthHandler) VerifyTwoFactorLogin(w http.ResponseWriter, r *http.Request) {
 	var req domain.TwoFactorVerifyLoginReq

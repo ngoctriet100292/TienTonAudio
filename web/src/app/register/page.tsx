@@ -4,15 +4,77 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Headphones, Lock, Mail, User, CheckCircle2 } from 'lucide-react';
+import { useAuth } from '@/context/auth-context';
+import { SocialLoginButtons } from '@/components/social-login-buttons';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const handleSocialLogin = async (provider: 'google' | 'facebook' | 'apple') => {
+    setError('');
+    setLoading(true);
+
+    try {
+      const mockProfiles = {
+        google: {
+          email: 'daohuu.google@gmail.com',
+          name: 'Tiên Tôn Google',
+          provider_user_id: 'gg_1029384756',
+          avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+        },
+        facebook: {
+          email: 'daohuu.facebook@fb.com',
+          name: 'Chân Nhân Facebook',
+          provider_user_id: 'fb_9876543210',
+          avatar_url: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150',
+        },
+        apple: {
+          email: 'daohuu.apple@privaterelay.appleid.com',
+          name: 'Thiên Tôn Apple',
+          provider_user_id: 'apple_88371920',
+          avatar_url: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150',
+        },
+      };
+
+      const p = mockProfiles[provider];
+      const res = await fetch('http://localhost:8080/api/v1/auth/social', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider,
+          email: p.email,
+          name: p.name,
+          provider_user_id: p.provider_user_id,
+          avatar_url: p.avatar_url,
+        }),
+      });
+
+      const json = await res.json();
+      const payload = json.data || json;
+
+      if (!res.ok) {
+        throw new Error(payload.error || json.error || `Đăng nhập ${provider} thất bại.`);
+      }
+
+      const accessToken = payload.tokens?.access_token || payload.access_token;
+      const refreshToken = payload.tokens?.refresh_token || payload.refresh_token;
+      const user = payload.user;
+
+      login(accessToken, refreshToken, user);
+      router.push('/');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,6 +187,8 @@ export default function RegisterPage() {
             >
               {loading ? 'Đang Đăng Ký...' : 'TẠO TÀI KHOẢN'}
             </button>
+
+            <SocialLoginButtons onSocialLogin={handleSocialLogin} loading={loading} />
           </form>
         )}
 

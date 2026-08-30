@@ -5,6 +5,7 @@ class ApiConstants {
 
   // Auth
   static const String login = '/auth/login';
+  static const String socialLogin = '/auth/social';
   static const String register = '/auth/register';
   static const String verify2FA = '/auth/2fa/verify';
   static const String enable2FA = '/auth/2fa/enable';

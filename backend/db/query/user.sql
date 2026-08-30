@@ -11,17 +11,17 @@ INSERT INTO users (
 RETURNING id, username, email, avatar_url, role, is_email_verified, two_factor_enabled, cultivation_exp, cultivation_realm, created_at, updated_at;
 
 -- name: GetUserByID :one
-SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, deleted_at, created_at, updated_at
+SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, provider, provider_id, deleted_at, created_at, updated_at
 FROM users
 WHERE id = $1 AND deleted_at IS NULL;
 
 -- name: GetUserByEmail :one
-SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, deleted_at, created_at, updated_at
+SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, provider, provider_id, deleted_at, created_at, updated_at
 FROM users
 WHERE email = $1 AND deleted_at IS NULL;
 
 -- name: GetUserByUsername :one
-SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, deleted_at, created_at, updated_at
+SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, provider, provider_id, deleted_at, created_at, updated_at
 FROM users
 WHERE username = $1 AND deleted_at IS NULL;
 
@@ -162,6 +162,28 @@ WHERE id = $1;
 
 -- name: DeleteTwoFactorBackupCodesByUserID :exec
 DELETE FROM two_factor_backup_codes
+WHERE user_id = $1;
+
+-- name: CreateOAuthAccount :one
+INSERT INTO oauth_accounts (
+    user_id,
+    provider,
+    provider_user_id,
+    email,
+    avatar_url
+) VALUES (
+    $1, $2, $3, $4, $5
+)
+RETURNING id, user_id, provider, provider_user_id, email, avatar_url, created_at;
+
+-- name: GetOAuthAccountByProvider :one
+SELECT id, user_id, provider, provider_user_id, email, avatar_url, created_at
+FROM oauth_accounts
+WHERE provider = $1 AND provider_user_id = $2;
+
+-- name: GetOAuthAccountsByUserID :many
+SELECT id, user_id, provider, provider_user_id, email, avatar_url, created_at
+FROM oauth_accounts
 WHERE user_id = $1;
 
 

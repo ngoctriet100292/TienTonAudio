@@ -91,6 +91,48 @@ func (q *Queries) CreateEmailVerificationToken(ctx context.Context, arg CreateEm
 	return i, err
 }
 
+const createOAuthAccount = `-- name: CreateOAuthAccount :one
+INSERT INTO oauth_accounts (
+    user_id,
+    provider,
+    provider_user_id,
+    email,
+    avatar_url
+) VALUES (
+    $1, $2, $3, $4, $5
+)
+RETURNING id, user_id, provider, provider_user_id, email, avatar_url, created_at
+`
+
+type CreateOAuthAccountParams struct {
+	UserID         uuid.UUID `json:"user_id"`
+	Provider       string    `json:"provider"`
+	ProviderUserID string    `json:"provider_user_id"`
+	Email          *string   `json:"email"`
+	AvatarUrl      *string   `json:"avatar_url"`
+}
+
+func (q *Queries) CreateOAuthAccount(ctx context.Context, arg CreateOAuthAccountParams) (OauthAccount, error) {
+	row := q.db.QueryRow(ctx, createOAuthAccount,
+		arg.UserID,
+		arg.Provider,
+		arg.ProviderUserID,
+		arg.Email,
+		arg.AvatarUrl,
+	)
+	var i OauthAccount
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Provider,
+		&i.ProviderUserID,
+		&i.Email,
+		&i.AvatarUrl,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createPasswordResetToken = `-- name: CreatePasswordResetToken :one
 INSERT INTO password_reset_tokens (
     user_id,
@@ -197,7 +239,7 @@ RETURNING id, username, email, avatar_url, role, is_email_verified, two_factor_e
 type CreateUserParams struct {
 	Username     string  `json:"username"`
 	Email        string  `json:"email"`
-	PasswordHash string  `json:"password_hash"`
+	PasswordHash *string `json:"password_hash"`
 	AvatarUrl    *string `json:"avatar_url"`
 	Role         *string `json:"role"`
 }
@@ -290,6 +332,66 @@ func (q *Queries) GetEmailVerificationToken(ctx context.Context, token string) (
 	return i, err
 }
 
+const getOAuthAccountByProvider = `-- name: GetOAuthAccountByProvider :one
+SELECT id, user_id, provider, provider_user_id, email, avatar_url, created_at
+FROM oauth_accounts
+WHERE provider = $1 AND provider_user_id = $2
+`
+
+type GetOAuthAccountByProviderParams struct {
+	Provider       string `json:"provider"`
+	ProviderUserID string `json:"provider_user_id"`
+}
+
+func (q *Queries) GetOAuthAccountByProvider(ctx context.Context, arg GetOAuthAccountByProviderParams) (OauthAccount, error) {
+	row := q.db.QueryRow(ctx, getOAuthAccountByProvider, arg.Provider, arg.ProviderUserID)
+	var i OauthAccount
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Provider,
+		&i.ProviderUserID,
+		&i.Email,
+		&i.AvatarUrl,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getOAuthAccountsByUserID = `-- name: GetOAuthAccountsByUserID :many
+SELECT id, user_id, provider, provider_user_id, email, avatar_url, created_at
+FROM oauth_accounts
+WHERE user_id = $1
+`
+
+func (q *Queries) GetOAuthAccountsByUserID(ctx context.Context, userID uuid.UUID) ([]OauthAccount, error) {
+	rows, err := q.db.Query(ctx, getOAuthAccountsByUserID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []OauthAccount{}
+	for rows.Next() {
+		var i OauthAccount
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Provider,
+			&i.ProviderUserID,
+			&i.Email,
+			&i.AvatarUrl,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getPasswordResetToken = `-- name: GetPasswordResetToken :one
 SELECT id, user_id, token, expires_at, created_at
 FROM password_reset_tokens
@@ -363,7 +465,7 @@ func (q *Queries) GetUnusedTwoFactorBackupCodesByUserID(ctx context.Context, use
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, deleted_at, created_at, updated_at
+SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, provider, provider_id, deleted_at, created_at, updated_at
 FROM users
 WHERE email = $1 AND deleted_at IS NULL
 `
@@ -383,6 +485,8 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.TwoFactorSecret,
 		&i.CultivationExp,
 		&i.CultivationRealm,
+		&i.Provider,
+		&i.ProviderID,
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -391,7 +495,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, deleted_at, created_at, updated_at
+SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, provider, provider_id, deleted_at, created_at, updated_at
 FROM users
 WHERE id = $1 AND deleted_at IS NULL
 `
@@ -411,6 +515,8 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.TwoFactorSecret,
 		&i.CultivationExp,
 		&i.CultivationRealm,
+		&i.Provider,
+		&i.ProviderID,
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -419,7 +525,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, deleted_at, created_at, updated_at
+SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, provider, provider_id, deleted_at, created_at, updated_at
 FROM users
 WHERE username = $1 AND deleted_at IS NULL
 `
@@ -439,6 +545,8 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.TwoFactorSecret,
 		&i.CultivationExp,
 		&i.CultivationRealm,
+		&i.Provider,
+		&i.ProviderID,
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -541,7 +649,7 @@ WHERE id = $1 AND deleted_at IS NULL
 
 type UpdateUserPasswordParams struct {
 	ID           uuid.UUID `json:"id"`
-	PasswordHash string    `json:"password_hash"`
+	PasswordHash *string   `json:"password_hash"`
 }
 
 func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {

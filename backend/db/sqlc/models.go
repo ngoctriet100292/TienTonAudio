@@ -122,6 +122,16 @@ type Notification struct {
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 }
 
+type OauthAccount struct {
+	ID             uuid.UUID          `json:"id"`
+	UserID         uuid.UUID          `json:"user_id"`
+	Provider       string             `json:"provider"`
+	ProviderUserID string             `json:"provider_user_id"`
+	Email          *string            `json:"email"`
+	AvatarUrl      *string            `json:"avatar_url"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
 type PasswordResetToken struct {
 	ID        uuid.UUID          `json:"id"`
 	UserID    uuid.UUID          `json:"user_id"`
@@ -253,7 +263,7 @@ type User struct {
 	ID               uuid.UUID          `json:"id"`
 	Username         string             `json:"username"`
 	Email            string             `json:"email"`
-	PasswordHash     string             `json:"password_hash"`
+	PasswordHash     *string            `json:"password_hash"`
 	AvatarUrl        *string            `json:"avatar_url"`
 	Role             *string            `json:"role"`
 	IsEmailVerified  bool               `json:"is_email_verified"`
@@ -261,6 +271,8 @@ type User struct {
 	TwoFactorSecret  *string            `json:"two_factor_secret"`
 	CultivationExp   *int64             `json:"cultivation_exp"`
 	CultivationRealm *string            `json:"cultivation_realm"`
+	Provider         *string            `json:"provider"`
+	ProviderID       *string            `json:"provider_id"`
 	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
