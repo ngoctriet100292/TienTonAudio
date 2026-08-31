@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Play, Volume2, ArrowLeft, ArrowRight, BookOpen, Type, Palette, List } from 'lucide-react';
 import { useAudio } from '@/context/audio-context';
 import { Story, Chapter } from '@/types';
+import { ChapterComments } from '@/components/chapter-comments';
 
 export default function ChapterReaderClient({
   story,
@@ -59,7 +60,7 @@ export default function ChapterReaderClient({
           </div>
 
           <button
-            onClick={() => playChapter(story, chapter)}
+            onClick={() => playChapter(story, chapter, undefined, chapters)}
             className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#ffd166] to-[#ffb703] text-black font-black text-xs shadow-lg shadow-amber-500/20 hover:scale-105 transition-transform"
           >
             {isThisPlaying ? 'Đang Phát Audio' : 'Phát Audio Chương Này'}
@@ -197,6 +198,9 @@ export default function ChapterReaderClient({
           <div className="px-5 py-2.5 text-xs text-slate-600 font-medium">Chương mới nhất</div>
         )}
       </div>
+
+      {/* Khu vực đàm đạo & bình luận chương */}
+      <ChapterComments chapterId={chapter.id} chapterTitle={chapter.title} />
     </div>
   );
 }

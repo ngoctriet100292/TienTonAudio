@@ -231,15 +231,32 @@ class ApiClient {
   async createComment(chapterId: string, content: string): Promise<any> {
     return this.request(`/chapters/${chapterId}/comments`, {
       method: 'POST',
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ chapter_id: chapterId, content }),
     });
   }
 
-  async reactComment(commentId: string, type: 'like' | 'heart' | 'laugh' | 'cry'): Promise<void> {
-    await this.request(`/comments/${commentId}/reactions`, {
+  async reactComment(commentId: string, reactionType = 'like'): Promise<any> {
+    return this.request(`/comments/${commentId}/reactions`, {
       method: 'POST',
-      body: JSON.stringify({ type }),
+      body: JSON.stringify({ reaction_type: reactionType }),
     });
+  }
+
+  // ---- FAVORITES ----
+  async toggleFavorite(storyId: string): Promise<{ is_favorite: boolean }> {
+    const res = await this.request<any>(`/stories/${storyId}/favorite`, {
+      method: 'POST',
+    });
+    return res.data || res;
+  }
+
+  async checkFavorite(storyId: string): Promise<{ is_favorite: boolean }> {
+    try {
+      const res = await this.request<any>(`/stories/${storyId}/favorite`);
+      return res.data || res;
+    } catch {
+      return { is_favorite: false };
+    }
   }
 
   // ---- CATEGORIES ----

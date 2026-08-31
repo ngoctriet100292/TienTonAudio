@@ -102,7 +102,7 @@ export default function ChapterListClient({ story, chapters }: { story: Story; c
 
                 {ch.duration_seconds > 0 && (
                   <button
-                    onClick={() => playChapter(story, ch)}
+                    onClick={() => playChapter(story, ch, undefined, chapters)}
                     className={`p-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
                       isCurrent && isPlaying
                         ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'

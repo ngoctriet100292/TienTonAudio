@@ -2,18 +2,21 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useAudio, PLAYBACK_SPEEDS } from '@/context/audio-context';
-import { Play, Pause, RotateCcw, RotateCw, Volume2, Gauge } from 'lucide-react';
+import { Play, Pause, RotateCcw, RotateCw, SkipBack, SkipForward, Volume2, Gauge } from 'lucide-react';
 
 export function StickyAudioPlayer() {
   const {
     currentChapter,
     currentStory,
+    playlist,
     isPlaying,
     togglePlay,
     currentTime,
     duration,
     seek,
     skip,
+    playNext,
+    playPrev,
     playbackSpeed,
     setPlaybackSpeed,
   } = useAudio();
@@ -85,7 +88,17 @@ export function StickyAudioPlayer() {
 
         {/* Cụm điều khiển Play / Pause / Tua 10s */}
         <div className="flex flex-col items-center justify-center gap-1 flex-shrink-0 px-2">
-          <div className="flex items-center gap-2 sm:gap-5">
+          <div className="flex items-center gap-1.5 sm:gap-4">
+            {playlist.length > 1 && (
+              <button
+                onClick={playPrev}
+                className="text-slate-400 hover:text-white transition-colors p-1"
+                title="Tập trước"
+              >
+                <SkipBack className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
+            )}
+
             <button
               onClick={() => skip(-10)}
               className="text-slate-400 hover:text-white transition-colors p-1"
@@ -108,6 +121,16 @@ export function StickyAudioPlayer() {
             >
               <RotateCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
+
+            {playlist.length > 1 && (
+              <button
+                onClick={playNext}
+                className="text-slate-400 hover:text-white transition-colors p-1"
+                title="Tập tiếp theo"
+              >
+                <SkipForward className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-1 text-[10px] sm:text-[11px] text-slate-400 font-mono">

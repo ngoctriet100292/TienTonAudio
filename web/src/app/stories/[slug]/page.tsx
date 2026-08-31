@@ -6,6 +6,8 @@ import { Star, Headphones, BookOpen, Crown, Share2, Heart, Play } from 'lucide-r
 import { Story, Chapter } from '@/types';
 import ChapterListClient from './chapter-list-client';
 import { StoryStatusBadge } from '@/components/story-status-badge';
+import { FavoriteButton } from '@/components/favorite-button';
+import { ChapterComments } from '@/components/chapter-comments';
 import { api } from '@/lib/api';
 
 interface Props {
@@ -232,6 +234,7 @@ export default async function StoryDetailPage({ params }: Props) {
                 Nghe Audio Tập 1
               </Link>
             )}
+            <FavoriteButton storyId={story.id} initialCount={story.favorite_count || 0} />
           </div>
         </div>
       </div>
@@ -250,6 +253,14 @@ export default async function StoryDetailPage({ params }: Props) {
 
         <ChapterListClient story={story} chapters={chapters} />
       </div>
+
+      {/* Đàm đạo & đánh giá tác phẩm */}
+      {chapters.length > 0 && (
+        <ChapterComments
+          chapterId={chapters[0].id}
+          chapterTitle={`Đàm Đạo & Nhận Xét: ${story.title}`}
+        />
+      )}
     </div>
   );
 }
