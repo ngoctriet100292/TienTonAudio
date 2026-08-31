@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Heart, Loader2 } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
+import { CultivationSpinner } from '@/components/cultivation-spinner';
 
 interface FavoriteButtonProps {
   storyId: string;
@@ -78,7 +79,7 @@ export function FavoriteButton({ storyId, initialCount = 0, variant = 'detail' }
         }`}
       >
         {loading ? (
-          <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+          <CultivationSpinner size="xs" showText={false} variant="crimson" />
         ) : (
           <Heart className={`w-4 h-4 transition-transform ${isFavorite ? 'fill-rose-500 text-rose-500 scale-110' : ''}`} />
         )}
@@ -97,7 +98,7 @@ export function FavoriteButton({ storyId, initialCount = 0, variant = 'detail' }
       }`}
     >
       {loading ? (
-        <Loader2 className="w-4 h-4 animate-spin text-rose-400" />
+        <CultivationSpinner size="xs" showText={false} variant="crimson" />
       ) : (
         <Heart className={`w-4 h-4 transition-transform ${isFavorite ? 'fill-rose-500 text-rose-500 scale-110' : 'text-slate-400'}`} />
       )}

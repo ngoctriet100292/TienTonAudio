@@ -51,3 +51,42 @@ body {
 .gold-glow {
   box-shadow: 0 0 25px rgba(255, 183, 3, 0.25);
 }
+
+/* Cultivation Spinner Keyframes & Effects */
+@keyframes spin-reverse {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes qi-pulse {
+  0%, 100% {
+    transform: scale(0.95);
+    opacity: 0.75;
+    filter: drop-shadow(0 0 10px rgba(255, 183, 3, 0.4));
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+    filter: drop-shadow(0 0 28px rgba(255, 183, 3, 0.85));
+  }
+}
+
+.animate-spin-reverse {
+  animation: spin-reverse 8s linear infinite;
+}
+
+.animate-spin-slow {
+  animation: spin 12s linear infinite;
+}
+
+.animate-spin-reverse-fast {
+  animation: spin-reverse 4s linear infinite;
+}
+
+.animate-qi-pulse {
+  animation: qi-pulse 2.5s ease-in-out infinite;
+}

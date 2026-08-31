@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { api, getFullAvatarUrl } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
+import { CultivationSpinner } from '@/components/cultivation-spinner';
 import Link from 'next/link';
 
 export const REACTION_TYPES = [
@@ -159,10 +160,7 @@ export function ChapterComments({ chapterId, chapterTitle }: ChapterCommentsProp
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#ffd166] to-[#ffb703] text-black font-black text-xs shadow-md shadow-amber-500/20 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 transition-all"
             >
               {submitting ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Đang phát gửi...
-                </>
+                <CultivationSpinner size="xs" text="Đang phát gửi..." showText={true} />
               ) : (
                 <>
                   <Send className="w-3.5 h-3.5" />
@@ -194,10 +192,7 @@ export function ChapterComments({ chapterId, chapterTitle }: ChapterCommentsProp
 
       {/* Danh sách các bình luận */}
       {loading ? (
-        <div className="py-8 flex justify-center items-center gap-2 text-slate-400 text-xs">
-          <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
-          Đang nạp đàm đạo...
-        </div>
+        <CultivationSpinner size="md" text="Đang nạp đàm đạo của chư vị đạo hữu..." />
       ) : comments.length === 0 ? (
         <div className="text-center py-10 rounded-2xl border border-dashed border-white/10 bg-slate-900/30">
           <MessageSquare className="w-8 h-8 text-slate-600 mx-auto mb-2" />
@@ -536,10 +531,7 @@ function CommentCard({
               className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-[#ffd166] to-[#ffb703] text-black font-black text-xs shadow-md shadow-amber-500/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
             >
               {submittingReply ? (
-                <>
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  Đang phát...
-                </>
+                <CultivationSpinner size="xs" text="Đang phát..." showText={true} />
               ) : (
                 <>
                   <Send className="w-3 h-3" />
@@ -555,9 +547,8 @@ function CommentCard({
       {!isReply && showReplies && (
         <div className="pt-2">
           {loadingReplies ? (
-            <div className="py-4 pl-12 flex items-center gap-2 text-xs text-slate-400">
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
-              Đang tải lời đàm đạo...
+            <div className="py-4 pl-12">
+              <CultivationSpinner size="sm" text="Đang câu thông lời đàm đạo..." showText={true} />
             </div>
           ) : replies.length === 0 ? (
             <p className="pl-12 pt-2 text-xs text-slate-500 italic">Chưa có câu trả lời nào.</p>

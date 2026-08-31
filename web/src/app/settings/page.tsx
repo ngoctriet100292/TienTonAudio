@@ -36,6 +36,7 @@ import {
 import { useAuth } from '@/context/auth-context';
 import { api } from '@/lib/api';
 import { ALL_REALMS, RealmItem } from '@/components/cultivation-view';
+import { CultivationSpinner } from '@/components/cultivation-spinner';
 import {
   UserCultivation,
   FavoriteStoryItem,
@@ -276,9 +277,9 @@ export default function SettingsPage() {
               )}
 
               {isUploadingAvatar && (
-                <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-amber-400 gap-1">
-                  <Loader2 className="w-6 h-6 animate-spin" />
-                  <span className="text-[10px] font-bold">Đang tải...</span>
+                <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-amber-400 gap-1.5 backdrop-blur-sm">
+                  <CultivationSpinner size="sm" showText={false} />
+                  <span className="text-[10px] font-bold">Đang tải lên R2...</span>
                 </div>
               )}
             </div>
@@ -472,7 +473,7 @@ export default function SettingsPage() {
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/20 text-[#ffd166] border border-amber-500/40 text-xs font-bold hover:bg-amber-500/30 transition-all"
                   >
                     {isUploadingAvatar ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <CultivationSpinner size="xs" showText={false} />
                     ) : (
                       <Upload className="w-4 h-4" />
                     )}
