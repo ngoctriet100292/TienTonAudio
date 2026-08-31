@@ -5,6 +5,7 @@ import { Crown, Headphones, Star, BookOpen, Flame } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Story } from '@/types';
 import { StoryStatusBadge } from '@/components/story-status-badge';
+import { FavoriteButton } from '@/components/favorite-button';
 
 export const metadata: Metadata = {
   title: 'Bảng Vàng Tu Tiên - Top Truyện Audio Hot Nhất',
@@ -141,9 +142,9 @@ export default async function RankingsPage() {
               </div>
             </div>
 
-            {/* Thông số lượt nghe & đánh giá */}
-            <div className="hidden sm:flex items-center gap-8 text-xs text-slate-400">
-              <div className="text-right">
+            {/* Thông số lượt nghe, đánh giá & nút Yêu thích */}
+            <div className="flex items-center gap-4 sm:gap-8 text-xs text-slate-400">
+              <div className="hidden sm:block text-right">
                 <div className="flex items-center justify-end gap-1 font-bold text-white">
                   <Headphones className="w-3.5 h-3.5 text-amber-400" />
                   {(story.view_count / 1000).toFixed(1)}k
@@ -151,7 +152,7 @@ export default async function RankingsPage() {
                 <span className="text-[10px] text-slate-500">Lượt nghe</span>
               </div>
 
-              <div className="text-right">
+              <div className="hidden sm:block text-right">
                 <div className="flex items-center justify-end gap-1 font-bold text-amber-400">
                   <Star className="w-3.5 h-3.5 fill-current" />
                   {story.rating_avg.toFixed(1)}
@@ -159,12 +160,16 @@ export default async function RankingsPage() {
                 <span className="text-[10px] text-slate-500">({story.rating_count} vote)</span>
               </div>
 
-              <div className="text-right">
+              <div className="hidden sm:block text-right">
                 <div className="flex items-center justify-end gap-1 font-bold text-white">
                   <BookOpen className="w-3.5 h-3.5 text-slate-400" />
                   {story.total_chapters}
                 </div>
                 <span className="text-[10px] text-slate-500">Tập</span>
+              </div>
+
+              <div className="flex-shrink-0 z-10">
+                <FavoriteButton storyId={story.id} variant="icon" />
               </div>
             </div>
           </Link>

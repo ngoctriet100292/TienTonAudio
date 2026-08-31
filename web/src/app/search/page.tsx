@@ -1,10 +1,11 @@
 import React from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Search, Star, Headphones, BookOpen, Filter } from 'lucide-react';
+import { Search, Star, Headphones, Filter, ArrowUpDown, Sparkles } from 'lucide-react';
 import { api } from '@/lib/api';
-import { Story, StoryStatus } from '@/types';
+import { Story } from '@/types';
 import { StoryStatusBadge } from '@/components/story-status-badge';
+import { FavoriteButton } from '@/components/favorite-button';
 
 export const metadata: Metadata = {
   title: 'Tìm Kiếm Truyện Tiên Hiệp Audio',
@@ -12,18 +13,30 @@ export const metadata: Metadata = {
 };
 
 interface Props {
-  searchParams: Promise<{ q?: string; status?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; sort?: string }>;
 }
 
 export default async function SearchPage({ searchParams }: Props) {
-  const { q, status } = await searchParams;
+  const { q, status, sort } = await searchParams;
   const query = q || '';
   const currentStatus = status || '';
+  const currentSort = sort || 'views';
 
-  const rawResults = query ? await api.searchStories(query) : await api.getStories(1, 12);
-  const results = currentStatus
+  const rawResults = query ? await api.searchStories(query) : await api.getStories(1, 24);
+  
+  // Lọc theo trạng thái
+  let results = currentStatus
     ? rawResults.filter((s) => s.status === currentStatus)
-    : rawResults;
+    : [...rawResults];
+
+  // Sắp xếp
+  if (currentSort === 'views') {
+    results.sort((a, b) => b.view_count - a.view_count);
+  } else if (currentSort === 'rating') {
+    results.sort((a, b) => b.rating_avg - a.rating_avg);
+  } else if (currentSort === 'chapters') {
+    results.sort((a, b) => b.total_chapters - a.total_chapters);
+  }
 
   const statusFilters: { label: string; value: string }[] = [
     { label: 'Tất cả trạng thái', value: '' },
@@ -32,55 +45,97 @@ export default async function SearchPage({ searchParams }: Props) {
     { label: 'Tạm ngưng', value: 'paused' },
   ];
 
+  const sortOptions: { label: string; value: string }[] = [
+    { label: 'Nghe nhiều nhất 🔥', value: 'views' },
+    { label: 'Đánh giá cao nhất ⭐', value: 'rating' },
+    { label: 'Nhiều chương nhất 📚', value: 'chapters' },
+  ];
+
+  const buildFilterUrl = (newStatus?: string, newSort?: string) => {
+    const params = new URLSearchParams();
+    if (query) params.set('q', query);
+    const s = newStatus !== undefined ? newStatus : currentStatus;
+    if (s) params.set('status', s);
+    const o = newSort !== undefined ? newSort : currentSort;
+    if (o && o !== 'views') params.set('sort', o);
+    return `/search?${params.toString()}`;
+  };
+
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8 space-y-8">
-      <div className="border-b border-white/10 pb-6">
-        <div className="inline-flex items-center gap-2 text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">
-          <Search className="w-4 h-4 text-amber-400" />
-          Kính Lúp Tìm Kiếm
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8 space-y-8 pb-16">
+      <div className="border-b border-white/10 pb-6 space-y-4">
+        <div>
+          <div className="inline-flex items-center gap-2 text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">
+            <Search className="w-4 h-4 text-amber-400" />
+            Kính Lúp Tìm Kiếm
+          </div>
+          <h1 className="text-3xl font-black text-white">
+            {query ? `Kết quả tìm kiếm cho: "${query}"` : 'Khám Phá Toàn Bộ Kho Truyện'}
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            Tìm thấy <span className="text-amber-400 font-bold">{results.length}</span> tác phẩm phù hợp
+          </p>
         </div>
-        <h1 className="text-3xl font-black text-white">
-          {query ? `Kết quả tìm kiếm cho: "${query}"` : 'Khám Phá Toàn Bộ Kho Truyện'}
-        </h1>
-        <p className="text-xs sm:text-sm text-slate-400 mt-1">
-          Tìm thấy {results.length} tác phẩm phù hợp
-        </p>
 
-        {/* Bộ lọc trạng thái truyện */}
-        <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-white/5">
-          <span className="text-xs text-slate-400 font-semibold flex items-center gap-1.5 mr-2">
-            <Filter className="w-3.5 h-3.5 text-amber-400" />
-            Trạng thái:
-          </span>
-          {statusFilters.map((f) => {
-            const isActive = currentStatus === f.value;
-            const queryParams = new URLSearchParams();
-            if (query) queryParams.set('q', query);
-            if (f.value) queryParams.set('status', f.value);
-            const href = `/search?${queryParams.toString()}`;
+        {/* Thanh công cụ lọc & sắp xếp */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t border-white/5">
+          {/* Bộ lọc trạng thái truyện */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-slate-400 font-semibold flex items-center gap-1.5 mr-1">
+              <Filter className="w-3.5 h-3.5 text-amber-400" />
+              Trạng thái:
+            </span>
+            {statusFilters.map((f) => {
+              const isActive = currentStatus === f.value;
+              return (
+                <Link
+                  key={f.value}
+                  href={buildFilterUrl(f.value, undefined)}
+                  className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all ${
+                    isActive
+                      ? 'bg-amber-500 text-black border-amber-500 shadow-md shadow-amber-500/20'
+                      : 'bg-slate-900/80 text-slate-300 border-white/10 hover:border-amber-500/40 hover:text-white'
+                  }`}
+                >
+                  {f.label}
+                </Link>
+              );
+            })}
+          </div>
 
-            return (
-              <Link
-                key={f.value}
-                href={href}
-                className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all ${
-                  isActive
-                    ? 'bg-amber-500 text-black border-amber-500 shadow-md shadow-amber-500/20'
-                    : 'bg-slate-900/80 text-slate-300 border-white/10 hover:border-amber-500/40 hover:text-white'
-                }`}
-              >
-                {f.label}
-              </Link>
-            );
-          })}
+          {/* Bộ chọn sắp xếp */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-slate-400 font-semibold flex items-center gap-1.5 mr-1">
+              <ArrowUpDown className="w-3.5 h-3.5 text-amber-400" />
+              Sắp xếp:
+            </span>
+            {sortOptions.map((opt) => {
+              const isActive = currentSort === opt.value;
+              return (
+                <Link
+                  key={opt.value}
+                  href={buildFilterUrl(undefined, opt.value)}
+                  className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all ${
+                    isActive
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm'
+                      : 'bg-slate-900/60 text-slate-400 border-white/10 hover:border-white/20 hover:text-white'
+                  }`}
+                >
+                  {opt.label}
+                </Link>
+              );
+            })}
+          </div>
         </div>
       </div>
 
       {results.length === 0 ? (
-        <div className="text-center py-20 border border-dashed border-white/10 rounded-3xl">
-          <p className="text-slate-400 text-sm">Không tìm thấy tác phẩm nào phù hợp với điều kiện trên.</p>
-          <Link href="/search" className="inline-block mt-4 text-xs font-bold text-amber-400 hover:underline">
-            Xóa bộ lọc
+        <div className="text-center py-20 border border-dashed border-white/10 rounded-3xl bg-slate-900/20 space-y-3">
+          <Sparkles className="w-10 h-10 text-slate-600 mx-auto" />
+          <p className="text-slate-300 text-sm font-semibold">Không tìm thấy tác phẩm nào phù hợp</p>
+          <p className="text-slate-500 text-xs">Hãy thử từ khóa khác hoặc thiết lập lại bộ lọc trạng thái</p>
+          <Link href="/search" className="inline-block mt-3 text-xs font-bold text-amber-400 hover:underline">
+            Xóa bộ lọc tìm kiếm
           </Link>
         </div>
       ) : (
@@ -96,7 +151,7 @@ export default async function SearchPage({ searchParams }: Props) {
                   <img
                     src={story.cover_image_url}
                     alt={story.title}
-                    className="h-full w-full object-cover group-hover:scale-105 transition-transform"
+                    className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 )}
 
@@ -105,15 +160,21 @@ export default async function SearchPage({ searchParams }: Props) {
                   <StoryStatusBadge status={story.status} size="sm" />
                 </div>
 
+                {/* Nút Yêu Thích Nhanh */}
+                <div className="absolute bottom-2 left-2 z-10">
+                  <FavoriteButton storyId={story.id} variant="icon" />
+                </div>
+
+                {/* Rating Badge */}
                 <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-black/80 backdrop-blur-sm px-2 py-0.5 text-[11px] font-bold text-amber-400">
-                  <Star className="h-3 w-3 fill-current" />
+                  <Star className="h-3 w-3 fill-current text-amber-400" />
                   {story.rating_avg.toFixed(1)}
                 </div>
               </div>
 
               <div className="pt-3 flex-1 flex flex-col justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-white line-clamp-2 group-hover:text-amber-400 transition-colors">
+                  <h3 className="text-sm font-bold text-white line-clamp-2 group-hover:text-amber-400 transition-colors leading-snug">
                     {story.title}
                   </h3>
                   <p className="text-xs text-slate-400 mt-1">{story.author_name}</p>

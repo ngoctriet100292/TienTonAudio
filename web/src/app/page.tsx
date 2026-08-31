@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Play, Star, Headphones, Sparkles, Flame, BookOpen, Crown, ChevronRight, MessageSquare } from 'lucide-react';
 import { Story } from '@/types';
 import { StoryStatusBadge } from '@/components/story-status-badge';
+import { FavoriteButton } from '@/components/favorite-button';
 import { api } from '@/lib/api';
 
 // Mock data dự phòng khi backend chưa khởi động
@@ -200,6 +201,11 @@ export default async function HomePage() {
                     <StoryStatusBadge status={story.status} size="sm" />
                   </div>
 
+                  {/* Nút Yêu Thích Nhanh */}
+                  <div className="absolute bottom-2 left-2 z-10">
+                    <FavoriteButton storyId={story.id} variant="icon" />
+                  </div>
+
                   {/* Rating Badge */}
                   <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-black/80 backdrop-blur-sm px-2 py-0.5 text-[11px] font-bold text-amber-400">
                     <Star className="h-3 w-3 fill-current text-amber-400" />
@@ -245,10 +251,13 @@ export default async function HomePage() {
           </p>
         </div>
 
-        <button className="flex-shrink-0 inline-flex items-center gap-2 rounded-2xl bg-indigo-500 hover:bg-indigo-400 text-white font-bold px-6 py-3.5 shadow-lg shadow-indigo-500/25 transition-colors">
+        <Link
+          href="/ai"
+          className="flex-shrink-0 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-bold px-6 py-3.5 shadow-lg shadow-indigo-500/25 transition-all hover:scale-105"
+        >
           <MessageSquare className="w-4 h-4" />
           Đàm Đạo Với AI Đạo Hữu
-        </button>
+        </Link>
       </section>
     </div>
   );
