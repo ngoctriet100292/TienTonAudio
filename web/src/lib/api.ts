@@ -16,7 +16,38 @@ class ApiClient {
     return null;
   }
 
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  private async refreshToken(): Promise<string | null> {
+    if (typeof window === 'undefined') return null;
+    const refreshToken = localStorage.getItem('refresh_token');
+    if (!refreshToken) return null;
+
+    try {
+      const res = await fetch(`${this.baseUrl}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+
+      if (!res.ok) {
+        return null;
+      }
+
+      const json = await res.json();
+      const tokens = json.data || json;
+      if (tokens && tokens.access_token) {
+        localStorage.setItem('access_token', tokens.access_token);
+        if (tokens.refresh_token) {
+          localStorage.setItem('refresh_token', tokens.refresh_token);
+        }
+        return tokens.access_token;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+
+  private async request<T>(endpoint: string, options: RequestInit = {}, isRetry = false): Promise<T> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...((options.headers as Record<string, string>) || {}),
@@ -31,6 +62,14 @@ class ApiClient {
       ...options,
       headers,
     });
+
+    if (res.status === 401 && !isRetry) {
+      const newToken = await this.refreshToken();
+      if (newToken) {
+        headers['Authorization'] = `Bearer ${newToken}`;
+        return this.request<T>(endpoint, { ...options, headers }, true);
+      }
+    }
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
@@ -274,24 +313,79 @@ class ApiClient {
   }
 
   // ---- USER ACTIONS (AVATAR, FAVORITES, HISTORY, PAYMENTS) ----
-  async uploadAvatar(file: File): Promise<{ avatar_url: string; user?: User }> {
+  async uploadAvatar(file: File, isRetry = false): Promise<{ avatar_url: string; user?: User }> {
     const token = this.getToken();
     const formData = new FormData();
     formData.append('avatar', file);
 
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const res = await fetch(`${this.baseUrl}/users/avatar`, {
       method: 'POST',
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+      headers,
       body: formData,
     });
+
+    if (res.status === 401 && !isRetry) {
+      const newToken = await this.refreshToken();
+      if (newToken) {
+        return this.uploadAvatar(file, true);
+      }
+      throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+    }
 
     const data = await res.json();
     if (!res.ok) {
       throw new Error(data.error || data.message || 'Lỗi tải ảnh đại diện lên');
     }
     return data.data || data;
+  }
+
+  async updateProfile(body: { username?: string; avatar_url?: string }): Promise<User> {
+    return this.request<User>('/users/me', {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    });
+  }
+
+  async updatePassword(body: { old_password?: string; new_password?: string }): Promise<void> {
+    await this.request('/users/password', {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    });
+  }
+
+  async getMySubscription(): Promise<any> {
+    try {
+      return await this.request<any>('/payments/my-subscription');
+    } catch {
+      return null;
+    }
+  }
+
+  async setup2FA(): Promise<{ secret: string; qr_code_url: string }> {
+    const res = await this.request<any>('/auth/2fa/setup', {
+      method: 'POST',
+    });
+    return res.data || res;
+  }
+
+  async enable2FA(code: string): Promise<{ backup_codes: string[] }> {
+    const res = await this.request<any>('/auth/2fa/enable', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
+    return res.data || res;
+  }
+
+  async disable2FA(code: string): Promise<void> {
+    await this.request('/auth/2fa/disable', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
   }
 
   async getUserFavorites(): Promise<FavoriteStoryItem[]> {
@@ -332,4 +426,5 @@ class ApiClient {
 }
 
 export const api = new ApiClient(API_BASE_URL);
+
 

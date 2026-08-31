@@ -123,17 +123,7 @@ export default function SettingsPage() {
     } else if (activeTab === 'payments') {
       setPaymentsLoading(true);
       api.getUserPayments().then(setPayments).finally(() => setPaymentsLoading(false));
-
-      // Lấy thêm gói VIP đang hoạt động
-      const token = localStorage.getItem('access_token');
-      if (token) {
-        fetch('http://localhost:8080/api/v1/payments/my-subscription', {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-          .then((res) => (res.ok ? res.json() : null))
-          .then((data) => setActiveSubscription(data))
-          .catch(() => setActiveSubscription(null));
-      }
+      api.getMySubscription().then(setActiveSubscription);
     }
   }, [activeTab, isAuthenticated]);
 
@@ -175,19 +165,7 @@ export default function SettingsPage() {
     setProfileLoading(true);
 
     try {
-      const token = localStorage.getItem('access_token');
-      const res = await fetch('http://localhost:8080/api/v1/users/me', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ username, avatar_url: avatarUrl }),
-      });
-
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Cập nhật thất bại');
-
+      await api.updateProfile({ username, avatar_url: avatarUrl });
       await refreshProfile();
       setProfileMsg({ type: 'success', text: 'Cập nhật hồ sơ đạo hữu thành công!' });
     } catch (err: any) {
@@ -209,19 +187,7 @@ export default function SettingsPage() {
 
     setPasswordLoading(true);
     try {
-      const token = localStorage.getItem('access_token');
-      const res = await fetch('http://localhost:8080/api/v1/users/password', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
-      });
-
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Đổi mật khẩu thất bại');
-
+      await api.updatePassword({ old_password: oldPassword, new_password: newPassword });
       setPasswordMsg({ type: 'success', text: 'Đổi mật khẩu thành công!' });
       setOldPassword('');
       setNewPassword('');
@@ -238,14 +204,8 @@ export default function SettingsPage() {
     setMfaLoading(true);
     setMfaMsg(null);
     try {
-      const token = localStorage.getItem('access_token');
-      const res = await fetch('http://localhost:8080/api/v1/auth/2fa/setup', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Không thể tạo mã 2FA');
-      setMfaSetupData(json.data);
+      const data = await api.setup2FA();
+      setMfaSetupData(data);
     } catch (err: any) {
       setMfaMsg({ type: 'error', text: err.message });
     } finally {
@@ -258,20 +218,8 @@ export default function SettingsPage() {
     setMfaMsg(null);
     setMfaLoading(true);
     try {
-      const token = localStorage.getItem('access_token');
-      const res = await fetch('http://localhost:8080/api/v1/auth/2fa/enable', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ code: mfaOtp }),
-      });
-
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Mã OTP không chính xác');
-
-      setBackupCodes(json.data?.backup_codes || []);
+      const data = await api.enable2FA(mfaOtp);
+      setBackupCodes(data?.backup_codes || []);
       setMfaMsg({ type: 'success', text: 'Kích hoạt 2FA thành công! Vui lòng lưu các mã cứu hộ dưới đây.' });
       await refreshProfile();
       setMfaSetupData(null);
@@ -289,19 +237,7 @@ export default function SettingsPage() {
 
     setMfaLoading(true);
     try {
-      const token = localStorage.getItem('access_token');
-      const res = await fetch('http://localhost:8080/api/v1/auth/2fa/disable', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ code }),
-      });
-
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Mã xác thực không hợp lệ');
-
+      await api.disable2FA(code);
       setMfaMsg({ type: 'success', text: 'Đã hủy bảo mật 2FA thành công.' });
       await refreshProfile();
     } catch (err: any) {
