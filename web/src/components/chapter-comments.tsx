@@ -1,10 +1,52 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { MessageSquare, Heart, Send, Loader2, User, Sparkles, LogIn } from 'lucide-react';
-import { api } from '@/lib/api';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  MessageSquare,
+  Heart,
+  Send,
+  Loader2,
+  User,
+  Sparkles,
+  LogIn,
+  CornerDownRight,
+  ChevronDown,
+  ChevronUp,
+  Smile,
+  ThumbsUp,
+  Flame,
+} from 'lucide-react';
+import { api, getFullAvatarUrl } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import Link from 'next/link';
+
+export const REACTION_TYPES = [
+  { type: 'like', emoji: '👍', label: 'Thích', color: 'text-blue-400', bg: 'bg-blue-500/20 border-blue-500/40' },
+  { type: 'love', emoji: '❤️', label: 'Yêu thích', color: 'text-rose-400', bg: 'bg-rose-500/20 border-rose-500/40' },
+  { type: 'haha', emoji: '😂', label: 'Haha', color: 'text-amber-400', bg: 'bg-amber-500/20 border-amber-500/40' },
+  { type: 'wow', emoji: '😮', label: 'Trầm trồ', color: 'text-emerald-400', bg: 'bg-emerald-500/20 border-emerald-500/40' },
+  { type: 'sad', emoji: '😢', label: 'Buồn', color: 'text-purple-400', bg: 'bg-purple-500/20 border-purple-500/40' },
+  { type: 'angry', emoji: '😡', label: 'Phẫn nộ', color: 'text-orange-400', bg: 'bg-orange-500/20 border-orange-500/40' },
+] as const;
+
+type ReactionType = typeof REACTION_TYPES[number]['type'];
+
+interface CommentItemData {
+  id: string;
+  user_id?: string;
+  username: string;
+  avatar_url?: string;
+  chapter_id?: string;
+  parent_id?: string;
+  content: string;
+  audio_timestamp_seconds?: number;
+  cultivation_realm?: string;
+  reply_count: number;
+  total_reactions: number;
+  reactions?: Record<string, number>;
+  user_reaction?: ReactionType | null;
+  created_at: string;
+}
 
 interface ChapterCommentsProps {
   chapterId: string;
@@ -13,7 +55,7 @@ interface ChapterCommentsProps {
 
 export function ChapterComments({ chapterId, chapterTitle }: ChapterCommentsProps) {
   const { user, isAuthenticated } = useAuth();
-  const [comments, setComments] = useState<any[]>([]);
+  const [comments, setComments] = useState<CommentItemData[]>([]);
   const [loading, setLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -34,7 +76,7 @@ export function ChapterComments({ chapterId, chapterTitle }: ChapterCommentsProp
       });
   }, [chapterId]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmitRootComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim() || submitting) return;
 
@@ -43,18 +85,18 @@ export function ChapterComments({ chapterId, chapterTitle }: ChapterCommentsProp
 
     try {
       const created = await api.createComment(chapterId, newComment.trim());
-      const commentItem = created.data || created;
-      // Prepend the new comment to the list
-      setComments((prev) => [
-        {
-          ...commentItem,
-          username: user?.username || 'Đạo Hữu',
-          avatar_url: user?.avatar_url,
-          created_at: new Date().toISOString(),
-          total_reactions: 0,
-        },
-        ...prev,
-      ]);
+      const item: CommentItemData = {
+        ...(created.data || created),
+        username: user?.username || 'Đạo Hữu',
+        avatar_url: user?.avatar_url,
+        cultivation_realm: user?.cultivation_realm || 'Luyện Khí',
+        created_at: new Date().toISOString(),
+        total_reactions: 0,
+        reply_count: 0,
+        reactions: {},
+        user_reaction: null,
+      };
+      setComments((prev) => [item, ...prev]);
       setNewComment('');
     } catch (err: any) {
       setErrorMsg(err.message || 'Không thể đăng bình luận. Vui lòng thử lại sau.');
@@ -63,31 +105,9 @@ export function ChapterComments({ chapterId, chapterTitle }: ChapterCommentsProp
     }
   };
 
-  const handleLike = async (commentId: string) => {
-    if (!isAuthenticated) return;
-    try {
-      await api.reactComment(commentId, 'like');
-      setComments((prev) =>
-        prev.map((c) => {
-          if (c.id === commentId) {
-            const hasLiked = c.user_reaction === 'like';
-            return {
-              ...c,
-              total_reactions: hasLiked ? Math.max(0, (c.total_reactions || 1) - 1) : (c.total_reactions || 0) + 1,
-              user_reaction: hasLiked ? null : 'like',
-            };
-          }
-          return c;
-        })
-      );
-    } catch (e) {
-      console.warn('Like error:', e);
-    }
-  };
-
   return (
     <div className="space-y-6 pt-8 border-t border-white/10">
-      {/* Header khu vực bình luận */}
+      {/* Tiêu đề & Tổng số bình luận */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <MessageSquare className="w-5 h-5 text-amber-400" />
@@ -102,14 +122,14 @@ export function ChapterComments({ chapterId, chapterTitle }: ChapterCommentsProp
         )}
       </div>
 
-      {/* Form nhập bình luận */}
+      {/* Form đăng bình luận gốc */}
       {isAuthenticated ? (
-        <form onSubmit={handleSubmit} className="space-y-3 p-4 sm:p-5 rounded-2xl bg-slate-900/80 border border-white/10 shadow-lg">
+        <form onSubmit={handleSubmitRootComment} className="space-y-3 p-4 sm:p-5 rounded-2xl bg-slate-900/80 border border-white/10 shadow-lg">
           <div className="flex items-center gap-2.5 text-xs text-slate-300">
             <span className="font-bold text-amber-400">Đạo Hữu: {user?.username}</span>
             {user?.cultivation_realm && (
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30">
-                {user.cultivation_realm}
+                {user.cultivation_realm} Cảnh
               </span>
             )}
           </div>
@@ -159,7 +179,7 @@ export function ChapterComments({ chapterId, chapterTitle }: ChapterCommentsProp
             <div>
               <h4 className="text-sm font-bold text-white">Gia nhập đàm đạo cùng các đạo hữu</h4>
               <p className="text-xs text-slate-400 mt-0.5">
-                Đăng nhập để luận bàn cốt truyện, bình phẩm nhân vật và tích lũy tu vi mỗi ngày.
+                Đăng nhập để luận bàn cốt truyện, thả biểu cảm và phản hồi ý kiến cùng các đạo hữu.
               </p>
             </div>
           </div>
@@ -187,64 +207,372 @@ export function ChapterComments({ chapterId, chapterTitle }: ChapterCommentsProp
           </p>
         </div>
       ) : (
-        <div className="space-y-3.5">
-          {comments.map((comment) => {
-            const hasLiked = comment.user_reaction === 'like';
-            return (
-              <div
-                key={comment.id}
-                className="p-4 rounded-2xl bg-slate-900/60 border border-white/5 space-y-2.5 hover:border-white/10 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-xl overflow-hidden bg-slate-800 border border-amber-500/20 flex-shrink-0 flex items-center justify-center">
-                      {comment.avatar_url ? (
-                        <img
-                          src={comment.avatar_url}
-                          alt={comment.username}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <User className="w-4 h-4 text-slate-400" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-white">
-                          {comment.username || 'Đạo Hữu'}
-                        </span>
-                        {comment.cultivation_realm && (
-                          <span className="text-[10px] font-semibold px-2 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">
-                            {comment.cultivation_realm}
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[10px] text-slate-500 font-mono">
-                        {comment.created_at ? new Date(comment.created_at).toLocaleString('vi-VN') : ''}
-                      </span>
-                    </div>
-                  </div>
+        <div className="space-y-4">
+          {comments.map((comment) => (
+            <CommentCard
+              key={comment.id}
+              comment={comment}
+              chapterId={chapterId}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
-                  {/* Nút Like / Thả Tim */}
+// ----------------------------------------------------
+// Từng thẻ bình luận (kèm trả lời & biểu cảm phong phú)
+// ----------------------------------------------------
+function CommentCard({
+  comment,
+  chapterId,
+  isReply = false,
+}: {
+  comment: CommentItemData;
+  chapterId: string;
+  isReply?: boolean;
+}) {
+  const { user, isAuthenticated } = useAuth();
+  const [data, setData] = useState<CommentItemData>(comment);
+  const [showReplyBox, setShowReplyBox] = useState(false);
+  const [replyContent, setReplyContent] = useState('');
+  const [submittingReply, setSubmittingReply] = useState(false);
+  const [replyError, setReplyError] = useState<string | null>(null);
+
+  // Danh sách replies con
+  const [replies, setReplies] = useState<CommentItemData[]>([]);
+  const [showReplies, setShowReplies] = useState(false);
+  const [loadingReplies, setLoadingReplies] = useState(false);
+  const [repliesLoaded, setRepliesLoaded] = useState(false);
+
+  // Menu biểu cảm
+  const [showReactionMenu, setShowReactionMenu] = useState(false);
+  const reactionMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (reactionMenuRef.current && !reactionMenuRef.current.contains(e.target as Node)) {
+        setShowReactionMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleReact = async (type: ReactionType) => {
+    if (!isAuthenticated) return;
+    setShowReactionMenu(false);
+
+    const isCurrentType = data.user_reaction === type;
+    const nextReaction = isCurrentType ? null : type;
+
+    // Optimistic UI update
+    setData((prev) => {
+      const nextReactions = { ...(prev.reactions || {}) };
+      if (prev.user_reaction && nextReactions[prev.user_reaction]) {
+        nextReactions[prev.user_reaction] = Math.max(0, nextReactions[prev.user_reaction] - 1);
+      }
+      if (nextReaction) {
+        nextReactions[nextReaction] = (nextReactions[nextReaction] || 0) + 1;
+      }
+
+      const newTotal = Object.values(nextReactions).reduce((a, b) => a + b, 0);
+
+      return {
+        ...prev,
+        user_reaction: nextReaction,
+        reactions: nextReactions,
+        total_reactions: newTotal,
+      };
+    });
+
+    try {
+      const res = await api.reactComment(data.id, type);
+      if (res) {
+        setData((prev) => ({
+          ...prev,
+          total_reactions: res.total_reactions ?? prev.total_reactions,
+          reactions: res.reactions ?? prev.reactions,
+          user_reaction: res.user_reaction !== undefined ? res.user_reaction : nextReaction,
+        }));
+      }
+    } catch (e) {
+      console.warn('React comment error:', e);
+    }
+  };
+
+  const handleToggleReplies = async () => {
+    if (!showReplies && !repliesLoaded) {
+      setLoadingReplies(true);
+      try {
+        const fetched = await api.getCommentReplies(data.id);
+        setReplies(Array.isArray(fetched) ? fetched : []);
+        setRepliesLoaded(true);
+      } catch (err) {
+        console.warn('Cannot load replies:', err);
+      } finally {
+        setLoadingReplies(false);
+      }
+    }
+    setShowReplies(!showReplies);
+  };
+
+  const handleSubmitReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!replyContent.trim() || submittingReply) return;
+
+    setSubmittingReply(true);
+    setReplyError(null);
+
+    try {
+      const res = await api.replyComment(data.id, replyContent.trim());
+      const newReplyItem: CommentItemData = {
+        ...(res.data || res),
+        username: user?.username || 'Đạo Hữu',
+        avatar_url: user?.avatar_url,
+        cultivation_realm: user?.cultivation_realm || 'Luyện Khí',
+        created_at: new Date().toISOString(),
+        total_reactions: 0,
+        reply_count: 0,
+        reactions: {},
+        user_reaction: null,
+      };
+
+      setReplies((prev) => [...prev, newReplyItem]);
+      setData((prev) => ({ ...prev, reply_count: prev.reply_count + 1 }));
+      setReplyContent('');
+      setShowReplyBox(false);
+      setShowReplies(true);
+      setRepliesLoaded(true);
+    } catch (err: any) {
+      setReplyError(err.message || 'Không thể đăng trả lời.');
+    } finally {
+      setSubmittingReply(false);
+    }
+  };
+
+  const currentReactionObj = REACTION_TYPES.find((r) => r.type === data.user_reaction);
+
+  // Gom các biểu cảm đã được bấm có số lượng > 0
+  const activeReactionPills = REACTION_TYPES.filter(
+    (r) => data.reactions && (data.reactions[r.type] || 0) > 0
+  );
+
+  return (
+    <div
+      className={`rounded-2xl p-4 sm:p-5 transition-all ${
+        isReply
+          ? 'bg-slate-950/60 border border-white/5 ml-4 sm:ml-8 mt-2.5'
+          : 'bg-slate-900/60 border border-white/10 hover:border-white/15'
+      }`}
+    >
+      {/* Tác giả & Cảnh giới */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl overflow-hidden bg-slate-800 border border-amber-500/20 flex-shrink-0 flex items-center justify-center">
+            {data.avatar_url ? (
+              <img
+                src={getFullAvatarUrl(data.avatar_url)}
+                alt={data.username}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span className="text-xs font-bold text-amber-300">
+                {data.username ? data.username[0]?.toUpperCase() : 'U'}
+              </span>
+            )}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs sm:text-sm font-bold text-white">
+                {data.username || 'Đạo Hữu'}
+              </span>
+              {data.cultivation_realm && (
+                <span className="text-[10px] font-semibold px-2 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                  {data.cultivation_realm} Cảnh
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] text-slate-500 font-mono">
+              {data.created_at ? new Date(data.created_at).toLocaleString('vi-VN') : ''}
+            </span>
+          </div>
+        </div>
+
+        {/* Tổng hợp các biểu cảm đã nhận (Reaction Summary Chips) */}
+        {data.total_reactions > 0 && (
+          <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-mono">
+            {activeReactionPills.slice(0, 3).map((r) => (
+              <span key={r.type} title={`${r.label}: ${data.reactions?.[r.type] || 0}`}>
+                {r.emoji}
+              </span>
+            ))}
+            <span className="text-slate-400 font-bold ml-0.5">{data.total_reactions}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Nội dung bình luận */}
+      <p className="text-xs sm:text-sm text-slate-200 leading-relaxed pl-12 mt-2 break-words">
+        {data.content}
+      </p>
+
+      {/* Cụm hành động: Biểu cảm + Trả lời */}
+      <div className="flex items-center gap-3 pl-12 pt-3 text-xs">
+        {/* Nút Biểu cảm với menu popup 6 icon */}
+        <div className="relative" ref={reactionMenuRef}>
+          <button
+            onClick={() => setShowReactionMenu(!showReactionMenu)}
+            onMouseEnter={() => setShowReactionMenu(true)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all ${
+              currentReactionObj
+                ? `${currentReactionObj.bg} ${currentReactionObj.color}`
+                : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            {currentReactionObj ? (
+              <>
+                <span className="text-sm">{currentReactionObj.emoji}</span>
+                <span>{currentReactionObj.label}</span>
+              </>
+            ) : (
+              <>
+                <ThumbsUp className="w-3.5 h-3.5" />
+                <span>Biểu cảm</span>
+              </>
+            )}
+          </button>
+
+          {/* Floating Reaction Bar (6 emoji: 👍 ❤️ 😂 😮 😢 😡) */}
+          {showReactionMenu && (
+            <div
+              onMouseLeave={() => setShowReactionMenu(false)}
+              className="absolute bottom-full left-0 mb-2 flex items-center gap-1 p-1.5 rounded-2xl bg-slate-900/95 border border-amber-500/30 shadow-2xl backdrop-blur-xl z-30 animate-in fade-in-0 zoom-in-95"
+            >
+              {REACTION_TYPES.map((item) => {
+                const isSelected = data.user_reaction === item.type;
+                return (
                   <button
-                    onClick={() => handleLike(comment.id)}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
-                      hasLiked
-                        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                        : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+                    key={item.type}
+                    onClick={() => handleReact(item.type)}
+                    title={item.label}
+                    className={`p-2 rounded-xl text-lg hover:scale-125 active:scale-95 transition-transform ${
+                      isSelected ? 'bg-white/15' : 'hover:bg-white/10'
                     }`}
                   >
-                    <Heart className={`w-3.5 h-3.5 ${hasLiked ? 'fill-rose-500 text-rose-500' : ''}`} />
-                    <span className="text-[11px] font-mono">{comment.total_reactions || 0}</span>
+                    {item.emoji}
                   </button>
-                </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
-                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed pl-12">
-                  {comment.content}
-                </p>
-              </div>
-            );
-          })}
+        {/* Nút Phản Hồi / Trả Lời */}
+        {isAuthenticated && (
+          <button
+            onClick={() => setShowReplyBox(!showReplyBox)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-amber-300 font-bold transition-colors"
+          >
+            <CornerDownRight className="w-3.5 h-3.5" />
+            <span>Trả lời</span>
+          </button>
+        )}
+
+        {/* Toggle mở danh sách câu trả lời con (chỉ hiển thị ở bình luận gốc) */}
+        {!isReply && data.reply_count > 0 && (
+          <button
+            onClick={handleToggleReplies}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-amber-400 hover:text-amber-300 font-bold transition-colors ml-auto"
+          >
+            {showReplies ? (
+              <>
+                <ChevronUp className="w-3.5 h-3.5" />
+                <span>Thu gọn {data.reply_count} câu trả lời</span>
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-3.5 h-3.5" />
+                <span>Xem {data.reply_count} câu trả lời</span>
+              </>
+            )}
+          </button>
+        )}
+      </div>
+
+      {/* Form nhập Trả lời trực tiếp */}
+      {showReplyBox && (
+        <form onSubmit={handleSubmitReply} className="pl-12 pt-3 space-y-2">
+          <div className="relative">
+            <textarea
+              rows={2}
+              value={replyContent}
+              onChange={(e) => setReplyContent(e.target.value)}
+              placeholder={`Trả lời @${data.username}...`}
+              maxLength={2000}
+              className="w-full rounded-xl bg-slate-950 border border-white/10 px-3.5 py-2.5 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:border-amber-400 focus:outline-none transition-colors resize-none"
+            />
+          </div>
+
+          {replyError && (
+            <p className="text-xs text-rose-400">{replyError}</p>
+          )}
+
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setShowReplyBox(false);
+                setReplyContent('');
+              }}
+              className="px-3.5 py-1.5 rounded-lg text-xs text-slate-400 hover:text-white font-medium transition-colors"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              disabled={submittingReply || !replyContent.trim()}
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-[#ffd166] to-[#ffb703] text-black font-black text-xs shadow-md shadow-amber-500/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+            >
+              {submittingReply ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Đang phát...
+                </>
+              ) : (
+                <>
+                  <Send className="w-3 h-3" />
+                  Gửi Phản Hồi
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Danh sách các câu trả lời con (Replies) */}
+      {!isReply && showReplies && (
+        <div className="pt-2">
+          {loadingReplies ? (
+            <div className="py-4 pl-12 flex items-center gap-2 text-xs text-slate-400">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+              Đang tải lời đàm đạo...
+            </div>
+          ) : replies.length === 0 ? (
+            <p className="pl-12 pt-2 text-xs text-slate-500 italic">Chưa có câu trả lời nào.</p>
+          ) : (
+            <div className="space-y-2">
+              {replies.map((replyItem) => (
+                <CommentCard
+                  key={replyItem.id}
+                  comment={replyItem}
+                  chapterId={chapterId}
+                  isReply={true}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

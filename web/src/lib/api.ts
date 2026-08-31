@@ -238,11 +238,29 @@ class ApiClient {
     });
   }
 
+  async getCommentReplies(commentId: string, page = 1, limit = 20): Promise<any[]> {
+    try {
+      const res = await this.request<any>(`/comments/${commentId}/replies?page=${page}&limit=${limit}`);
+      return res.items || res.data || (Array.isArray(res) ? res : []);
+    } catch {
+      return [];
+    }
+  }
+
+  async replyComment(commentId: string, content: string): Promise<any> {
+    const res = await this.request<any>(`/comments/${commentId}/reply`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+    return res.data || res;
+  }
+
   async reactComment(commentId: string, reactionType = 'like'): Promise<any> {
-    return this.request(`/comments/${commentId}/reactions`, {
+    const res = await this.request<any>(`/comments/${commentId}/reactions`, {
       method: 'POST',
       body: JSON.stringify({ reaction_type: reactionType }),
     });
+    return res.data || res;
   }
 
   // ---- FAVORITES ----
