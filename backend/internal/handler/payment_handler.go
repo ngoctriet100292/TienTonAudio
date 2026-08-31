@@ -80,3 +80,20 @@ func (h *PaymentHandler) GetUserActiveSubscription(w http.ResponseWriter, r *htt
 
 	utils.JSON(w, http.StatusOK, sub)
 }
+
+func (h *PaymentHandler) ListUserPayments(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.GetClaimsFromContext(r.Context())
+	if !ok {
+		utils.ErrorResponse(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	payments, err := h.paymentService.ListUserPayments(r.Context(), claims.UserID)
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.JSON(w, http.StatusOK, payments)
+}
+

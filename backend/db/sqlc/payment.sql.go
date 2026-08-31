@@ -201,6 +201,62 @@ func (q *Queries) ListSubscriptionPlans(ctx context.Context) ([]SubscriptionPlan
 	return items, nil
 }
 
+const listUserPayments = `-- name: ListUserPayments :many
+SELECT 
+    p.id, p.user_id, p.plan_id, p.amount, p.provider, p.status, p.transaction_id, p.created_at, p.updated_at,
+    sp.name AS plan_name, sp.duration_days
+FROM payments p
+LEFT JOIN subscription_plans sp ON p.plan_id = sp.id
+WHERE p.user_id = $1
+ORDER BY p.created_at DESC
+`
+
+type ListUserPaymentsRow struct {
+	ID            uuid.UUID          `json:"id"`
+	UserID        uuid.UUID          `json:"user_id"`
+	PlanID        *int32             `json:"plan_id"`
+	Amount        pgtype.Numeric     `json:"amount"`
+	Provider      string             `json:"provider"`
+	Status        *string            `json:"status"`
+	TransactionID *string            `json:"transaction_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	PlanName      *string            `json:"plan_name"`
+	DurationDays  *int32             `json:"duration_days"`
+}
+
+func (q *Queries) ListUserPayments(ctx context.Context, userID uuid.UUID) ([]ListUserPaymentsRow, error) {
+	rows, err := q.db.Query(ctx, listUserPayments, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListUserPaymentsRow{}
+	for rows.Next() {
+		var i ListUserPaymentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.PlanID,
+			&i.Amount,
+			&i.Provider,
+			&i.Status,
+			&i.TransactionID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PlanName,
+			&i.DurationDays,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updatePaymentStatus = `-- name: UpdatePaymentStatus :one
 UPDATE payments
 SET 

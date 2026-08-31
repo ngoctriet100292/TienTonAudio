@@ -42,3 +42,17 @@ type UserSubscriptionResp struct {
 	ExpiresAt time.Time `json:"expires_at"`
 	Status    string    `json:"status"`
 }
+
+type UserPaymentResp struct {
+	ID            uuid.UUID `json:"id"`
+	PlanID        *int32    `json:"plan_id,omitempty"`
+	PlanName      *string   `json:"plan_name,omitempty"`
+	DurationDays  *int32    `json:"duration_days,omitempty"`
+	Amount        float64   `json:"amount"`
+	Provider      string    `json:"provider"`
+	Status        string    `json:"status"`
+	TransactionID *string   `json:"transaction_id,omitempty"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+

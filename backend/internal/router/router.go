@@ -132,6 +132,9 @@ func NewRouter(opts RouterOptions) http.Handler {
 		w.Write([]byte(swaggerUIHTML))
 	})
 
+	// Phục vụ file tĩnh tải lên (avatar, media)
+	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir("./uploads"))))
+
 	r.Route("/api/v1", func(r chi.Router) {
 		// Auth
 		r.Route("/auth", func(r chi.Router) {
@@ -166,6 +169,7 @@ func NewRouter(opts RouterOptions) http.Handler {
 				r.Get("/me", opts.UserHandler.GetMe)
 				r.Get("/cultivation", opts.UserHandler.GetCultivation)
 				r.Put("/me", opts.UserHandler.UpdateProfile)
+				r.Post("/avatar", opts.UserHandler.UploadAvatar)
 				r.Put("/password", opts.UserHandler.UpdatePassword)
 				r.Get("/history", opts.StoryHandler.GetListeningHistory)
 				r.Get("/favorites", opts.StoryHandler.GetUserFavorites)
@@ -280,6 +284,7 @@ func NewRouter(opts RouterOptions) http.Handler {
 				r.Use(middleware.AuthMiddleware(opts.JWTService))
 				r.Post("/create", opts.PaymentHandler.CreatePayment)
 				r.Get("/my-subscription", opts.PaymentHandler.GetUserActiveSubscription)
+				r.Get("/history", opts.PaymentHandler.ListUserPayments)
 			})
 		})
 

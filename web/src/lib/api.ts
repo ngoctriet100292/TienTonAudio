@@ -1,4 +1,4 @@
-import { Story, Chapter, Category, User, UserCultivation, CultivationRealmInfo } from '@/types';
+import { Story, Chapter, Category, User, UserCultivation, CultivationRealmInfo, PaymentHistoryItem, FavoriteStoryItem, ListeningHistoryItem } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
 
@@ -272,6 +272,64 @@ class ApiClient {
       return [];
     }
   }
+
+  // ---- USER ACTIONS (AVATAR, FAVORITES, HISTORY, PAYMENTS) ----
+  async uploadAvatar(file: File): Promise<{ avatar_url: string; user?: User }> {
+    const token = this.getToken();
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    const res = await fetch(`${this.baseUrl}/users/avatar`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || data.message || 'Lỗi tải ảnh đại diện lên');
+    }
+    return data.data || data;
+  }
+
+  async getUserFavorites(): Promise<FavoriteStoryItem[]> {
+    try {
+      const res = await this.request<any>('/users/favorites');
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray(res.items)) return res.items;
+      if (res && Array.isArray(res.data)) return res.data;
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  async getUserHistory(): Promise<ListeningHistoryItem[]> {
+    try {
+      const res = await this.request<any>('/users/history');
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray(res.items)) return res.items;
+      if (res && Array.isArray(res.data)) return res.data;
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  async getUserPayments(): Promise<PaymentHistoryItem[]> {
+    try {
+      const res = await this.request<any>('/payments/history');
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray(res.items)) return res.items;
+      if (res && Array.isArray(res.data)) return res.data;
+      return [];
+    } catch {
+      return [];
+    }
+  }
 }
 
 export const api = new ApiClient(API_BASE_URL);
+

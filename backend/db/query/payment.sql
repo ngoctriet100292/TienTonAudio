@@ -54,3 +54,13 @@ JOIN subscription_plans p ON s.plan_id = p.id
 WHERE s.user_id = $1 AND s.status = 'active' AND s.expires_at > CURRENT_TIMESTAMP
 ORDER BY s.expires_at DESC
 LIMIT 1;
+
+-- name: ListUserPayments :many
+SELECT 
+    p.id, p.user_id, p.plan_id, p.amount, p.provider, p.status, p.transaction_id, p.created_at, p.updated_at,
+    sp.name AS plan_name, sp.duration_days
+FROM payments p
+LEFT JOIN subscription_plans sp ON p.plan_id = sp.id
+WHERE p.user_id = $1
+ORDER BY p.created_at DESC;
+

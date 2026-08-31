@@ -46,6 +46,7 @@ export interface User {
   email: string;
   avatar_url?: string;
   role: string;
+  is_premium?: boolean;
   is_email_verified: boolean;
   two_factor_enabled: boolean;
   cultivation_realm?: string;
@@ -77,3 +78,43 @@ export interface UserCultivation {
   description: string;
   all_realms: CultivationRealmInfo[];
 }
+
+export interface PaymentHistoryItem {
+  id: string;
+  user_id: string;
+  plan_id?: number;
+  plan_name?: string;
+  duration_days?: number;
+  amount: number;
+  provider: string;
+  status: 'completed' | 'pending' | 'failed' | 'refunded';
+  transaction_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FavoriteStoryItem {
+  id: string;
+  title: string;
+  slug: string;
+  cover_image_url: string;
+  total_chapters: number;
+  rating_avg: number;
+  favorited_at: string;
+}
+
+export interface ListeningHistoryItem {
+  chapter_id: string;
+  story_id: string;
+  last_position_seconds: number;
+  playback_speed: number;
+  is_completed: boolean;
+  updated_at: string;
+  chapter_title: string;
+  chapter_number: number;
+  duration_seconds: number;
+  story_title: string;
+  story_slug: string;
+  cover_image_url: string;
+}
+

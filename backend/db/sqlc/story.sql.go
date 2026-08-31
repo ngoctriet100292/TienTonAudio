@@ -491,6 +491,7 @@ SELECT
     c.chapter_number,
     c.duration_seconds,
     s.title AS story_title,
+    s.slug AS story_slug,
     s.cover_image_url
 FROM listening_history h
 JOIN chapters c ON h.chapter_id = c.id
@@ -517,6 +518,7 @@ type GetUserListeningHistoryRow struct {
 	ChapterNumber       pgtype.Numeric     `json:"chapter_number"`
 	DurationSeconds     int32              `json:"duration_seconds"`
 	StoryTitle          string             `json:"story_title"`
+	StorySlug           string             `json:"story_slug"`
 	CoverImageUrl       *string            `json:"cover_image_url"`
 }
 
@@ -540,6 +542,7 @@ func (q *Queries) GetUserListeningHistory(ctx context.Context, arg GetUserListen
 			&i.ChapterNumber,
 			&i.DurationSeconds,
 			&i.StoryTitle,
+			&i.StorySlug,
 			&i.CoverImageUrl,
 		); err != nil {
 			return nil, err

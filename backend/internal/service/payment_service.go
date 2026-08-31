@@ -19,6 +19,7 @@ type PaymentService interface {
 	CreatePayment(ctx context.Context, userID uuid.UUID, req domain.CreatePaymentReq) (*domain.CreatePaymentResp, error)
 	HandleWebhookCallback(ctx context.Context, req domain.WebhookCallbackReq) error
 	GetUserActiveSubscription(ctx context.Context, userID uuid.UUID) (*domain.UserSubscriptionResp, error)
+	ListUserPayments(ctx context.Context, userID uuid.UUID) ([]domain.UserPaymentResp, error)
 }
 
 type paymentService struct {
@@ -155,6 +156,35 @@ func (s *paymentService) GetUserActiveSubscription(ctx context.Context, userID u
 		ExpiresAt: sub.ExpiresAt.Time,
 		Status:    getStr(sub.Status),
 	}, nil
+}
+
+func (s *paymentService) ListUserPayments(ctx context.Context, userID uuid.UUID) ([]domain.UserPaymentResp, error) {
+	rows, err := s.repo.ListUserPayments(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list user payments error: %w", err)
+	}
+
+	result := make([]domain.UserPaymentResp, len(rows))
+	for i, r := range rows {
+		statusStr := "pending"
+		if r.Status != nil {
+			statusStr = *r.Status
+		}
+
+		result[i] = domain.UserPaymentResp{
+			ID:            r.ID,
+			PlanID:        r.PlanID,
+			PlanName:      r.PlanName,
+			DurationDays:  r.DurationDays,
+			Amount:        utils.NumericToFloat64(r.Amount),
+			Provider:      r.Provider,
+			Status:        statusStr,
+			TransactionID: r.TransactionID,
+			CreatedAt:     r.CreatedAt.Time,
+			UpdatedAt:     r.UpdatedAt.Time,
+		}
+	}
+	return result, nil
 }
 
 func getStr(s *string) string {

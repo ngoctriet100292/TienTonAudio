@@ -15,6 +15,7 @@ type PaymentRepository interface {
 	UpdatePaymentStatus(ctx context.Context, arg db.UpdatePaymentStatusParams) (db.Payment, error)
 	ActivateSubscription(ctx context.Context, arg db.ActivateSubscriptionParams) (db.Subscription, error)
 	GetUserActiveSubscription(ctx context.Context, userID uuid.UUID) (db.GetUserActiveSubscriptionRow, error)
+	ListUserPayments(ctx context.Context, userID uuid.UUID) ([]db.ListUserPaymentsRow, error)
 }
 
 type paymentRepo struct {
@@ -51,4 +52,8 @@ func (r *paymentRepo) ActivateSubscription(ctx context.Context, arg db.ActivateS
 
 func (r *paymentRepo) GetUserActiveSubscription(ctx context.Context, userID uuid.UUID) (db.GetUserActiveSubscriptionRow, error) {
 	return r.q.GetUserActiveSubscription(ctx, uuid.NullUUID{UUID: userID, Valid: true})
+}
+
+func (r *paymentRepo) ListUserPayments(ctx context.Context, userID uuid.UUID) ([]db.ListUserPaymentsRow, error) {
+	return r.q.ListUserPayments(ctx, userID)
 }

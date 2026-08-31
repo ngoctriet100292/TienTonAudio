@@ -101,6 +101,7 @@ type Querier interface {
 	ListStories(ctx context.Context, arg ListStoriesParams) ([]ListStoriesRow, error)
 	ListSubscriptionPlans(ctx context.Context) ([]SubscriptionPlan, error)
 	ListTopViewedStories(ctx context.Context, arg ListTopViewedStoriesParams) ([]ListTopViewedStoriesRow, error)
+	ListUserPayments(ctx context.Context, userID uuid.UUID) ([]ListUserPaymentsRow, error)
 	ListUserPlaylists(ctx context.Context, userID uuid.NullUUID) ([]ListUserPlaylistsRow, error)
 	ListUsersForAdmin(ctx context.Context, arg ListUsersForAdminParams) ([]ListUsersForAdminRow, error)
 	MarkAllNotificationsAsRead(ctx context.Context, userID uuid.UUID) error

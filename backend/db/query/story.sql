@@ -112,6 +112,7 @@ SELECT
     c.chapter_number,
     c.duration_seconds,
     s.title AS story_title,
+    s.slug AS story_slug,
     s.cover_image_url
 FROM listening_history h
 JOIN chapters c ON h.chapter_id = c.id
