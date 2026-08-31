@@ -24,6 +24,7 @@ import {
   Mail,
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
+import { getFullAvatarUrl } from '@/lib/api';
 
 export function Navbar() {
   const router = useRouter();
@@ -289,7 +290,7 @@ export function Navbar() {
               >
                 {user.avatar_url ? (
                   <img
-                    src={user.avatar_url}
+                    src={getFullAvatarUrl(user.avatar_url)}
                     alt={user.username}
                     className="h-full w-full rounded-full object-cover"
                   />
@@ -308,8 +309,16 @@ export function Navbar() {
                   {/* Thông tin đạo hữu */}
                   <div className="border-b border-white/10 pb-3.5 mb-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#ffd166] to-[#ffb703] text-black font-black text-base shadow-md">
-                        {user.username[0]?.toUpperCase() || 'U'}
+                      <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full overflow-hidden bg-gradient-to-tr from-[#ffd166] to-[#ffb703] text-black font-black text-base shadow-md">
+                        {user.avatar_url ? (
+                          <img
+                            src={getFullAvatarUrl(user.avatar_url)}
+                            alt={user.username}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          user.username[0]?.toUpperCase() || 'U'
+                        )}
                       </div>
                       <div className="truncate">
                         <div className="flex items-center gap-2">
@@ -570,8 +579,16 @@ export function Navbar() {
             {mounted && isAuthenticated && user ? (
               <div className="pt-3 border-t border-white/10 space-y-3">
                 <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-900 border border-white/10">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-tr from-[#ffd166] to-[#ffb703] text-black font-black">
-                    {user.username[0]?.toUpperCase() || 'U'}
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full overflow-hidden bg-gradient-to-tr from-[#ffd166] to-[#ffb703] text-black font-black">
+                    {user.avatar_url ? (
+                      <img
+                        src={getFullAvatarUrl(user.avatar_url)}
+                        alt={user.username}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      user.username[0]?.toUpperCase() || 'U'
+                    )}
                   </div>
                   <div className="truncate flex-1">
                     <p className="text-sm font-bold text-white truncate">{user.username}</p>

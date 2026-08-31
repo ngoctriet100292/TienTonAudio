@@ -29,6 +29,9 @@ class ApiClient {
       });
 
       if (!res.ok) {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user_profile');
         return null;
       }
 
@@ -443,5 +446,13 @@ class ApiClient {
 }
 
 export const api = new ApiClient(API_BASE_URL);
+
+export function getFullAvatarUrl(url?: string | null): string {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  const backendBase = process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://localhost:8080';
+  const cleanUrl = url.startsWith('/') ? url : `/${url}`;
+  return `${backendBase}${cleanUrl}`;
+}
 
 

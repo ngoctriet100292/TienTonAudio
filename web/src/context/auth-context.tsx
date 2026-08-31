@@ -21,15 +21,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshProfile = useCallback(async () => {
     const token = localStorage.getItem('access_token');
-    if (!token) return;
+    if (!token) {
+      setUser(null);
+      return;
+    }
     try {
       const me = await api.getMe();
       if (me) {
         setUser(me);
         localStorage.setItem('user_profile', JSON.stringify(me));
+      } else {
+        setUser(null);
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user_profile');
       }
     } catch {
-      // Ignored
+      setUser(null);
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user_profile');
     }
   }, []);
 
