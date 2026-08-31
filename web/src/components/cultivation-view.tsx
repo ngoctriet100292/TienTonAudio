@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 
-interface RealmItem {
+export interface RealmItem {
   level: number;
   name: string;
   min_exp: number;
@@ -33,7 +33,7 @@ interface RealmItem {
   color: string;
 }
 
-const ALL_REALMS: RealmItem[] = [
+export const ALL_REALMS: RealmItem[] = [
   {
     level: 1,
     name: 'Luyện Khí',

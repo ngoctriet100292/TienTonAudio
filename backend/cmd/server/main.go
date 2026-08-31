@@ -21,6 +21,7 @@ import (
 	"github.com/IREAKING/tientonaudio/backend/pkg/ai"
 	"github.com/IREAKING/tientonaudio/backend/pkg/auth"
 	"github.com/IREAKING/tientonaudio/backend/pkg/email"
+	"github.com/IREAKING/tientonaudio/backend/pkg/storage"
 )
 
 // @title TienTonAudio REST API
@@ -150,9 +151,21 @@ func main() {
 		playlistSvc = service.NewPlaylistService(playlistRepo)
 	}
 
+	// 5.1 Initialize Storage Service (Cloudflare R2)
+	storageSvc, err := storage.NewR2Storage(
+		cfg.R2AccountID,
+		cfg.R2AccessKeyID,
+		cfg.R2AccessKeySecret,
+		cfg.R2BucketName,
+		cfg.R2PublicURL,
+	)
+	if err != nil {
+		slog.Warn("could not initialize Cloudflare R2 storage, fallback to local uploads", "error", err)
+	}
+
 	// 6. Initialize Handlers
 	authHandler := handler.NewAuthHandler(authSvc)
-	userHandler := handler.NewUserHandler(authSvc)
+	userHandler := handler.NewUserHandler(authSvc, storageSvc)
 	storyHandler := handler.NewStoryHandler(storySvc)
 	chapterHandler := handler.NewChapterHandler(chapterSvc)
 	commentHandler := handler.NewCommentHandler(commentSvc)

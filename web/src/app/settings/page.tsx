@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { api } from '@/lib/api';
+import { ALL_REALMS, RealmItem } from '@/components/cultivation-view';
 import {
   UserCultivation,
   FavoriteStoryItem,
@@ -57,6 +58,7 @@ export default function SettingsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState<TabType>('profile');
+  const [cultivationTierFilter, setCultivationTierFilter] = useState<'all' | 'pham' | 'tien' | 'chiton'>('all');
 
   // Tu vi state
   const [cultivationData, setCultivationData] = useState<UserCultivation | null>(null);
@@ -963,18 +965,73 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Lộ Trình 17 Cảnh Giới Tu Tiên */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Award className="w-5 h-5 text-amber-400" />
-                <h4 className="text-base font-black text-white">17 Cảnh Giới Tu Tiên Tiên Tôn</h4>
+          {/* Lộ Trình 17 Cảnh Giới Tu Tiên Chính Thống */}
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Award className="w-5 h-5 text-amber-400" />
+                  <h4 className="text-xl font-black text-white">Lộ Trình 17 Cảnh Giới Tu Tiên</h4>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  Khám phá toàn bộ 17 tầng cảnh giới từ Phàm Giới sơ nhập đến Tiên Đế chí tôn cùng các đặc quyền tương ứng.
+                </p>
               </div>
-              <span className="text-xs text-slate-400 font-mono">Bản đồ tu vi</span>
+
+              {/* Bộ lọc phân tầng cảnh giới */}
+              <div className="flex items-center gap-1.5 p-1 bg-slate-900/80 rounded-2xl border border-white/10 overflow-x-auto">
+                <button
+                  type="button"
+                  onClick={() => setCultivationTierFilter('all')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                    cultivationTierFilter === 'all'
+                      ? 'bg-amber-400 text-black shadow-md shadow-amber-500/20'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Tất Cả (17)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCultivationTierFilter('pham')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                    cultivationTierFilter === 'pham'
+                      ? 'bg-sky-400 text-black shadow-md shadow-sky-500/20'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Phàm Giới (7)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCultivationTierFilter('tien')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                    cultivationTierFilter === 'tien'
+                      ? 'bg-purple-400 text-black shadow-md shadow-purple-500/20'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Tiên Giới (6)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCultivationTierFilter('chiton')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                    cultivationTierFilter === 'chiton'
+                      ? 'bg-rose-400 text-black shadow-md shadow-rose-500/20'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Chí Tôn (4)
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {(cultivationData?.all_realms || []).map((realm) => {
+            {/* Danh sách thẻ chi tiết 17 Cảnh Giới */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {ALL_REALMS.filter(
+                (r) => cultivationTierFilter === 'all' || r.tier === cultivationTierFilter
+              ).map((realm) => {
                 const currentLevel = cultivationData?.level || user.cultivation_level || 1;
                 const isCurrent = realm.level === currentLevel;
                 const isPassed = realm.level < currentLevel;
@@ -982,41 +1039,76 @@ export default function SettingsPage() {
                 return (
                   <div
                     key={realm.level}
-                    className={`p-4 rounded-2xl border transition-all ${
+                    className={`relative p-5 rounded-3xl border transition-all ${
                       isCurrent
-                        ? 'border-amber-400 bg-amber-500/10 shadow-lg shadow-amber-500/10'
+                        ? 'border-amber-400/80 bg-gradient-to-br from-amber-500/15 to-slate-900/90 shadow-xl shadow-amber-500/10 ring-1 ring-amber-400/30'
                         : isPassed
-                        ? 'border-emerald-500/20 bg-slate-900/40 opacity-75'
-                        : 'border-white/5 bg-slate-900/20 opacity-50'
+                        ? 'border-emerald-500/25 bg-slate-900/50 hover:border-emerald-500/40'
+                        : 'border-white/5 bg-slate-900/30 opacity-70 hover:opacity-100 hover:border-white/10'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
+                    {/* Header Thẻ */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
                         <span
-                          className="flex h-7 w-7 items-center justify-center rounded-lg text-xs font-black"
+                          className="flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-black shadow-md"
                           style={{
-                            backgroundColor: `${realm.color}20`,
+                            backgroundColor: `${realm.color}25`,
                             color: realm.color,
-                            border: `1px solid ${realm.color}40`,
+                            border: `1px solid ${realm.color}50`,
                           }}
                         >
                           {realm.level}
                         </span>
                         <div>
-                          <h5 className="text-sm font-bold text-white">{realm.name}</h5>
-                          <p className="text-[11px] text-slate-400">{realm.description}</p>
+                          <div className="flex items-center gap-2">
+                            <h5 className="text-base font-black text-white">{realm.name} Cảnh</h5>
+                            <span
+                              className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                              style={{
+                                backgroundColor: `${realm.color}20`,
+                                color: realm.color,
+                              }}
+                            >
+                              {realm.tierName}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                            Yêu cầu: {realm.min_exp.toLocaleString('vi-VN')} ~{' '}
+                            {realm.max_exp === -1 ? 'Vô Hạn' : realm.max_exp.toLocaleString('vi-VN')} EXP
+                          </p>
                         </div>
                       </div>
 
+                      {/* Huy hiệu trạng thái */}
                       <span
-                        className="text-[10px] font-bold px-2 py-0.5 rounded uppercase font-mono tracking-wider"
-                        style={{
-                          backgroundColor: isCurrent ? '#f59e0b25' : isPassed ? '#10b98120' : '#64748b20',
-                          color: isCurrent ? '#fbbf24' : isPassed ? '#34d399' : '#94a3b8',
-                        }}
+                        className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase font-mono tracking-wider flex-shrink-0 flex items-center gap-1 ${
+                          isCurrent
+                            ? 'bg-amber-400 text-black shadow-md shadow-amber-500/20 animate-pulse'
+                            : isPassed
+                            ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                            : 'bg-slate-800 text-slate-400 border border-white/5'
+                        }`}
                       >
-                        {isCurrent ? 'Đang Tu' : isPassed ? 'Đã Vượt' : `${realm.min_exp} EXP`}
+                        {isCurrent ? '🌟 Đang Tu' : isPassed ? '✓ Đã Đột Phá' : '🔒 Chưa Đạt'}
                       </span>
+                    </div>
+
+                    {/* Mô tả cảnh giới */}
+                    <p className="text-xs text-slate-300 mt-3 leading-relaxed">
+                      {realm.description}
+                    </p>
+
+                    {/* Năng lực & Đặc quyền */}
+                    <div className="mt-3.5 pt-3 border-t border-white/5 space-y-2 text-[11px]">
+                      <div className="flex items-start gap-2 text-slate-300">
+                        <Zap className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
+                        <span><strong className="text-amber-300">Năng Lực:</strong> {realm.ability}</span>
+                      </div>
+                      <div className="flex items-start gap-2 text-slate-300">
+                        <Crown className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
+                        <span><strong className="text-amber-300">Đặc Quyền:</strong> {realm.privilege}</span>
+                      </div>
                     </div>
                   </div>
                 );

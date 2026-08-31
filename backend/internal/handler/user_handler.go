@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,15 +14,17 @@ import (
 	"github.com/IREAKING/tientonaudio/backend/internal/domain"
 	"github.com/IREAKING/tientonaudio/backend/internal/service"
 	"github.com/IREAKING/tientonaudio/backend/pkg/auth"
+	"github.com/IREAKING/tientonaudio/backend/pkg/storage"
 	"github.com/IREAKING/tientonaudio/backend/pkg/utils"
 )
 
 type UserHandler struct {
-	authService service.AuthService
+	authService    service.AuthService
+	storageService storage.StorageService
 }
 
-func NewUserHandler(authService service.AuthService) *UserHandler {
-	return &UserHandler{authService: authService}
+func NewUserHandler(authService service.AuthService, storageService storage.StorageService) *UserHandler {
+	return &UserHandler{authService: authService, storageService: storageService}
 }
 
 func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
@@ -137,31 +140,43 @@ func (h *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3. Đảm bảo thư mục lưu trữ uploads/avatars tồn tại
-	uploadDir := filepath.Join(".", "uploads", "avatars")
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
-		utils.ErrorResponse(w, http.StatusInternalServerError, "Không thể tạo thư mục lưu trữ ảnh")
-		return
-	}
-
-	// 4. Sinh tên file duy nhất theo userID và timestamp
-	filename := fmt.Sprintf("%s_%d%s", claims.UserID.String(), time.Now().UnixMilli(), ext)
-	dstPath := filepath.Join(uploadDir, filename)
-
-	dst, err := os.Create(dstPath)
+	// 3. Đọc dữ liệu file ảnh vào memory buffer
+	fileBytes, err := io.ReadAll(file)
 	if err != nil {
-		utils.ErrorResponse(w, http.StatusInternalServerError, "Lỗi tạo file trên hệ thống")
-		return
-	}
-	defer dst.Close()
-
-	if _, err := io.Copy(dst, file); err != nil {
-		utils.ErrorResponse(w, http.StatusInternalServerError, "Lỗi ghi dữ liệu file ảnh")
+		utils.ErrorResponse(w, http.StatusInternalServerError, "Lỗi đọc dữ liệu file ảnh")
 		return
 	}
 
-	// 5. Cập nhật avatar_url trong database
-	avatarURL := fmt.Sprintf("/uploads/avatars/%s", filename)
+	contentType := header.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "image/" + strings.TrimPrefix(ext, ".")
+	}
+
+	key := fmt.Sprintf("avatars/%s_%d%s", claims.UserID.String(), time.Now().UnixMilli(), ext)
+	var avatarURL string
+
+	// 4. Ưu tiên tải trực tiếp lên Cloudflare R2 Bucket
+	if h.storageService != nil {
+		r2URL, err := h.storageService.UploadFile(r.Context(), key, bytes.NewReader(fileBytes), contentType)
+		if err == nil && r2URL != "" {
+			avatarURL = r2URL
+		}
+	}
+
+	// 5. Lưu dự phòng cục bộ nếu R2 chưa cấu hình hoặc tạm thời lỗi
+	if avatarURL == "" {
+		uploadDir := filepath.Join(".", "uploads", "avatars")
+		_ = os.MkdirAll(uploadDir, 0755)
+		filename := fmt.Sprintf("%s_%d%s", claims.UserID.String(), time.Now().UnixMilli(), ext)
+		dstPath := filepath.Join(uploadDir, filename)
+		if err := os.WriteFile(dstPath, fileBytes, 0644); err != nil {
+			utils.ErrorResponse(w, http.StatusInternalServerError, "Lỗi ghi dữ liệu file ảnh")
+			return
+		}
+		avatarURL = fmt.Sprintf("/uploads/avatars/%s", filename)
+	}
+
+	// 6. Cập nhật avatar_url trong database PostgreSQL
 	currentUser, err := h.authService.GetProfile(r.Context(), claims.UserID)
 	if err != nil {
 		utils.ErrorResponse(w, http.StatusInternalServerError, err.Error())
@@ -177,7 +192,7 @@ func (h *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.JSONWithMessage(w, http.StatusOK, "Tải ảnh đại diện thành công", map[string]interface{}{
+	utils.JSONWithMessage(w, http.StatusOK, "Tải ảnh đại diện lên Cloudflare R2 thành công", map[string]interface{}{
 		"avatar_url": avatarURL,
 		"user":       updatedUser,
 	})
