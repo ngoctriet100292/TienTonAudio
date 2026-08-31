@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	db "github.com/IREAKING/tientonaudio/backend/db/sqlc"
 )
@@ -30,6 +31,10 @@ func NewService(ctx context.Context, connString string) (*Service, error) {
 	config.MinConns = 5
 	config.MaxConnLifetime = 1 * time.Hour
 	config.MaxConnIdleTime = 15 * time.Minute
+
+	// Tương thích với Supabase Transaction Pooler (PgBouncer cổng 6543):
+	// Tắt prepared statement cache để tránh xung đột SQLSTATE 42P05
+	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
