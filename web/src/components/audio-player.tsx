@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { formatAudioTime, getCurrentMarker } from '@/lib/timeline';
 import { AudioTimelineMarker } from '@/types';
+import { useAmbient, AMBIENT_SOUNDS } from '@/context/ambient-audio-context';
 
 export function StickyAudioPlayer() {
   const {
@@ -42,6 +43,13 @@ export function StickyAudioPlayer() {
     setSleepTimer,
     cancelSleepTimer,
   } = useAudio();
+
+  const {
+    activeSound: ambientSound,
+    isPlaying: isAmbientPlaying,
+    setModalOpen: setAmbientModalOpen,
+  } = useAmbient();
+  const currentAmbientConfig = AMBIENT_SOUNDS.find((s) => s.id === ambientSound);
 
   const [speedMenuOpen, setSpeedMenuOpen] = useState(false);
   const [playlistOpen, setPlaylistOpen] = useState(false);
@@ -369,8 +377,31 @@ export function StickyAudioPlayer() {
           </div>
         </div>
 
-        {/* Toolbar: Timeline Chapters, Danh sách tập, Hẹn giờ, Tốc độ */}
+        {/* Toolbar: Ambient Sound, Timeline Chapters, Danh sách tập, Hẹn giờ, Tốc độ */}
         <div className="flex items-center justify-end gap-2 sm:gap-3 flex-shrink-0">
+          {/* Nút Âm Thanh Môi Trường Tiên Hiệp (Ambient Soundscapes) */}
+          <button
+            onClick={() => setAmbientModalOpen(true)}
+            className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all shadow-sm ${
+              isAmbientPlaying
+                ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-cyan-500/20'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-white/10'
+            }`}
+            title="Âm thanh nền thiên nhiên (mưa rơi, gió rừng trúc, suối reo, lửa trại...)"
+          >
+            <span className="text-xs">{currentAmbientConfig?.icon || '🌧️'}</span>
+            <span className="hidden lg:inline">
+              {isAmbientPlaying ? currentAmbientConfig?.name : 'Âm nền'}
+            </span>
+            {isAmbientPlaying && (
+              <span className="flex items-end gap-0.5 h-2.5 w-2.5 ml-0.5">
+                <span className="w-0.5 bg-cyan-400 rounded-full animate-bounce h-2" />
+                <span className="w-0.5 bg-cyan-400 rounded-full animate-bounce [animation-delay:-0.2s] h-2.5" />
+                <span className="w-0.5 bg-cyan-400 rounded-full animate-bounce [animation-delay:-0.4s] h-1.5" />
+              </span>
+            )}
+          </button>
+
           {/* Nút Mở Mục Lục Mốc Thời Gian (YouTube Timeline Chapters) */}
           {timelineMarkers.length > 0 && (
             <button

@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/context/auth-context";
 import { AudioProvider } from "@/context/audio-context";
+import { AmbientAudioProvider } from "@/context/ambient-audio-context";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { StickyAudioPlayer } from "@/components/audio-player";
+import { AmbientSoundModal } from "@/components/ambient-sound-modal";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://tientonaudio.com"),
@@ -102,10 +104,13 @@ export default function RootLayout({
       <body className="min-h-screen bg-[#070a11] text-slate-100 antialiased flex flex-col selection:bg-amber-500 selection:text-black">
         <AuthProvider>
           <AudioProvider>
-            <Navbar />
-            <main className="flex-1 pb-24">{children}</main>
-            <StickyAudioPlayer />
-            <Footer />
+            <AmbientAudioProvider>
+              <Navbar />
+              <main className="flex-1 pb-24">{children}</main>
+              <StickyAudioPlayer />
+              <Footer />
+              <AmbientSoundModal />
+            </AmbientAudioProvider>
           </AudioProvider>
         </AuthProvider>
       </body>

@@ -9,6 +9,7 @@ import { Story, Chapter } from '@/types';
 import { ChapterComments } from '@/components/chapter-comments';
 import { CultivationSpinner } from '@/components/cultivation-spinner';
 import { formatAudioTime } from '@/lib/timeline';
+import { useAmbient, AMBIENT_SOUNDS } from '@/context/ambient-audio-context';
 
 export default function ChapterReaderClient({
   story,
@@ -22,6 +23,13 @@ export default function ChapterReaderClient({
   const router = useRouter();
   const { currentChapter, isPlaying, playChapter, seek, currentTime } = useAudio();
   const isThisPlaying = currentChapter?.id === chapter.id && isPlaying;
+
+  const {
+    activeSound: ambientSound,
+    isPlaying: isAmbientPlaying,
+    setModalOpen: setAmbientModalOpen,
+  } = useAmbient();
+  const currentAmbientConfig = AMBIENT_SOUNDS.find((s) => s.id === ambientSound);
 
   const [fontSize, setFontSize] = useState<number>(18);
   const [bgMode, setBgMode] = useState<'dark' | 'sepia' | 'obsidian'>('dark');
@@ -153,8 +161,24 @@ export default function ChapterReaderClient({
           </div>
         )}
 
-        {/* Đổi cỡ chữ & Chế độ màu nền */}
-        <div className="flex items-center gap-4 ml-auto">
+        {/* Đổi cỡ chữ & Chế độ màu nền & Âm thanh nền */}
+        <div className="flex flex-wrap items-center gap-3 ml-auto">
+          {/* Nút Âm Thanh Môi Trường Tiên Hiệp */}
+          <button
+            onClick={() => setAmbientModalOpen(true)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium transition-all ${
+              isAmbientPlaying
+                ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm'
+                : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border-white/5'
+            }`}
+            title="Bật âm thanh thiên nhiên (tiếng mưa, tiếng gió, suối reo)"
+          >
+            <span className="text-xs">{currentAmbientConfig?.icon || '🌧️'}</span>
+            <span className="hidden sm:inline">
+              {isAmbientPlaying ? currentAmbientConfig?.name : 'Âm thanh nền'}
+            </span>
+          </button>
+
           {/* Cỡ chữ */}
           <div className="flex items-center gap-1.5 bg-slate-800/80 px-2 py-1 rounded-lg border border-white/5">
             <Type className="w-3.5 h-3.5 text-slate-400" />
