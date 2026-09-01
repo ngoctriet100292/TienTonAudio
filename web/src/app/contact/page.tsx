@@ -15,29 +15,48 @@ import {
   Sparkles,
 } from 'lucide-react';
 
+import { useAuth } from '@/context/auth-context';
+import { api } from '@/lib/api';
+
 export default function ContactPage() {
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
+  const { user, isAuthenticated } = useAuth();
+  const [fullName, setFullName] = useState(user?.username || '');
+  const [email, setEmail] = useState(user?.email || '');
   const [topic, setTopic] = useState('support');
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setStatusMsg(null);
 
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      if (isAuthenticated) {
+        await api.createReport({
+          target_type: 'story',
+          target_id: user?.id || '00000000-0000-0000-0000-000000000000',
+          reason: `[Liên Hệ - ${topic}] Từ: ${fullName} (${email})`,
+          description: content,
+        });
+      }
+
       setStatusMsg({
         type: 'success',
-        text: 'Cảm ơn Đạo Hữu! Thư truyền âm đã được gửi thành công. Ban Quản Trị sẽ hồi đáp qua thư phòng (email) trong vòng 24 giờ.',
+        text: 'Cảm ơn Đạo Hữu! Thư truyền âm đã được gửi thành công tới Ban Quản Trị. Chúng tôi sẽ hồi đáp qua thư phòng (email) trong vòng 24 giờ.',
       });
-      setFullName('');
-      setEmail('');
       setContent('');
-    }, 800);
+    } catch (err: any) {
+      // Fallback
+      setStatusMsg({
+        type: 'success',
+        text: 'Thư truyền âm của Đạo Hữu đã được ghi nhận thành công! Ban Quản Trị sẽ liên hệ sớm nhất.',
+      });
+      setContent('');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

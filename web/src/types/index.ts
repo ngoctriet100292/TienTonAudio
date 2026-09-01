@@ -290,3 +290,62 @@ export interface CommunityComment {
   cultivation_color: string;
 }
 
+export interface Playlist {
+  id: string;
+  user_id?: string;
+  name: string;
+  is_public: boolean;
+  total_items: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlaylistItemDetail {
+  playlist_id: string;
+  chapter_id: string;
+  position: number;
+  added_at: string;
+  chapter_title: string;
+  chapter_number: number;
+  duration_seconds: number;
+  listen_count?: number;
+  is_premium?: boolean;
+  story_id: string;
+  story_title: string;
+  cover_image_url?: string;
+}
+
+export interface PlaylistDetail {
+  playlist: Playlist;
+  items: PlaylistItemDetail[];
+}
+
+export interface CreatePlaylistReq {
+  name: string;
+  is_public?: boolean;
+}
+
+export interface CreateReportReq {
+  target_type: 'chapter' | 'comment' | 'story';
+  target_id: string;
+  reason: string;
+  description?: string;
+}
+
+export interface FollowedAuthor {
+  id: string;
+  name: string;
+  bio?: string;
+  avatar_url?: string;
+  created_at: string;
+}
+
+export interface FollowedNarrator {
+  id: string;
+  name: string;
+  bio?: string;
+  avatar_url?: string;
+  created_at: string;
+}
+
+

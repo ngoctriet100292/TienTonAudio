@@ -24,6 +24,7 @@ import {
   Mail,
   PenTool,
   MessageSquare,
+  Bookmark,
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { getFullAvatarUrl } from '@/lib/api';
@@ -138,6 +139,13 @@ export function Navbar() {
             >
               <MessageSquare className="w-4 h-4 text-amber-400 flex-shrink-0" />
               <span>Luận Đạo</span>
+            </Link>
+            <Link
+              href="/library"
+              className="text-slate-300 hover:text-[#ffb703] transition-colors flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <Bookmark className="w-4 h-4 text-amber-400 flex-shrink-0" />
+              <span>Tủ Truyện</span>
             </Link>
 
             {/* Dropdown Giới Thiệu (Cảnh Giới, Về Chúng Tôi, VIP, AI, Liên Hệ...) */}
@@ -405,6 +413,15 @@ export function Navbar() {
                     </Link>
 
                     <Link
+                      href="/library"
+                      onClick={() => setDropdownOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-800 hover:text-amber-400 transition-colors font-medium"
+                    >
+                      <Bookmark className="w-4 h-4 text-amber-400" />
+                      Tủ Truyện Tiên Phủ (Thư Viện)
+                    </Link>
+
+                    <Link
                       href="/cultivation"
                       onClick={() => setDropdownOpen(false)}
                       className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-800 hover:text-amber-400 transition-colors"
@@ -548,6 +565,14 @@ export function Navbar() {
               >
                 <BookOpen className="w-5 h-5 text-emerald-400" />
                 Thể Loại Audio
+              </Link>
+              <Link
+                href="/library"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 rounded-2xl text-slate-200 hover:text-white hover:bg-slate-800/60 font-semibold text-sm transition-all"
+              >
+                <Bookmark className="w-5 h-5 text-amber-400" />
+                Tủ Truyện Cá Nhân
               </Link>
               <Link
                 href="/vip"

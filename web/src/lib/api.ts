@@ -1,4 +1,4 @@
-import { Story, Chapter, Category, User, UserCultivation, CultivationRealmInfo, PaymentHistoryItem, FavoriteStoryItem, ListeningHistoryItem, NotificationItem, PartnerStats, PartnerStoryItem, CreatePartnerStoryReq, CreatePartnerChapterReq, SubscriptionPlan, CreatePaymentResp, PaymentStatusResp, UserSubscription, AdminStats, AdminUser, AdminReport, CommunityPost, CreateCommunityPostReq, CommunityComment } from '@/types';
+import { Story, Chapter, Category, User, UserCultivation, CultivationRealmInfo, PaymentHistoryItem, FavoriteStoryItem, ListeningHistoryItem, NotificationItem, PartnerStats, PartnerStoryItem, CreatePartnerStoryReq, CreatePartnerChapterReq, SubscriptionPlan, CreatePaymentResp, PaymentStatusResp, UserSubscription, AdminStats, AdminUser, AdminReport, CommunityPost, CreateCommunityPostReq, CommunityComment, Playlist, PlaylistDetail, PlaylistItemDetail, CreatePlaylistReq, CreateReportReq, FollowedAuthor, FollowedNarrator } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
 
@@ -740,6 +740,118 @@ class ApiClient {
       body: JSON.stringify({ content, parent_id: parentId }),
     });
     return res.data || res;
+  }
+
+  // ---- DANH SÁCH PHÁT (PLAYLISTS) ----
+  async getUserPlaylists(): Promise<Playlist[]> {
+    try {
+      const res = await this.request<any>('/playlists');
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray(res.items)) return res.items;
+      if (res && Array.isArray(res.data)) return res.data;
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  async createPlaylist(data: CreatePlaylistReq): Promise<Playlist> {
+    const res = await this.request<any>('/playlists', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return res.data || res;
+  }
+
+  async getPlaylistDetail(id: string): Promise<PlaylistDetail> {
+    return await this.request<PlaylistDetail>(`/playlists/${id}`);
+  }
+
+  async updatePlaylist(id: string, data: Partial<CreatePlaylistReq>): Promise<Playlist> {
+    const res = await this.request<any>(`/playlists/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+    return res.data || res;
+  }
+
+  async deletePlaylist(id: string): Promise<any> {
+    return await this.request<any>(`/playlists/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async addPlaylistItem(playlistId: string, chapterId: string): Promise<any> {
+    return await this.request<any>(`/playlists/${playlistId}/items`, {
+      method: 'POST',
+      body: JSON.stringify({ chapter_id: chapterId }),
+    });
+  }
+
+  async removePlaylistItem(playlistId: string, chapterId: string): Promise<any> {
+    return await this.request<any>(`/playlists/${playlistId}/items/${chapterId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ---- BÁO CÁO & KHIẾU NẠI (REPORTS) ----
+  async createReport(data: CreateReportReq): Promise<any> {
+    return await this.request<any>('/reports', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ---- THEO DÕI TÁC GIẢ & MC (FOLLOW) ----
+  async getFollowedAuthors(): Promise<FollowedAuthor[]> {
+    try {
+      const res = await this.request<any>('/users/following-authors');
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray(res.items)) return res.items;
+      if (res && Array.isArray(res.data)) return res.data;
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  async getFollowedNarrators(): Promise<FollowedNarrator[]> {
+    try {
+      const res = await this.request<any>('/users/following-narrators');
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray(res.items)) return res.items;
+      if (res && Array.isArray(res.data)) return res.data;
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  async toggleFollowAuthor(authorId: string): Promise<any> {
+    return await this.request<any>(`/authors/${authorId}/follow`, {
+      method: 'POST',
+    });
+  }
+
+  async toggleFollowNarrator(narratorId: string): Promise<any> {
+    return await this.request<any>(`/narrators/${narratorId}/follow`, {
+      method: 'POST',
+    });
+  }
+
+  // ---- QUÊN & ĐẶT LẠI MẬT KHẨU (PASSWORD RECOVERY) ----
+  async forgotPassword(email: string): Promise<any> {
+    return await this.request<any>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async resetPassword(token: string, new_password: string): Promise<any> {
+    return await this.request<any>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, new_password }),
+    });
   }
 }
 
