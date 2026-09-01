@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { Headphones, ShieldCheck, Sparkles, Heart, Flame } from 'lucide-react';
+import { Headphones, ShieldCheck, Sparkles, Heart, Flame, PenTool } from 'lucide-react';
 
 export function Footer() {
   return (
@@ -49,6 +49,7 @@ export function Footer() {
             <ul className="space-y-2">
               <li className="flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Chính sách bản quyền DMCA</li>
               <li className="flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 text-amber-400" /> <Link href="/vip" className="hover:text-[#ffb703]">Gói Hội Viên VIP Tiên Tôn</Link></li>
+              <li className="flex items-center gap-1.5"><PenTool className="w-3.5 h-3.5 text-amber-400" /> <Link href="/studio" className="hover:text-[#ffb703]">Kênh Đối Tác Sáng Tác</Link></li>
               <li className="flex items-center gap-1.5"><Flame className="w-3.5 h-3.5 text-amber-400" /> <Link href="/cultivation" className="hover:text-[#ffb703]">17 Cảnh Giới Tu Tiên</Link></li>
               <li><Link href="/terms" className="hover:text-[#ffb703]">Điều khoản dịch vụ</Link></li>
               <li><Link href="/contact" className="hover:text-[#ffb703]">Liên hệ quảng cáo / hợp tác</Link></li>

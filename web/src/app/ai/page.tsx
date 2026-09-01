@@ -89,6 +89,28 @@ export default function AIAssistantPage() {
         )}
       </div>
 
+      {/* Khẩu quyết gợi ý hỏi nhanh */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-slate-400 font-bold flex items-center gap-1">
+          <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> Khẩu quyết gợi ý:
+        </span>
+        {[
+          'Hàn Lập tu luyện những công pháp nào?',
+          'Cảnh giới Kim Đan và Nguyên Anh khác nhau thế nào?',
+          'Tóm tắt đại kết cục Phàm Nhân Tu Tiên',
+          'Nâng cấp VIP nhận được bao nhiêu Tu Vi đột phá?',
+        ].map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => setPrompt(s)}
+            className="px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-white/10 text-xs transition-colors"
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+
       {/* Input Box */}
       <form onSubmit={handleSend} className="flex gap-3">
         <input

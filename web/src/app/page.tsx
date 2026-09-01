@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { Play, Star, Headphones, Sparkles, Flame, BookOpen, Crown, ChevronRight, MessageSquare } from 'lucide-react';
+import { Play, Star, Headphones, Sparkles, Flame, BookOpen, Crown, ChevronRight, MessageSquare, Zap, PenTool, ShieldCheck, QrCode } from 'lucide-react';
 import { Story } from '@/types';
 import { StoryStatusBadge } from '@/components/story-status-badge';
 import { FavoriteButton } from '@/components/favorite-button';
@@ -236,7 +236,64 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 4. AI Đạo Hữu Banner */}
+      {/* 4. Banner Nâng Cấp VIP & VietQR Tự Động */}
+      <section className="relative overflow-hidden rounded-3xl border border-amber-500/40 bg-gradient-to-r from-[#1c2438] via-[#0f172a] to-[#1a1528] p-8 sm:p-10 shadow-2xl shadow-amber-500/10 flex flex-col lg:flex-row items-center justify-between gap-6">
+        <div className="space-y-3 max-w-xl">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-bold uppercase tracking-wider">
+            <Crown className="w-3.5 h-3.5" />
+            Hội Viên VIP Tiên Tôn
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-black text-white">
+            Âm Thanh Chuẩn 320kbps • <span className="gold-text">Đột Phá Tu Vi</span>
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+            Mở khóa 100% tập audio độc quyền, không quảng cáo và nhận đan dược cộng hàng ngàn điểm Tu Vi thăng cấp Cảnh Giới. Thanh toán tự động qua <strong className="text-white">VietQR Napas 24/7</strong> kích hoạt tức thời.
+          </p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center gap-3 flex-shrink-0">
+          <Link
+            href="/vip"
+            className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#ffd166] to-[#ffb703] hover:from-amber-400 hover:to-amber-500 text-black font-black px-6 py-3.5 shadow-xl shadow-amber-500/25 transition-all hover:scale-105"
+          >
+            <Zap className="w-4 h-4" />
+            Nâng Cấp VIP Ngay (49k/tháng)
+          </Link>
+          <Link
+            href="/cultivation"
+            className="inline-flex items-center gap-2 rounded-2xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white border border-white/10 font-bold text-xs px-5 py-3.5 transition-all"
+          >
+            <Flame className="w-4 h-4 text-amber-400" />
+            Xem 17 Cảnh Giới
+          </Link>
+        </div>
+      </section>
+
+      {/* 5. Banner Kênh Đối Tác Sáng Tác Studio */}
+      <section className="rounded-3xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/40 via-slate-900 to-slate-900 p-8 sm:p-10 flex flex-col md:flex-row items-center justify-between gap-6 backdrop-blur-xl">
+        <div className="space-y-3 max-w-xl">
+          <div className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-400 uppercase tracking-widest">
+            <PenTool className="w-4 h-4" />
+            Tiên Tôn Sáng Tác Đường
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-black text-white">
+            Đạo Hữu Muốn Đăng Truyện & <span className="text-emerald-400">Audio 320kbps?</span>
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+            Hệ thống Studio dành riêng cho Tác Giả và Giọng Đọc MC: Tải audio trực tiếp lên Cloudflare R2, quản lý tập truyện, thiết lập khóa VIP và theo dõi doanh thu thời gian thực.
+          </p>
+        </div>
+
+        <Link
+          href="/studio"
+          className="flex-shrink-0 inline-flex items-center gap-2 rounded-2xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-bold px-6 py-3.5 shadow-lg shadow-emerald-500/10 transition-all hover:scale-105"
+        >
+          <PenTool className="w-4 h-4" />
+          Vào Sáng Tác Studio
+        </Link>
+      </section>
+
+      {/* 6. AI Đạo Hữu Banner */}
       <section className="rounded-3xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-slate-900/80 p-8 sm:p-10 flex flex-col md:flex-row items-center justify-between gap-6 backdrop-blur-xl">
         <div className="space-y-3 max-w-xl">
           <div className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-400 uppercase tracking-widest">
