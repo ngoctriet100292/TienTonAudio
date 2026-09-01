@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { getFullAvatarUrl } from '@/lib/api';
+import { NotificationDropdown } from '@/components/notification-dropdown';
 
 export function Navbar() {
   const router = useRouter();
@@ -279,6 +280,9 @@ export function Navbar() {
             />
             <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
           </form>
+
+          {/* Linh Thư Báo Tin (Thông Báo) */}
+          {mounted && isAuthenticated && <NotificationDropdown />}
 
           {/* User Avatar - Khi đăng nhập CHỈ hiện ảnh đại diện */}
           {mounted && isAuthenticated && user ? (

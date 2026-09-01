@@ -1,4 +1,4 @@
-import { Story, Chapter, Category, User, UserCultivation, CultivationRealmInfo, PaymentHistoryItem, FavoriteStoryItem, ListeningHistoryItem } from '@/types';
+import { Story, Chapter, Category, User, UserCultivation, CultivationRealmInfo, PaymentHistoryItem, FavoriteStoryItem, ListeningHistoryItem, NotificationItem } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
 
@@ -459,6 +459,47 @@ class ApiClient {
       return [];
     } catch {
       return [];
+    }
+  }
+
+  // ---- NOTIFICATIONS ----
+  async getNotifications(page = 1, limit = 20): Promise<NotificationItem[]> {
+    try {
+      const res = await this.request<any>(`/notifications?page=${page}&limit=${limit}`);
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray(res.items)) return res.items;
+      if (res && Array.isArray(res.data)) return res.data;
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  async getUnreadNotificationCount(): Promise<number> {
+    try {
+      const res = await this.request<any>('/notifications/unread-count');
+      if (res && typeof res.unread_count === 'number') return res.unread_count;
+      return 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  async markNotificationAsRead(id: string): Promise<boolean> {
+    try {
+      await this.request(`/notifications/${id}/read`, { method: 'PUT' });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async markAllNotificationsAsRead(): Promise<boolean> {
+    try {
+      await this.request('/notifications/read-all', { method: 'PUT' });
+      return true;
+    } catch {
+      return false;
     }
   }
 }
