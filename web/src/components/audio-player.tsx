@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useAudio, PLAYBACK_SPEEDS } from '@/context/audio-context';
-import { Play, Pause, RotateCcw, RotateCw, SkipBack, SkipForward, Volume2, Gauge, ListMusic, Lock, X } from 'lucide-react';
+import { Play, Pause, RotateCcw, RotateCw, SkipBack, SkipForward, Volume2, Gauge, ListMusic, Lock, X, Moon, Clock } from 'lucide-react';
 
 export function StickyAudioPlayer() {
   const {
@@ -20,17 +20,25 @@ export function StickyAudioPlayer() {
     playbackSpeed,
     setPlaybackSpeed,
     playChapter,
+    sleepTimer,
+    setSleepTimer,
+    cancelSleepTimer,
   } = useAudio();
 
   const [speedMenuOpen, setSpeedMenuOpen] = useState(false);
   const [playlistOpen, setPlaylistOpen] = useState(false);
+  const [sleepMenuOpen, setSleepMenuOpen] = useState(false);
   const speedMenuRef = useRef<HTMLDivElement>(null);
   const playlistDrawerRef = useRef<HTMLDivElement>(null);
+  const sleepMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (speedMenuRef.current && !speedMenuRef.current.contains(event.target as Node)) {
         setSpeedMenuOpen(false);
+      }
+      if (sleepMenuRef.current && !sleepMenuRef.current.contains(event.target as Node)) {
+        setSleepMenuOpen(false);
       }
       if (
         playlistDrawerRef.current &&
@@ -256,6 +264,85 @@ export function StickyAudioPlayer() {
               <span className="text-[10px] font-mono opacity-80">({playlist.length})</span>
             </button>
           )}
+
+          {/* Nút Hẹn Giờ Tắt (Sleep Timer) */}
+          <div className="relative" ref={sleepMenuRef}>
+            <button
+              onClick={() => setSleepMenuOpen(!sleepMenuOpen)}
+              className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all shadow-sm ${
+                sleepTimer?.isActive
+                  ? 'bg-indigo-500/25 text-indigo-300 border-indigo-500/50 shadow-indigo-500/20'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-white/10'
+              }`}
+              title="Hẹn giờ tắt audio tự động"
+            >
+              <Moon className={`w-3 h-3 ${sleepTimer?.isActive ? 'text-indigo-400 fill-indigo-400/40 animate-pulse' : 'text-slate-400'}`} />
+              {sleepTimer?.isActive ? (
+                <span className="font-mono text-[10px] text-indigo-300">
+                  {sleepTimer.mode === 'end_of_chapter'
+                    ? 'Hết tập'
+                    : formatTime(sleepTimer.remainingSeconds)}
+                </span>
+              ) : (
+                <span className="hidden sm:inline">Hẹn giờ</span>
+              )}
+            </button>
+
+            {sleepMenuOpen && (
+              <div className="absolute bottom-full right-0 mb-2 w-44 rounded-xl border border-white/10 bg-[#0f172a]/95 p-1.5 shadow-2xl backdrop-blur-xl z-50 animate-in fade-in-0 zoom-in-95">
+                <div className="flex items-center justify-between text-[10px] uppercase font-bold text-slate-400 px-2 py-1 border-b border-white/10 mb-1">
+                  <span className="flex items-center gap-1">
+                    <Moon className="w-3 h-3 text-indigo-400" /> Hẹn giờ tắt
+                  </span>
+                  {sleepTimer?.isActive && (
+                    <span className="text-[9px] text-emerald-400 font-mono">Bật</span>
+                  )}
+                </div>
+                <div className="space-y-0.5 text-xs">
+                  {[15, 30, 45, 60].map((mins) => (
+                    <button
+                      key={mins}
+                      onClick={() => {
+                        setSleepTimer(mins);
+                        setSleepMenuOpen(false);
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white flex items-center justify-between transition-colors"
+                    >
+                      <span>{mins} phút</span>
+                      {sleepTimer?.mode === 'duration' && Math.round(sleepTimer.remainingSeconds / 60) === mins && (
+                        <span className="text-emerald-400 font-bold text-[10px]">✓</span>
+                      )}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => {
+                      setSleepTimer('end_of_chapter');
+                      setSleepMenuOpen(false);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white flex items-center justify-between transition-colors"
+                  >
+                    <span>Khi hết tập này</span>
+                    {sleepTimer?.mode === 'end_of_chapter' && (
+                      <span className="text-emerald-400 font-bold text-[10px]">✓</span>
+                    )}
+                  </button>
+                  {sleepTimer?.isActive && (
+                    <div className="pt-1 mt-1 border-t border-white/10">
+                      <button
+                        onClick={() => {
+                          cancelSleepTimer();
+                          setSleepMenuOpen(false);
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 text-xs transition-colors font-medium"
+                      >
+                        Tắt hẹn giờ
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Nút chọn Tốc độ phát (0.5x, 0.75x, 1x, 1.25x, 1.5x, 1.75x, 2x) */}
           <div className="relative" ref={speedMenuRef}>

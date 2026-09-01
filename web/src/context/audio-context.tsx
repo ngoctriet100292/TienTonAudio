@@ -6,6 +6,13 @@ import { api } from '@/lib/api';
 
 export const PLAYBACK_SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 
+export interface SleepTimerState {
+  isActive: boolean;
+  mode: 'duration' | 'end_of_chapter';
+  remainingSeconds: number;
+  label: string;
+}
+
 interface AudioContextType {
   currentStory: Story | null;
   currentChapter: Chapter | null;
@@ -21,6 +28,9 @@ interface AudioContextType {
   skip: (seconds: number) => void;
   playNext: () => void;
   playPrev: () => void;
+  sleepTimer: SleepTimerState | null;
+  setSleepTimer: (option: number | 'end_of_chapter') => void;
+  cancelSleepTimer: () => void;
 }
 
 const AudioContext = createContext<AudioContextType | undefined>(undefined);
@@ -34,16 +44,21 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [playbackSpeed, setPlaybackSpeedState] = useState<number>(1.0);
 
+  // Sleep Timer state
+  const [sleepTimer, setSleepTimerState] = useState<SleepTimerState | null>(null);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const currentChapterRef = useRef<Chapter | null>(null);
   const currentStoryRef = useRef<Story | null>(null);
   const playlistRef = useRef<Chapter[]>([]);
   const playbackSpeedRef = useRef<number>(1.0);
+  const sleepTimerRef = useRef<SleepTimerState | null>(null);
 
   currentChapterRef.current = currentChapter;
   currentStoryRef.current = currentStory;
   playlistRef.current = playlist;
   playbackSpeedRef.current = playbackSpeed;
+  sleepTimerRef.current = sleepTimer;
 
   const getStreamUrl = (chapterId: string, speed: number) => {
     const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
@@ -84,6 +99,13 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           playbackSpeedRef.current
         );
       }
+
+      // Kiểm tra Sleep Timer nếu chọn "Dừng khi hết tập"
+      if (sleepTimerRef.current?.mode === 'end_of_chapter') {
+        setSleepTimerState(null);
+        return;
+      }
+
       // Tự động chuyển phát tập tiếp theo trong danh sách nếu có
       handleAutoPlayNext();
     };
@@ -94,6 +116,54 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Sleep Timer Countdown Ticker
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (sleepTimer && sleepTimer.mode === 'duration' && sleepTimer.remainingSeconds > 0) {
+      timer = setInterval(() => {
+        setSleepTimerState((prev) => {
+          if (!prev) return null;
+          if (prev.remainingSeconds <= 1) {
+            // Hết giờ hẹn: Tắt nhạc
+            if (audioRef.current) {
+              audioRef.current.pause();
+            }
+            setIsPlaying(false);
+            return null;
+          }
+          return {
+            ...prev,
+            remainingSeconds: prev.remainingSeconds - 1,
+          };
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [sleepTimer?.isActive, sleepTimer?.mode]);
+
+  const setSleepTimer = (option: number | 'end_of_chapter') => {
+    if (option === 'end_of_chapter') {
+      setSleepTimerState({
+        isActive: true,
+        mode: 'end_of_chapter',
+        remainingSeconds: 0,
+        label: 'Hết tập này',
+      });
+    } else {
+      const secs = option * 60;
+      setSleepTimerState({
+        isActive: true,
+        mode: 'duration',
+        remainingSeconds: secs,
+        label: `${option} phút`,
+      });
+    }
+  };
+
+  const cancelSleepTimer = () => {
+    setSleepTimerState(null);
+  };
+
   const setPlaybackSpeed = (speed: number) => {
     setPlaybackSpeedState(speed);
     playbackSpeedRef.current = speed;
@@ -103,12 +173,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('tienton_audio_speed', speed.toString());
   };
 
-  // Đồng bộ tiến độ nghe định kỳ mỗi 20 giây để lưu tu vi và vị trí
+  // Tự động lưu tiến trình nghe mỗi 20 giây
   useEffect(() => {
     if (!isPlaying || !currentChapter) return;
 
     const interval = setInterval(() => {
-      if (audioRef.current && audioRef.current.currentTime > 5) {
+      if (audioRef.current && audioRef.current.currentTime > 0) {
         api.saveListeningProgress(
           currentChapter.id,
           Math.floor(audioRef.current.currentTime),
@@ -121,7 +191,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [isPlaying, currentChapter, playbackSpeed]);
 
-  // Tích hợp Navigator MediaSession API (Điều khiển từ màn hình khóa / tai nghe / Touch Bar)
+  // Tích hợp Navigator MediaSession API (Điều khiển từ màn hình khóa / tai nghe Bluetooth / Smartwatch)
   useEffect(() => {
     if ('mediaSession' in navigator && currentChapter && currentStory) {
       navigator.mediaSession.metadata = new MediaMetadata({
@@ -129,7 +199,11 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         artist: currentStory.author_name || 'Tiên Tôn Audio',
         album: currentStory.title,
         artwork: currentStory.cover_image_url
-          ? [{ src: currentStory.cover_image_url, sizes: '512x512', type: 'image/jpeg' }]
+          ? [
+              { src: currentStory.cover_image_url, sizes: '96x96', type: 'image/jpeg' },
+              { src: currentStory.cover_image_url, sizes: '256x256', type: 'image/jpeg' },
+              { src: currentStory.cover_image_url, sizes: '512x512', type: 'image/jpeg' },
+            ]
           : [],
       });
 
@@ -145,6 +219,18 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       navigator.mediaSession.setActionHandler('seekforward', () => skip(10));
       navigator.mediaSession.setActionHandler('previoustrack', () => playPrev());
       navigator.mediaSession.setActionHandler('nexttrack', () => playNext());
+
+      if ('setActionHandler' in navigator.mediaSession) {
+        try {
+          navigator.mediaSession.setActionHandler('seekto', (details) => {
+            if (details.seekTime !== undefined && details.seekTime !== null) {
+              seek(details.seekTime);
+            }
+          });
+        } catch {
+          // seekto optional fallback
+        }
+      }
     }
   }, [currentChapter, currentStory]);
 
@@ -260,6 +346,9 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         skip,
         playNext,
         playPrev,
+        sleepTimer,
+        setSleepTimer,
+        cancelSleepTimer,
       }}
     >
       {children}

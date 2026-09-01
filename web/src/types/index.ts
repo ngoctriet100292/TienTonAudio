@@ -214,3 +214,36 @@ export interface UserSubscription {
   status: string;
 }
 
+export interface AdminStats {
+  total_users: number;
+  total_stories: number;
+  total_chapters: number;
+  total_story_views: number;
+  total_chapter_listens: number;
+  total_revenue: number;
+}
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  email: string;
+  avatar_url?: string;
+  role: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminReport {
+  id: string;
+  user_id: string;
+  reporter_username?: string;
+  target_type: string;
+  target_id: string;
+  reason: string;
+  description?: string;
+  status: 'pending' | 'resolved' | 'rejected';
+  admin_notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+

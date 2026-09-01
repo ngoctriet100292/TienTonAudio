@@ -1,4 +1,4 @@
-import { Story, Chapter, Category, User, UserCultivation, CultivationRealmInfo, PaymentHistoryItem, FavoriteStoryItem, ListeningHistoryItem, NotificationItem, PartnerStats, PartnerStoryItem, CreatePartnerStoryReq, CreatePartnerChapterReq, SubscriptionPlan, CreatePaymentResp, PaymentStatusResp, UserSubscription } from '@/types';
+import { Story, Chapter, Category, User, UserCultivation, CultivationRealmInfo, PaymentHistoryItem, FavoriteStoryItem, ListeningHistoryItem, NotificationItem, PartnerStats, PartnerStoryItem, CreatePartnerStoryReq, CreatePartnerChapterReq, SubscriptionPlan, CreatePaymentResp, PaymentStatusResp, UserSubscription, AdminStats, AdminUser, AdminReport } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
 
@@ -639,6 +639,45 @@ class ApiClient {
     } catch {
       return null;
     }
+  }
+
+  // ---- QUẢN TRỊ VIÊN ADMIN PORTAL ----
+  async getAdminStats(): Promise<AdminStats> {
+    return await this.request<AdminStats>('/admin/stats');
+  }
+
+  async getAdminUsers(page: number = 1, limit: number = 50): Promise<{ items: AdminUser[]; total?: number }> {
+    const res = await this.request<any>(`/admin/users?page=${page}&limit=${limit}`);
+    if (Array.isArray(res)) return { items: res };
+    if (res && Array.isArray(res.items)) return res;
+    if (res && Array.isArray(res.data)) return { items: res.data };
+    return { items: [] };
+  }
+
+  async updateUserRole(userId: string, role: string): Promise<any> {
+    return await this.request<any>(`/admin/users/${userId}/role`, {
+      method: 'PUT',
+      body: JSON.stringify({ role }),
+    });
+  }
+
+  async getAdminReports(): Promise<AdminReport[]> {
+    try {
+      const res = await this.request<any>('/admin/reports');
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray(res.items)) return res.items;
+      if (res && Array.isArray(res.data)) return res.data;
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  async updateReportStatus(reportId: string, status: string, notes?: string): Promise<any> {
+    return await this.request<any>(`/admin/reports/${reportId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, admin_notes: notes }),
+    });
   }
 }
 

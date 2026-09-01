@@ -1,0 +1,17 @@
+{
+  "name": "Tiên Tôn Audio - Truyện Audio Tiên Hiệp 320kbps",
+  "short_name": "Tiên Tôn Audio",
+  "description": "Kho truyện audio tiên hiệp, huyền huyễn, kiếm hiệp âm thanh chuẩn studio 320kbps với trợ lý AI Đạo Hữu",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c121e",
+  "theme_color": "#0c121e",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

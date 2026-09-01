@@ -441,6 +441,17 @@ export function Navbar() {
                       Kênh Đối Tác / Sáng Tác
                     </Link>
 
+                    {user.role === 'admin' && (
+                      <Link
+                        href="/admin"
+                        onClick={() => setDropdownOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-rose-500/20 text-rose-300 transition-colors font-bold border border-rose-500/30"
+                      >
+                        <ShieldCheck className="w-4 h-4 text-rose-400" />
+                        Quản Trị Tối Cao (Admin)
+                      </Link>
+                    )}
+
                     <div className="border-t border-white/10 my-1.5 pt-1.5" />
 
                     {/* Nút Đăng Xuất */}
@@ -626,6 +637,16 @@ export function Navbar() {
                 >
                   <PenTool className="w-4 h-4 text-amber-400" /> Kênh Đối Tác Sáng Tác (Studio)
                 </Link>
+
+                {user.role === 'admin' && (
+                  <Link
+                    href="/admin"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="w-full py-2.5 px-3 rounded-2xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 font-bold text-xs flex items-center justify-center gap-2 border border-rose-500/30 transition-colors"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-rose-400" /> Quản Trị Tối Cao (Admin Portal)
+                  </Link>
+                )}
 
                 <button
                   onClick={() => {

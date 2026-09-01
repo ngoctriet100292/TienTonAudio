@@ -53,6 +53,12 @@ export const metadata: Metadata = {
     description: "Nền tảng nghe truyện audio chuẩn 320kbps và đọc tiểu thuyết với AI Đạo Hữu.",
     images: ["/og-banner.jpg"],
   },
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Tiên Tôn Audio",
+  },
   robots: {
     index: true,
     follow: true,

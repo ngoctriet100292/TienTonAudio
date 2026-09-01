@@ -40,6 +40,42 @@ services:
     networks:
       - tientonaudio_net
 
+  # Backend API Server
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tientonaudio_backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/app.env
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - tientonaudio_net
+
+  # Next.js Web Frontend
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: tientonaudio_web
+    restart: unless-stopped
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
+      - PORT=3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - tientonaudio_net
+
   # pgAdmin - database GUI (start with: docker compose --profile tools up -d)
   pgadmin:
     image: dpage/pgadmin4:latest
