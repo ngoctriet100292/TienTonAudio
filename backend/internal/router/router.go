@@ -29,6 +29,7 @@ type RouterOptions struct {
 	NotificationHandler *handler.NotificationHandler
 	ReportHandler       *handler.ReportHandler
 	PartnerHandler      *handler.PartnerHandler
+	CommunityHandler    *handler.CommunityHandler
 }
 
 const swaggerUIHTML = `<!DOCTYPE html>
@@ -318,6 +319,21 @@ func NewRouter(opts RouterOptions) http.Handler {
 				r.Post("/stories/{id}/chapters", opts.PartnerHandler.CreateStoryChapter)
 				r.Post("/upload-cover", opts.PartnerHandler.UploadCoverImage)
 				r.Post("/upload-audio", opts.PartnerHandler.UploadAudio)
+			})
+		})
+
+		// Mạng Xã Hội Tiên Hiệp: Luận Đạo Các (Community Feed)
+		r.Route("/community", func(r chi.Router) {
+			r.Get("/posts", opts.CommunityHandler.ListPosts)
+			r.Get("/posts/{id}", opts.CommunityHandler.GetPostByID)
+			r.Get("/posts/{id}/comments", opts.CommunityHandler.ListComments)
+
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.AuthMiddleware(opts.JWTService))
+				r.Post("/posts", opts.CommunityHandler.CreatePost)
+				r.Delete("/posts/{id}", opts.CommunityHandler.DeletePost)
+				r.Post("/posts/{id}/like", opts.CommunityHandler.ToggleLike)
+				r.Post("/posts/{id}/comments", opts.CommunityHandler.CreateComment)
 			})
 		})
 

@@ -177,6 +177,13 @@ func main() {
 	reportHandler := handler.NewReportHandler(reportSvc)
 	partnerHandler := handler.NewPartnerHandler(dbService.Pool(), storageSvc, storySvc, chapterSvc)
 
+	communityRepo := repository.NewCommunityRepository(dbService.Pool())
+	var communitySvc service.CommunityService
+	if communityRepo != nil {
+		communitySvc = service.NewCommunityService(communityRepo, userRepo)
+	}
+	communityHandler := handler.NewCommunityHandler(communitySvc)
+
 	// 7. Setup Router
 	r := router.NewRouter(router.RouterOptions{
 		Config:              cfg,
@@ -193,6 +200,7 @@ func main() {
 		NotificationHandler: notificationHandler,
 		ReportHandler:       reportHandler,
 		PartnerHandler:      partnerHandler,
+		CommunityHandler:    communityHandler,
 	})
 
 	// 8. Start HTTP Server with Graceful Shutdown

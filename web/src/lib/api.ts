@@ -1,4 +1,4 @@
-import { Story, Chapter, Category, User, UserCultivation, CultivationRealmInfo, PaymentHistoryItem, FavoriteStoryItem, ListeningHistoryItem, NotificationItem, PartnerStats, PartnerStoryItem, CreatePartnerStoryReq, CreatePartnerChapterReq, SubscriptionPlan, CreatePaymentResp, PaymentStatusResp, UserSubscription, AdminStats, AdminUser, AdminReport } from '@/types';
+import { Story, Chapter, Category, User, UserCultivation, CultivationRealmInfo, PaymentHistoryItem, FavoriteStoryItem, ListeningHistoryItem, NotificationItem, PartnerStats, PartnerStoryItem, CreatePartnerStoryReq, CreatePartnerChapterReq, SubscriptionPlan, CreatePaymentResp, PaymentStatusResp, UserSubscription, AdminStats, AdminUser, AdminReport, CommunityPost, CreateCommunityPostReq, CommunityComment } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
 
@@ -678,6 +678,68 @@ class ApiClient {
       method: 'PUT',
       body: JSON.stringify({ status, admin_notes: notes }),
     });
+  }
+
+  // ---- MẠNG XÃ HỘI TIÊN HIỆP: LUẬN ĐẠO CÁC (COMMUNITY) ----
+  async getCommunityPosts(topic?: string, page: number = 1, limit: number = 30): Promise<CommunityPost[]> {
+    try {
+      const q = new URLSearchParams();
+      if (topic && topic !== 'all') q.set('topic', topic);
+      q.set('page', page.toString());
+      q.set('limit', limit.toString());
+
+      const res = await this.request<any>(`/community/posts?${q.toString()}`);
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray(res.items)) return res.items;
+      if (res && Array.isArray(res.data)) return res.data;
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  async createCommunityPost(data: CreateCommunityPostReq): Promise<CommunityPost> {
+    const res = await this.request<any>('/community/posts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return res.data || res;
+  }
+
+  async getCommunityPost(id: string): Promise<CommunityPost> {
+    return await this.request<CommunityPost>(`/community/posts/${id}`);
+  }
+
+  async deleteCommunityPost(id: string): Promise<any> {
+    return await this.request<any>(`/community/posts/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async togglePostLike(id: string): Promise<{ is_liked: boolean; like_count: number }> {
+    return await this.request<{ is_liked: boolean; like_count: number }>(`/community/posts/${id}/like`, {
+      method: 'POST',
+    });
+  }
+
+  async getPostComments(postId: string): Promise<CommunityComment[]> {
+    try {
+      const res = await this.request<any>(`/community/posts/${postId}/comments`);
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray(res.items)) return res.items;
+      if (res && Array.isArray(res.data)) return res.data;
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  async createPostComment(postId: string, content: string, parentId?: string): Promise<CommunityComment> {
+    const res = await this.request<any>(`/community/posts/${postId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ content, parent_id: parentId }),
+    });
+    return res.data || res;
   }
 }
 

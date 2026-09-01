@@ -23,6 +23,7 @@ import {
   X,
   Mail,
   PenTool,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { getFullAvatarUrl } from '@/lib/api';
@@ -130,6 +131,13 @@ export function Navbar() {
             >
               <BookOpen className="w-4 h-4 flex-shrink-0" />
               <span>Thể Loại</span>
+            </Link>
+            <Link
+              href="/community"
+              className="text-slate-300 hover:text-[#ffb703] transition-colors flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <MessageSquare className="w-4 h-4 text-amber-400 flex-shrink-0" />
+              <span>Luận Đạo</span>
             </Link>
 
             {/* Dropdown Giới Thiệu (Cảnh Giới, Về Chúng Tôi, VIP, AI, Liên Hệ...) */}
@@ -561,6 +569,19 @@ export function Navbar() {
               <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-3 mb-2">
                 Giới Thiệu & Tiên Đạo
               </p>
+              <Link
+                href="/community"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-between px-4 py-3 rounded-2xl text-slate-200 hover:text-white hover:bg-slate-800/60 font-semibold text-sm transition-all"
+              >
+                <span className="flex items-center gap-3">
+                  <MessageSquare className="w-5 h-5 text-amber-400" />
+                  Luận Đạo Các (Cộng Đồng)
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-amber-500/20 text-amber-300 uppercase">
+                  Hot
+                </span>
+              </Link>
               <Link
                 href="/cultivation"
                 onClick={() => setMobileMenuOpen(false)}

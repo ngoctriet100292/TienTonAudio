@@ -247,3 +247,46 @@ export interface AdminReport {
   updated_at: string;
 }
 
+export interface CommunityPost {
+  id: string;
+  user_id: string;
+  story_id?: string;
+  topic: string;
+  content: string;
+  like_count: number;
+  comment_count: number;
+  created_at: string;
+  updated_at: string;
+  author_name: string;
+  author_avatar?: string;
+  author_role: string;
+  cultivation_realm: string;
+  cultivation_level: number;
+  cultivation_color: string;
+  story_title?: string;
+  story_slug?: string;
+  story_cover_url?: string;
+  is_liked: boolean;
+}
+
+export interface CreateCommunityPostReq {
+  story_id?: string;
+  topic?: string;
+  content: string;
+}
+
+export interface CommunityComment {
+  id: string;
+  post_id: string;
+  user_id: string;
+  parent_id?: string;
+  content: string;
+  created_at: string;
+  author_name: string;
+  author_avatar?: string;
+  author_role: string;
+  cultivation_realm: string;
+  cultivation_level: number;
+  cultivation_color: string;
+}
+

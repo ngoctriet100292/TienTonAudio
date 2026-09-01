@@ -479,3 +479,75 @@ CREATE TRIGGER trg_playlists_updated_at BEFORE UPDATE ON playlists
 DROP TRIGGER IF EXISTS trg_reports_updated_at ON reports;
 CREATE TRIGGER trg_reports_updated_at BEFORE UPDATE ON reports
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ============================================================================
+-- 15. MẠNG XÃ HỘI TIÊN HIỆP: LUẬN ĐẠO CÁC (COMMUNITY FEED)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS community_posts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    story_id UUID REFERENCES stories(id) ON DELETE SET NULL,
+    topic VARCHAR(50) DEFAULT 'luan_dao' NOT NULL,
+    content TEXT NOT NULL,
+    like_count INT DEFAULT 0 NOT NULL,
+    comment_count INT DEFAULT 0 NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_community_posts_user ON community_posts(user_id);
+CREATE INDEX IF NOT EXISTS idx_community_posts_topic ON community_posts(topic);
+CREATE INDEX IF NOT EXISTS idx_community_posts_created_at ON community_posts(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS community_post_likes (
+    post_id UUID NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    reaction_type VARCHAR(20) DEFAULT 'like' NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (post_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS community_post_comments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    post_id UUID NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    parent_id UUID REFERENCES community_post_comments(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_community_post_comments_post ON community_post_comments(post_id);
+CREATE INDEX IF NOT EXISTS idx_community_post_comments_parent ON community_post_comments(parent_id);
+
+-- Triggers cập nhật like_count và comment_count cho bài viết
+CREATE OR REPLACE FUNCTION update_community_post_counts() RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_TABLE_NAME = 'community_post_likes' THEN
+        IF TG_OP = 'INSERT' THEN
+            UPDATE community_posts SET like_count = like_count + 1 WHERE id = NEW.post_id;
+        ELSIF TG_OP = 'DELETE' THEN
+            UPDATE community_posts SET like_count = GREATEST(0, like_count - 1) WHERE id = OLD.post_id;
+        END IF;
+    ELSIF TG_TABLE_NAME = 'community_post_comments' THEN
+        IF TG_OP = 'INSERT' THEN
+            UPDATE community_posts SET comment_count = comment_count + 1 WHERE id = NEW.post_id;
+        ELSIF TG_OP = 'DELETE' THEN
+            UPDATE community_posts SET comment_count = GREATEST(0, comment_count - 1) WHERE id = OLD.post_id;
+        END IF;
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_post_likes_count ON community_post_likes;
+CREATE TRIGGER trg_post_likes_count AFTER INSERT OR DELETE ON community_post_likes
+    FOR EACH ROW EXECUTE FUNCTION update_community_post_counts();
+
+DROP TRIGGER IF EXISTS trg_post_comments_count ON community_post_comments;
+CREATE TRIGGER trg_post_comments_count AFTER INSERT OR DELETE ON community_post_comments
+    FOR EACH ROW EXECUTE FUNCTION update_community_post_counts();
+
+DROP TRIGGER IF EXISTS trg_community_posts_updated_at ON community_posts;
+CREATE TRIGGER trg_community_posts_updated_at BEFORE UPDATE ON community_posts
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
