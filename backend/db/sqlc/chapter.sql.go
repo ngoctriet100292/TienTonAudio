@@ -62,13 +62,14 @@ INSERT INTO chapters (
     chapter_number,
     title,
     content,
+    content_url,
     is_premium,
     duration_seconds,
     waveform_data
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
 )
-RETURNING id, story_id, narrator_id, chapter_number, title, content, is_premium, duration_seconds, waveform_data, listen_count, created_at, updated_at
+RETURNING id, story_id, narrator_id, chapter_number, title, content, content_url, is_premium, duration_seconds, waveform_data, listen_count, created_at, updated_at
 `
 
 type CreateChapterParams struct {
@@ -77,6 +78,7 @@ type CreateChapterParams struct {
 	ChapterNumber   pgtype.Numeric  `json:"chapter_number"`
 	Title           string          `json:"title"`
 	Content         *string         `json:"content"`
+	ContentUrl      *string         `json:"content_url"`
 	IsPremium       *bool           `json:"is_premium"`
 	DurationSeconds int32           `json:"duration_seconds"`
 	WaveformData    json.RawMessage `json:"waveform_data"`
@@ -89,6 +91,7 @@ func (q *Queries) CreateChapter(ctx context.Context, arg CreateChapterParams) (C
 		arg.ChapterNumber,
 		arg.Title,
 		arg.Content,
+		arg.ContentUrl,
 		arg.IsPremium,
 		arg.DurationSeconds,
 		arg.WaveformData,
@@ -101,6 +104,7 @@ func (q *Queries) CreateChapter(ctx context.Context, arg CreateChapterParams) (C
 		&i.ChapterNumber,
 		&i.Title,
 		&i.Content,
+		&i.ContentUrl,
 		&i.IsPremium,
 		&i.DurationSeconds,
 		&i.WaveformData,
@@ -158,7 +162,7 @@ func (q *Queries) GetChapterAudioFiles(ctx context.Context, chapterID uuid.UUID)
 
 const getChapterByID = `-- name: GetChapterByID :one
 SELECT 
-    c.id, c.story_id, c.narrator_id, c.chapter_number, c.title, c.content, c.is_premium,
+    c.id, c.story_id, c.narrator_id, c.chapter_number, c.title, c.content, c.content_url, c.is_premium,
     c.duration_seconds, c.waveform_data, c.listen_count, c.created_at, c.updated_at,
     n.name AS narrator_name
 FROM chapters c
@@ -173,6 +177,7 @@ type GetChapterByIDRow struct {
 	ChapterNumber   pgtype.Numeric     `json:"chapter_number"`
 	Title           string             `json:"title"`
 	Content         *string            `json:"content"`
+	ContentUrl      *string            `json:"content_url"`
 	IsPremium       *bool              `json:"is_premium"`
 	DurationSeconds int32              `json:"duration_seconds"`
 	WaveformData    json.RawMessage    `json:"waveform_data"`
@@ -192,6 +197,7 @@ func (q *Queries) GetChapterByID(ctx context.Context, id uuid.UUID) (GetChapterB
 		&i.ChapterNumber,
 		&i.Title,
 		&i.Content,
+		&i.ContentUrl,
 		&i.IsPremium,
 		&i.DurationSeconds,
 		&i.WaveformData,
@@ -205,7 +211,7 @@ func (q *Queries) GetChapterByID(ctx context.Context, id uuid.UUID) (GetChapterB
 
 const getChapterByNumber = `-- name: GetChapterByNumber :one
 SELECT 
-    c.id, c.story_id, c.narrator_id, c.chapter_number, c.title, c.content, c.is_premium,
+    c.id, c.story_id, c.narrator_id, c.chapter_number, c.title, c.content, c.content_url, c.is_premium,
     c.duration_seconds, c.waveform_data, c.listen_count, c.created_at, c.updated_at,
     n.name AS narrator_name
 FROM chapters c
@@ -225,6 +231,7 @@ type GetChapterByNumberRow struct {
 	ChapterNumber   pgtype.Numeric     `json:"chapter_number"`
 	Title           string             `json:"title"`
 	Content         *string            `json:"content"`
+	ContentUrl      *string            `json:"content_url"`
 	IsPremium       *bool              `json:"is_premium"`
 	DurationSeconds int32              `json:"duration_seconds"`
 	WaveformData    json.RawMessage    `json:"waveform_data"`
@@ -244,6 +251,7 @@ func (q *Queries) GetChapterByNumber(ctx context.Context, arg GetChapterByNumber
 		&i.ChapterNumber,
 		&i.Title,
 		&i.Content,
+		&i.ContentUrl,
 		&i.IsPremium,
 		&i.DurationSeconds,
 		&i.WaveformData,
@@ -257,7 +265,7 @@ func (q *Queries) GetChapterByNumber(ctx context.Context, arg GetChapterByNumber
 
 const listChaptersByStory = `-- name: ListChaptersByStory :many
 SELECT 
-    c.id, c.story_id, c.narrator_id, c.chapter_number, c.title, c.content, c.is_premium,
+    c.id, c.story_id, c.narrator_id, c.chapter_number, c.title, c.content, c.content_url, c.is_premium,
     c.duration_seconds, c.waveform_data, c.listen_count, c.created_at, c.updated_at,
     n.name AS narrator_name
 FROM chapters c
@@ -273,6 +281,7 @@ type ListChaptersByStoryRow struct {
 	ChapterNumber   pgtype.Numeric     `json:"chapter_number"`
 	Title           string             `json:"title"`
 	Content         *string            `json:"content"`
+	ContentUrl      *string            `json:"content_url"`
 	IsPremium       *bool              `json:"is_premium"`
 	DurationSeconds int32              `json:"duration_seconds"`
 	WaveformData    json.RawMessage    `json:"waveform_data"`
@@ -298,6 +307,7 @@ func (q *Queries) ListChaptersByStory(ctx context.Context, storyID uuid.UUID) ([
 			&i.ChapterNumber,
 			&i.Title,
 			&i.Content,
+			&i.ContentUrl,
 			&i.IsPremium,
 			&i.DurationSeconds,
 			&i.WaveformData,
@@ -323,12 +333,13 @@ SET
     narrator_id = $3,
     chapter_number = $4,
     content = $5,
-    is_premium = $6,
-    duration_seconds = $7,
-    waveform_data = $8,
+    content_url = $6,
+    is_premium = $7,
+    duration_seconds = $8,
+    waveform_data = $9,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = $1
-RETURNING id, story_id, narrator_id, chapter_number, title, content, is_premium, duration_seconds, waveform_data, listen_count, created_at, updated_at
+RETURNING id, story_id, narrator_id, chapter_number, title, content, content_url, is_premium, duration_seconds, waveform_data, listen_count, created_at, updated_at
 `
 
 type UpdateChapterParams struct {
@@ -337,6 +348,7 @@ type UpdateChapterParams struct {
 	NarratorID      *int32          `json:"narrator_id"`
 	ChapterNumber   pgtype.Numeric  `json:"chapter_number"`
 	Content         *string         `json:"content"`
+	ContentUrl      *string         `json:"content_url"`
 	IsPremium       *bool           `json:"is_premium"`
 	DurationSeconds int32           `json:"duration_seconds"`
 	WaveformData    json.RawMessage `json:"waveform_data"`
@@ -349,6 +361,7 @@ func (q *Queries) UpdateChapter(ctx context.Context, arg UpdateChapterParams) (C
 		arg.NarratorID,
 		arg.ChapterNumber,
 		arg.Content,
+		arg.ContentUrl,
 		arg.IsPremium,
 		arg.DurationSeconds,
 		arg.WaveformData,
@@ -361,6 +374,7 @@ func (q *Queries) UpdateChapter(ctx context.Context, arg UpdateChapterParams) (C
 		&i.ChapterNumber,
 		&i.Title,
 		&i.Content,
+		&i.ContentUrl,
 		&i.IsPremium,
 		&i.DurationSeconds,
 		&i.WaveformData,
@@ -378,19 +392,21 @@ INSERT INTO chapters (
     chapter_number,
     title,
     content,
+    content_url,
     is_premium,
     duration_seconds,
     waveform_data
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
 )
 ON CONFLICT (story_id, chapter_number) DO UPDATE
 SET 
     title = EXCLUDED.title,
     content = EXCLUDED.content,
+    content_url = COALESCE(EXCLUDED.content_url, chapters.content_url),
     is_premium = COALESCE(EXCLUDED.is_premium, chapters.is_premium),
     updated_at = CURRENT_TIMESTAMP
-RETURNING id, story_id, narrator_id, chapter_number, title, content, is_premium, duration_seconds, waveform_data, listen_count, created_at, updated_at
+RETURNING id, story_id, narrator_id, chapter_number, title, content, content_url, is_premium, duration_seconds, waveform_data, listen_count, created_at, updated_at
 `
 
 type UpsertChapterParams struct {
@@ -399,6 +415,7 @@ type UpsertChapterParams struct {
 	ChapterNumber   pgtype.Numeric  `json:"chapter_number"`
 	Title           string          `json:"title"`
 	Content         *string         `json:"content"`
+	ContentUrl      *string         `json:"content_url"`
 	IsPremium       *bool           `json:"is_premium"`
 	DurationSeconds int32           `json:"duration_seconds"`
 	WaveformData    json.RawMessage `json:"waveform_data"`
@@ -411,6 +428,7 @@ func (q *Queries) UpsertChapter(ctx context.Context, arg UpsertChapterParams) (C
 		arg.ChapterNumber,
 		arg.Title,
 		arg.Content,
+		arg.ContentUrl,
 		arg.IsPremium,
 		arg.DurationSeconds,
 		arg.WaveformData,
@@ -423,6 +441,7 @@ func (q *Queries) UpsertChapter(ctx context.Context, arg UpsertChapterParams) (C
 		&i.ChapterNumber,
 		&i.Title,
 		&i.Content,
+		&i.ContentUrl,
 		&i.IsPremium,
 		&i.DurationSeconds,
 		&i.WaveformData,

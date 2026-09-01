@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Play, Volume2, ArrowLeft, ArrowRight, BookOpen, Type, Palette, List } from 'lucide-react';
 import { useAudio } from '@/context/audio-context';
 import { Story, Chapter } from '@/types';
 import { ChapterComments } from '@/components/chapter-comments';
+import { CultivationSpinner } from '@/components/cultivation-spinner';
 
 export default function ChapterReaderClient({
   story,
@@ -23,6 +24,22 @@ export default function ChapterReaderClient({
 
   const [fontSize, setFontSize] = useState<number>(18);
   const [bgMode, setBgMode] = useState<'dark' | 'sepia' | 'obsidian'>('dark');
+  const [fetchedContent, setFetchedContent] = useState<string>('');
+  const [contentLoading, setContentLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!chapter.content && !chapter.content_text && chapter.content_url) {
+      setContentLoading(true);
+      fetch(chapter.content_url)
+        .then((res) => {
+          if (res.ok) return res.text();
+          throw new Error('Failed to load text from storage');
+        })
+        .then((text) => setFetchedContent(text))
+        .catch(() => {})
+        .finally(() => setContentLoading(false));
+    }
+  }, [chapter.id, chapter.content, chapter.content_text, chapter.content_url]);
 
   const bgStyles = {
     dark: 'bg-[#0f172a] text-slate-200 border-white/10',
@@ -40,7 +57,7 @@ export default function ChapterReaderClient({
       ? chapters[currentIndex + 1]
       : null;
 
-  const rawContent = chapter.content || chapter.content_text || '';
+  const rawContent = chapter.content || chapter.content_text || fetchedContent;
 
   return (
     <div className="space-y-8">
@@ -152,7 +169,11 @@ export default function ChapterReaderClient({
           )}
         </div>
 
-        {rawContent ? (
+        {contentLoading ? (
+          <div className="py-16 text-center">
+            <CultivationSpinner size="md" text="Đang tải kinh văn từ kho lưu trữ..." />
+          </div>
+        ) : rawContent ? (
           <div
             className="leading-relaxed whitespace-pre-line tracking-wide font-serif select-text space-y-4"
             style={{ fontSize: `${fontSize}px`, lineHeight: 1.85 }}

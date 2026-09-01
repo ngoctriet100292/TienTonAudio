@@ -352,6 +352,7 @@ type CreatePartnerChapterReq struct {
 	ChapterNumber   float64 `json:"chapter_number" validate:"required"`
 	Title           string  `json:"title" validate:"required"`
 	Content         *string `json:"content,omitempty"`
+	ContentURL      *string `json:"content_url,omitempty"`
 	IsPremium       bool    `json:"is_premium"`
 	AudioURL        *string `json:"audio_url,omitempty"`
 	DurationSeconds int32   `json:"duration_seconds"`
@@ -393,6 +394,7 @@ func (h *PartnerHandler) CreateStoryChapter(w http.ResponseWriter, r *http.Reque
 		ChapterNumber:   req.ChapterNumber,
 		Title:           req.Title,
 		Content:         req.Content,
+		ContentURL:      req.ContentURL,
 		IsPremium:       &req.IsPremium,
 		DurationSeconds: &req.DurationSeconds,
 	})

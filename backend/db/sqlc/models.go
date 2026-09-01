@@ -39,6 +39,7 @@ type Chapter struct {
 	ChapterNumber   pgtype.Numeric     `json:"chapter_number"`
 	Title           string             `json:"title"`
 	Content         *string            `json:"content"`
+	ContentUrl      *string            `json:"content_url"`
 	IsPremium       *bool              `json:"is_premium"`
 	DurationSeconds int32              `json:"duration_seconds"`
 	WaveformData    json.RawMessage    `json:"waveform_data"`
@@ -72,6 +73,34 @@ type Comment struct {
 type CommentReaction struct {
 	ID           uuid.UUID          `json:"id"`
 	CommentID    uuid.UUID          `json:"comment_id"`
+	UserID       uuid.UUID          `json:"user_id"`
+	ReactionType string             `json:"reaction_type"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type CommunityPost struct {
+	ID           uuid.UUID          `json:"id"`
+	UserID       uuid.UUID          `json:"user_id"`
+	StoryID      uuid.NullUUID      `json:"story_id"`
+	Topic        string             `json:"topic"`
+	Content      string             `json:"content"`
+	LikeCount    int32              `json:"like_count"`
+	CommentCount int32              `json:"comment_count"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CommunityPostComment struct {
+	ID        uuid.UUID          `json:"id"`
+	PostID    uuid.UUID          `json:"post_id"`
+	UserID    uuid.UUID          `json:"user_id"`
+	ParentID  uuid.NullUUID      `json:"parent_id"`
+	Content   string             `json:"content"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type CommunityPostLike struct {
+	PostID       uuid.UUID          `json:"post_id"`
 	UserID       uuid.UUID          `json:"user_id"`
 	ReactionType string             `json:"reaction_type"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
@@ -214,6 +243,7 @@ type Story struct {
 	RatingCount   *int32             `json:"rating_count"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	CreatedBy     uuid.NullUUID      `json:"created_by"`
 }
 
 type StoryCategory struct {

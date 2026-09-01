@@ -11,6 +11,7 @@ import (
 	"github.com/IREAKING/tientonaudio/backend/internal/domain"
 	"github.com/IREAKING/tientonaudio/backend/internal/repository"
 	"github.com/IREAKING/tientonaudio/backend/pkg/auth"
+	"github.com/IREAKING/tientonaudio/backend/pkg/storage"
 	"github.com/IREAKING/tientonaudio/backend/pkg/utils"
 )
 
@@ -28,13 +29,15 @@ type chapterService struct {
 	repo        repository.ChapterRepository
 	paymentRepo repository.PaymentRepository
 	signer      *auth.StreamSigner
+	storage     storage.StorageService
 }
 
-func NewChapterService(repo repository.ChapterRepository, paymentRepo repository.PaymentRepository, signer *auth.StreamSigner) ChapterService {
+func NewChapterService(repo repository.ChapterRepository, paymentRepo repository.PaymentRepository, signer *auth.StreamSigner, storage storage.StorageService) ChapterService {
 	return &chapterService{
 		repo:        repo,
 		paymentRepo: paymentRepo,
 		signer:      signer,
+		storage:     storage,
 	}
 }
 
@@ -54,6 +57,7 @@ func (s *chapterService) ListChaptersByStory(ctx context.Context, storyID uuid.U
 			ChapterNumber:   utils.NumericToFloat64(r.ChapterNumber),
 			Title:           r.Title,
 			Content:         r.Content,
+			ContentURL:      r.ContentUrl,
 			IsPremium:       r.IsPremium,
 			DurationSeconds: r.DurationSeconds,
 			WaveformData:    r.WaveformData,
@@ -86,6 +90,15 @@ func (s *chapterService) GetChapterByID(ctx context.Context, id uuid.UUID) (*dom
 		})
 	}
 
+	content := row.Content
+	// Nếu trong DB content rỗng nhưng có content_url trên R2 Storage, tự động fetch text trả về cho client
+	if (content == nil || *content == "") && row.ContentUrl != nil && *row.ContentUrl != "" && s.storage != nil {
+		storageText, err := s.storage.GetFileContent(ctx, *row.ContentUrl)
+		if err == nil && storageText != "" {
+			content = &storageText
+		}
+	}
+
 	return &domain.ChapterResp{
 		ID:              row.ID,
 		StoryID:         row.StoryID,
@@ -93,7 +106,8 @@ func (s *chapterService) GetChapterByID(ctx context.Context, id uuid.UUID) (*dom
 		NarratorName:    row.NarratorName,
 		ChapterNumber:   utils.NumericToFloat64(row.ChapterNumber),
 		Title:           row.Title,
-		Content:         row.Content,
+		Content:         content,
+		ContentURL:      row.ContentUrl,
 		IsPremium:       row.IsPremium,
 		DurationSeconds: row.DurationSeconds,
 		WaveformData:    row.WaveformData,
@@ -112,12 +126,27 @@ func (s *chapterService) CreateChapter(ctx context.Context, req domain.CreateCha
 		dur = *req.DurationSeconds
 	}
 
+	var contentURL *string = req.ContentURL
+	var dbContent *string = req.Content
+
+	// Đổi sang lưu text trong Cloudflare R2 Storage thay vì lưu vào DB
+	if req.Content != nil && *req.Content != "" && s.storage != nil {
+		key := fmt.Sprintf("stories/%s/chapters/%.1f.txt", req.StoryID.String(), req.ChapterNumber)
+		uploadedURL, err := s.storage.UploadText(ctx, key, *req.Content)
+		if err == nil && uploadedURL != "" {
+			contentURL = &uploadedURL
+			// DB giải phóng: không lưu text vào Postgres
+			dbContent = nil
+		}
+	}
+
 	row, err := s.repo.CreateChapter(ctx, db.CreateChapterParams{
 		StoryID:         req.StoryID,
 		NarratorID:      req.NarratorID,
 		ChapterNumber:   chapterNum,
 		Title:           req.Title,
-		Content:         req.Content,
+		Content:         dbContent,
+		ContentUrl:      contentURL,
 		IsPremium:       req.IsPremium,
 		DurationSeconds: dur,
 		WaveformData:    req.WaveformData,
@@ -132,7 +161,8 @@ func (s *chapterService) CreateChapter(ctx context.Context, req domain.CreateCha
 		NarratorID:      row.NarratorID,
 		ChapterNumber:   utils.NumericToFloat64(row.ChapterNumber),
 		Title:           row.Title,
-		Content:         row.Content,
+		Content:         req.Content,
+		ContentURL:      row.ContentUrl,
 		IsPremium:       row.IsPremium,
 		DurationSeconds: row.DurationSeconds,
 		WaveformData:    row.WaveformData,
@@ -162,12 +192,26 @@ func (s *chapterService) BulkCreateChapters(ctx context.Context, req domain.Bulk
 			storyID = c.StoryID
 		}
 
+		var contentURL *string = c.ContentURL
+		var dbContent *string = c.Content
+
+		// Lưu text lên R2 Storage
+		if c.Content != nil && *c.Content != "" && s.storage != nil {
+			key := fmt.Sprintf("stories/%s/chapters/%.1f.txt", storyID.String(), c.ChapterNumber)
+			uploadedURL, err := s.storage.UploadText(ctx, key, *c.Content)
+			if err == nil && uploadedURL != "" {
+				contentURL = &uploadedURL
+				dbContent = nil
+			}
+		}
+
 		_, err := s.repo.UpsertChapter(ctx, db.UpsertChapterParams{
 			StoryID:         storyID,
 			NarratorID:      c.NarratorID,
 			ChapterNumber:   chapterNum,
 			Title:           c.Title,
-			Content:         c.Content,
+			Content:         dbContent,
+			ContentUrl:      contentURL,
 			IsPremium:       c.IsPremium,
 			DurationSeconds: dur,
 			WaveformData:    c.WaveformData,
@@ -187,30 +231,25 @@ func (s *chapterService) BulkCreateChapters(ctx context.Context, req domain.Bulk
 }
 
 func (s *chapterService) AddChapterAudioFile(ctx context.Context, chapterID uuid.UUID, quality string, audioURL string, fileSize *int64, isPrimary bool) (*domain.ChapterAudioFileResp, error) {
-	primary := isPrimary
-	af, err := s.repo.AddChapterAudioFile(ctx, db.AddChapterAudioFileParams{
+	row, err := s.repo.AddChapterAudioFile(ctx, db.AddChapterAudioFileParams{
 		ChapterID:     chapterID,
 		Quality:       quality,
 		AudioUrl:      audioURL,
 		FileSizeBytes: fileSize,
-		IsPrimary:     &primary,
+		IsPrimary:     &isPrimary,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("add audio file error: %w", err)
 	}
 
 	return &domain.ChapterAudioFileResp{
-		ID:            af.ID,
-		ChapterID:     af.ChapterID,
-		Quality:       af.Quality,
-		AudioURL:      af.AudioUrl,
-		FileSizeBytes: af.FileSizeBytes,
-		IsPrimary:     af.IsPrimary,
+		ID:            row.ID,
+		ChapterID:     row.ChapterID,
+		Quality:       row.Quality,
+		AudioURL:      row.AudioUrl,
+		FileSizeBytes: row.FileSizeBytes,
+		IsPrimary:     row.IsPrimary,
 	}, nil
-}
-
-func (s *chapterService) GetPlaybackSpeeds() []domain.PlaybackSpeedInfo {
-	return domain.PlaybackSpeedPresets
 }
 
 func (s *chapterService) GetSignedStreamURL(ctx context.Context, userID *uuid.UUID, chapterID uuid.UUID, quality string, speed *float64) (*domain.StreamURLResp, error) {
@@ -286,4 +325,8 @@ func (s *chapterService) GetSignedStreamURL(ctx context.Context, userID *uuid.UU
 		PlaybackSpeed:   playbackSpeed,
 		AvailableSpeeds: domain.PlaybackSpeedPresets,
 	}, nil
+}
+
+func (s *chapterService) GetPlaybackSpeeds() []domain.PlaybackSpeedInfo {
+	return domain.PlaybackSpeedPresets
 }

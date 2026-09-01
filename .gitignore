@@ -9,6 +9,8 @@ truyen_dich/
 data/
 uploads/
 **/uploads/
+storage/
+**/storage/
 
 # Environment files (contains credentials and secrets!)
 *.env

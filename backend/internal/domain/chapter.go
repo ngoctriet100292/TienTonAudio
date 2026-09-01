@@ -42,6 +42,7 @@ type CreateChapterReq struct {
 	ChapterNumber   float64         `json:"chapter_number" validate:"required"`
 	Title           string          `json:"title" validate:"required"`
 	Content         *string         `json:"content,omitempty"`
+	ContentURL      *string         `json:"content_url,omitempty"`
 	IsPremium       *bool           `json:"is_premium,omitempty"`
 	DurationSeconds *int32          `json:"duration_seconds,omitempty"`
 	WaveformData    json.RawMessage `json:"waveform_data,omitempty"`
@@ -66,6 +67,7 @@ type ChapterResp struct {
 	ChapterNumber   float64                `json:"chapter_number"`
 	Title           string                 `json:"title"`
 	Content         *string                `json:"content,omitempty"`
+	ContentURL      *string                `json:"content_url,omitempty"`
 	IsPremium       *bool                  `json:"is_premium,omitempty"`
 	DurationSeconds int32                  `json:"duration_seconds"`
 	WaveformData    json.RawMessage        `json:"waveform_data,omitempty"`

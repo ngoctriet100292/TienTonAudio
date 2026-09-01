@@ -26,6 +26,7 @@ export interface Chapter {
   title: string;
   content?: string;
   content_text?: string;
+  content_url?: string;
   is_premium: boolean;
   duration_seconds: number;
   listen_count: number;

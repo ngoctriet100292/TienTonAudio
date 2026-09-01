@@ -124,6 +124,18 @@ func main() {
 	var notificationSvc service.NotificationService
 	var reportSvc service.ReportService
 
+	// 5.1 Initialize Storage Service (Cloudflare R2)
+	storageSvc, err := storage.NewR2Storage(
+		cfg.R2AccountID,
+		cfg.R2AccessKeyID,
+		cfg.R2AccessKeySecret,
+		cfg.R2BucketName,
+		cfg.R2PublicURL,
+	)
+	if err != nil {
+		slog.Warn("could not initialize Cloudflare R2 storage, fallback to local uploads", "error", err)
+	}
+
 	if userRepo != nil {
 		authSvc = service.NewAuthService(userRepo, jwtService, emailService)
 	}
@@ -139,7 +151,7 @@ func main() {
 		aiSvc = service.NewAIService(aiClient, storyRepo)
 	}
 	if chapterRepo != nil {
-		chapterSvc = service.NewChapterService(chapterRepo, paymentRepo, streamSigner)
+		chapterSvc = service.NewChapterService(chapterRepo, paymentRepo, streamSigner, storageSvc)
 	}
 	if paymentRepo != nil {
 		paymentSvc = service.NewPaymentService(paymentRepo, userRepo, notificationRepo)
@@ -149,18 +161,6 @@ func main() {
 	}
 	if playlistRepo != nil {
 		playlistSvc = service.NewPlaylistService(playlistRepo)
-	}
-
-	// 5.1 Initialize Storage Service (Cloudflare R2)
-	storageSvc, err := storage.NewR2Storage(
-		cfg.R2AccountID,
-		cfg.R2AccessKeyID,
-		cfg.R2AccessKeySecret,
-		cfg.R2BucketName,
-		cfg.R2PublicURL,
-	)
-	if err != nil {
-		slog.Warn("could not initialize Cloudflare R2 storage, fallback to local uploads", "error", err)
 	}
 
 	// 6. Initialize Handlers

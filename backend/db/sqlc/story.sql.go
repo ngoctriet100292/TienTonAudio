@@ -145,7 +145,7 @@ INSERT INTO stories (
 ) VALUES (
     $1, $2, $3, $4, $5, $6
 )
-RETURNING id, title, slug, description, cover_image_url, author_id, status, view_count, total_chapters, rating_avg, rating_count, created_at, updated_at
+RETURNING id, title, slug, description, cover_image_url, author_id, status, view_count, total_chapters, rating_avg, rating_count, created_at, updated_at, created_by
 `
 
 type CreateStoryParams struct {
@@ -181,6 +181,7 @@ func (q *Queries) CreateStory(ctx context.Context, arg CreateStoryParams) (Story
 		&i.RatingCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CreatedBy,
 	)
 	return i, err
 }
@@ -814,7 +815,7 @@ SET
     status = $7,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = $1
-RETURNING id, title, slug, description, cover_image_url, author_id, status, view_count, total_chapters, rating_avg, rating_count, created_at, updated_at
+RETURNING id, title, slug, description, cover_image_url, author_id, status, view_count, total_chapters, rating_avg, rating_count, created_at, updated_at, created_by
 `
 
 type UpdateStoryParams struct {
@@ -852,6 +853,7 @@ func (q *Queries) UpdateStory(ctx context.Context, arg UpdateStoryParams) (Story
 		&i.RatingCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CreatedBy,
 	)
 	return i, err
 }

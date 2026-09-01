@@ -353,6 +353,9 @@ func NewRouter(opts RouterOptions) http.Handler {
 			r.Get("/reports/{id}", opts.ReportHandler.GetReportByID)
 			r.Put("/reports/{id}/status", opts.ReportHandler.UpdateReportStatus)
 		})
+
+		// Static Storage File Server (cho local dev & media storage)
+		r.Handle("/storage/*", http.StripPrefix("/api/v1/storage", http.FileServer(http.Dir("./storage"))))
 	})
 
 	return r

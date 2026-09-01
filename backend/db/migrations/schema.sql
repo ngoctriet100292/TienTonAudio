@@ -184,6 +184,7 @@ CREATE TABLE IF NOT EXISTS chapters (
     chapter_number NUMERIC(6, 1) NOT NULL,
     title VARCHAR(255) NOT NULL,
     content TEXT,
+    content_url VARCHAR(500),
     is_premium BOOLEAN DEFAULT FALSE,
     duration_seconds INT NOT NULL DEFAULT 0,
     waveform_data JSONB,
@@ -192,6 +193,8 @@ CREATE TABLE IF NOT EXISTS chapters (
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_story_chapter UNIQUE (story_id, chapter_number)
 );
+
+ALTER TABLE chapters ADD COLUMN IF NOT EXISTS content_url VARCHAR(500);
 
 -- Tách file audio ra bảng riêng: hỗ trợ nhiều chất lượng / nhiều CDN dự phòng
 CREATE TABLE IF NOT EXISTS chapter_audio_files (

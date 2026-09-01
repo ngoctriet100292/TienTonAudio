@@ -5,13 +5,14 @@ INSERT INTO chapters (
     chapter_number,
     title,
     content,
+    content_url,
     is_premium,
     duration_seconds,
     waveform_data
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
 )
-RETURNING id, story_id, narrator_id, chapter_number, title, content, is_premium, duration_seconds, waveform_data, listen_count, created_at, updated_at;
+RETURNING id, story_id, narrator_id, chapter_number, title, content, content_url, is_premium, duration_seconds, waveform_data, listen_count, created_at, updated_at;
 
 -- name: UpsertChapter :one
 INSERT INTO chapters (
@@ -20,23 +21,25 @@ INSERT INTO chapters (
     chapter_number,
     title,
     content,
+    content_url,
     is_premium,
     duration_seconds,
     waveform_data
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
 )
 ON CONFLICT (story_id, chapter_number) DO UPDATE
 SET 
     title = EXCLUDED.title,
     content = EXCLUDED.content,
+    content_url = COALESCE(EXCLUDED.content_url, chapters.content_url),
     is_premium = COALESCE(EXCLUDED.is_premium, chapters.is_premium),
     updated_at = CURRENT_TIMESTAMP
-RETURNING id, story_id, narrator_id, chapter_number, title, content, is_premium, duration_seconds, waveform_data, listen_count, created_at, updated_at;
+RETURNING id, story_id, narrator_id, chapter_number, title, content, content_url, is_premium, duration_seconds, waveform_data, listen_count, created_at, updated_at;
 
 -- name: GetChapterByID :one
 SELECT 
-    c.id, c.story_id, c.narrator_id, c.chapter_number, c.title, c.content, c.is_premium,
+    c.id, c.story_id, c.narrator_id, c.chapter_number, c.title, c.content, c.content_url, c.is_premium,
     c.duration_seconds, c.waveform_data, c.listen_count, c.created_at, c.updated_at,
     n.name AS narrator_name
 FROM chapters c
@@ -45,7 +48,7 @@ WHERE c.id = $1;
 
 -- name: GetChapterByNumber :one
 SELECT 
-    c.id, c.story_id, c.narrator_id, c.chapter_number, c.title, c.content, c.is_premium,
+    c.id, c.story_id, c.narrator_id, c.chapter_number, c.title, c.content, c.content_url, c.is_premium,
     c.duration_seconds, c.waveform_data, c.listen_count, c.created_at, c.updated_at,
     n.name AS narrator_name
 FROM chapters c
@@ -54,7 +57,7 @@ WHERE c.story_id = $1 AND c.chapter_number = $2;
 
 -- name: ListChaptersByStory :many
 SELECT 
-    c.id, c.story_id, c.narrator_id, c.chapter_number, c.title, c.content, c.is_premium,
+    c.id, c.story_id, c.narrator_id, c.chapter_number, c.title, c.content, c.content_url, c.is_premium,
     c.duration_seconds, c.waveform_data, c.listen_count, c.created_at, c.updated_at,
     n.name AS narrator_name
 FROM chapters c
@@ -69,12 +72,13 @@ SET
     narrator_id = $3,
     chapter_number = $4,
     content = $5,
-    is_premium = $6,
-    duration_seconds = $7,
-    waveform_data = $8,
+    content_url = $6,
+    is_premium = $7,
+    duration_seconds = $8,
+    waveform_data = $9,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = $1
-RETURNING id, story_id, narrator_id, chapter_number, title, content, is_premium, duration_seconds, waveform_data, listen_count, created_at, updated_at;
+RETURNING id, story_id, narrator_id, chapter_number, title, content, content_url, is_premium, duration_seconds, waveform_data, listen_count, created_at, updated_at;
 
 -- name: DeleteChapter :exec
 DELETE FROM chapters

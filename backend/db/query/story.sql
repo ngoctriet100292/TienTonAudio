@@ -9,7 +9,7 @@ INSERT INTO stories (
 ) VALUES (
     $1, $2, $3, $4, $5, $6
 )
-RETURNING id, title, slug, description, cover_image_url, author_id, status, view_count, total_chapters, rating_avg, rating_count, created_at, updated_at;
+RETURNING *;
 
 -- name: GetStoryByID :one
 SELECT 
@@ -75,7 +75,7 @@ SET
     status = $7,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = $1
-RETURNING id, title, slug, description, cover_image_url, author_id, status, view_count, total_chapters, rating_avg, rating_count, created_at, updated_at;
+RETURNING *;
 
 -- name: DeleteStory :exec
 DELETE FROM stories
