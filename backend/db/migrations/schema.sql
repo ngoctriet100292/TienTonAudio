@@ -34,6 +34,8 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS cultivation_exp BIGINT DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS cultivation_realm VARCHAR(50) DEFAULT 'Luyện Khí';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS provider VARCHAR(50) DEFAULT 'local';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS provider_id VARCHAR(255);
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('user', 'admin', 'narrator', 'partner', 'creator'));
 
 CREATE INDEX IF NOT EXISTS idx_users_not_deleted ON users(id) WHERE deleted_at IS NULL;
 
@@ -155,6 +157,8 @@ CREATE TABLE IF NOT EXISTS stories (
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE stories ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES users(id) ON DELETE SET NULL;
 
 -- Bảng nối n-n giữa Truyện và Thể loại
 CREATE TABLE IF NOT EXISTS story_categories (

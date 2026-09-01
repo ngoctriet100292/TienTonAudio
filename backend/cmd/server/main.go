@@ -175,6 +175,7 @@ func main() {
 	playlistHandler := handler.NewPlaylistHandler(playlistSvc)
 	notificationHandler := handler.NewNotificationHandler(notificationSvc)
 	reportHandler := handler.NewReportHandler(reportSvc)
+	partnerHandler := handler.NewPartnerHandler(dbService.Pool(), storageSvc, storySvc, chapterSvc)
 
 	// 7. Setup Router
 	r := router.NewRouter(router.RouterOptions{
@@ -191,6 +192,7 @@ func main() {
 		PlaylistHandler:     playlistHandler,
 		NotificationHandler: notificationHandler,
 		ReportHandler:       reportHandler,
+		PartnerHandler:      partnerHandler,
 	})
 
 	// 8. Start HTTP Server with Graceful Shutdown

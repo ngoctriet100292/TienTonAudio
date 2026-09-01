@@ -1,4 +1,4 @@
-import { Story, Chapter, Category, User, UserCultivation, CultivationRealmInfo, PaymentHistoryItem, FavoriteStoryItem, ListeningHistoryItem, NotificationItem } from '@/types';
+import { Story, Chapter, Category, User, UserCultivation, CultivationRealmInfo, PaymentHistoryItem, FavoriteStoryItem, ListeningHistoryItem, NotificationItem, PartnerStats, PartnerStoryItem, CreatePartnerStoryReq, CreatePartnerChapterReq } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
 
@@ -501,6 +501,127 @@ class ApiClient {
     } catch {
       return false;
     }
+  }
+
+  // ---- PARTNER / CREATOR STUDIO ----
+  async becomePartner(): Promise<{ user_id: string; role: string }> {
+    return await this.request<{ user_id: string; role: string }>('/partner/become-partner', {
+      method: 'POST',
+    });
+  }
+
+  async getPartnerStats(): Promise<PartnerStats> {
+    try {
+      const res = await this.request<PartnerStats>('/partner/stats');
+      return res || { total_stories: 0, total_chapters: 0, total_views: 0, total_listens: 0, is_admin: false };
+    } catch {
+      return { total_stories: 0, total_chapters: 0, total_views: 0, total_listens: 0, is_admin: false };
+    }
+  }
+
+  async getPartnerStories(): Promise<PartnerStoryItem[]> {
+    try {
+      const res = await this.request<any>('/partner/stories');
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray(res.items)) return res.items;
+      if (res && Array.isArray(res.data)) return res.data;
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  async createPartnerStory(data: CreatePartnerStoryReq): Promise<{ id: string; slug: string }> {
+    return await this.request<{ id: string; slug: string }>('/partner/stories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updatePartnerStory(id: string, data: Partial<CreatePartnerStoryReq>): Promise<boolean> {
+    try {
+      await this.request(`/partner/stories/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async deletePartnerStory(id: string): Promise<boolean> {
+    try {
+      await this.request(`/partner/stories/${id}`, {
+        method: 'DELETE',
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async getPartnerStoryChapters(storyId: string): Promise<Chapter[]> {
+    try {
+      const res = await this.request<any>(`/partner/stories/${storyId}/chapters`);
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray(res.items)) return res.items;
+      if (res && Array.isArray(res.data)) return res.data;
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  async createPartnerChapter(storyId: string, data: CreatePartnerChapterReq): Promise<Chapter> {
+    return await this.request<Chapter>(`/partner/stories/${storyId}/chapters`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async uploadPartnerCover(file: File): Promise<string> {
+    const token = this.getToken();
+    const formData = new FormData();
+    formData.append('cover', file);
+
+    const res = await fetch(`${this.baseUrl}/partner/upload-cover`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.message || 'Không thể tải ảnh bìa lên');
+    }
+
+    const data = await res.json();
+    return data.data?.url || data.url || '';
+  }
+
+  async uploadPartnerAudio(file: File): Promise<string> {
+    const token = this.getToken();
+    const formData = new FormData();
+    formData.append('audio', file);
+
+    const res = await fetch(`${this.baseUrl}/partner/upload-audio`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.message || 'Không thể tải file audio lên Cloudflare R2');
+    }
+
+    const data = await res.json();
+    return data.data?.url || data.url || '';
   }
 }
 

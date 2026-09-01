@@ -22,6 +22,7 @@ import {
   Menu,
   X,
   Mail,
+  PenTool,
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { getFullAvatarUrl } from '@/lib/api';
@@ -431,6 +432,15 @@ export function Navbar() {
                       Đàm Đạo Với AI Đạo Hữu
                     </Link>
 
+                    <Link
+                      href="/studio"
+                      onClick={() => setDropdownOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-800 hover:text-amber-400 transition-colors font-semibold text-amber-300"
+                    >
+                      <PenTool className="w-4 h-4 text-amber-400" />
+                      Kênh Đối Tác / Sáng Tác
+                    </Link>
+
                     <div className="border-t border-white/10 my-1.5 pt-1.5" />
 
                     {/* Nút Đăng Xuất */}
@@ -608,6 +618,15 @@ export function Navbar() {
                     <Settings className="w-4 h-4" />
                   </Link>
                 </div>
+
+                <Link
+                  href="/studio"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full py-2.5 px-3 rounded-2xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 font-bold text-xs flex items-center justify-center gap-2 border border-amber-500/30 transition-colors"
+                >
+                  <PenTool className="w-4 h-4 text-amber-400" /> Kênh Đối Tác Sáng Tác (Studio)
+                </Link>
+
                 <button
                   onClick={() => {
                     setMobileMenuOpen(false);

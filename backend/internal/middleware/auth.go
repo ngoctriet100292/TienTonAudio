@@ -69,3 +69,30 @@ func RequireAdmin(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+// RequireRoles creates a middleware that verifies the user has at least one of the specified roles
+func RequireRoles(roles ...string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims, ok := auth.GetClaimsFromContext(r.Context())
+			if !ok {
+				utils.ErrorResponse(w, http.StatusUnauthorized, "Unauthorized")
+				return
+			}
+
+			for _, role := range roles {
+				if claims.HasRole(role) {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+
+			utils.ErrorResponse(w, http.StatusForbidden, "Forbidden: Bạn chưa có quyền Đối Tác hoặc Quản Trị Viên")
+		})
+	}
+}
+
+// RequirePartnerOrAdmin cho phép đối tác sáng tác, người đọc audio và admin
+func RequirePartnerOrAdmin(next http.Handler) http.Handler {
+	return RequireRoles("partner", "narrator", "creator", "admin")(next)
+}

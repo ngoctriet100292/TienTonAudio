@@ -130,3 +130,44 @@ export interface NotificationItem {
   created_at: string;
 }
 
+export interface PartnerStats {
+  total_stories: number;
+  total_chapters: number;
+  total_views: number;
+  total_listens: number;
+  is_admin: boolean;
+}
+
+export interface PartnerStoryItem {
+  id: string;
+  title: string;
+  slug: string;
+  description?: string;
+  cover_image_url?: string;
+  status: StoryStatus;
+  view_count: number;
+  total_chapters: number;
+  rating_avg: number;
+  rating_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreatePartnerStoryReq {
+  title: string;
+  slug?: string;
+  description?: string;
+  cover_image_url?: string;
+  status?: StoryStatus;
+  categories?: number[];
+}
+
+export interface CreatePartnerChapterReq {
+  chapter_number: number;
+  title: string;
+  content?: string;
+  is_premium: boolean;
+  audio_url?: string;
+  duration_seconds: number;
+}
+

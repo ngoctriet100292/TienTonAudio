@@ -28,6 +28,7 @@ type RouterOptions struct {
 	PlaylistHandler     *handler.PlaylistHandler
 	NotificationHandler *handler.NotificationHandler
 	ReportHandler       *handler.ReportHandler
+	PartnerHandler      *handler.PartnerHandler
 }
 
 const swaggerUIHTML = `<!DOCTYPE html>
@@ -293,6 +294,29 @@ func NewRouter(opts RouterOptions) http.Handler {
 			r.Post("/chat", opts.AIHandler.Chat)
 			r.Get("/stories/{id}/realms", opts.AIHandler.GetStoryRealms)
 			r.Get("/stories/{id}/summary", opts.AIHandler.GetStorySummary)
+		})
+
+		// Partner / Sáng Tác Studio (Protected: Auth + RequirePartnerOrAdmin)
+		r.Route("/partner", func(r chi.Router) {
+			r.Use(middleware.AuthMiddleware(opts.JWTService))
+
+			// Cho phép user đăng ký làm đối tác
+			r.Post("/become-partner", opts.PartnerHandler.BecomePartner)
+
+			// Khu vực quản lý tác phẩm & audio
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RequirePartnerOrAdmin)
+
+				r.Get("/stats", opts.PartnerHandler.GetPartnerStats)
+				r.Get("/stories", opts.PartnerHandler.ListPartnerStories)
+				r.Post("/stories", opts.PartnerHandler.CreatePartnerStory)
+				r.Put("/stories/{id}", opts.PartnerHandler.UpdatePartnerStory)
+				r.Delete("/stories/{id}", opts.PartnerHandler.DeletePartnerStory)
+				r.Get("/stories/{id}/chapters", opts.PartnerHandler.ListStoryChapters)
+				r.Post("/stories/{id}/chapters", opts.PartnerHandler.CreateStoryChapter)
+				r.Post("/upload-cover", opts.PartnerHandler.UploadCoverImage)
+				r.Post("/upload-audio", opts.PartnerHandler.UploadAudio)
+			})
 		})
 
 		// Admin Portal (Protected: Auth + RequireAdmin)

@@ -55,6 +55,10 @@ func (s *Service) Repo() db.Querier {
 	return s.repo
 }
 
+func (s *Service) Pool() *pgxpool.Pool {
+	return s.pool
+}
+
 func (s *Service) Close() {
 	if s.pool != nil {
 		s.pool.Close()
