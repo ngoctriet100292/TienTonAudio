@@ -188,6 +188,7 @@ CREATE TABLE IF NOT EXISTS chapters (
     is_premium BOOLEAN DEFAULT FALSE,
     duration_seconds INT NOT NULL DEFAULT 0,
     waveform_data JSONB,
+    timeline_markers JSONB DEFAULT '[]'::jsonb,
     listen_count BIGINT DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
@@ -195,6 +196,7 @@ CREATE TABLE IF NOT EXISTS chapters (
 );
 
 ALTER TABLE chapters ADD COLUMN IF NOT EXISTS content_url VARCHAR(500);
+ALTER TABLE chapters ADD COLUMN IF NOT EXISTS timeline_markers JSONB DEFAULT '[]'::jsonb;
 
 -- Tách file audio ra bảng riêng: hỗ trợ nhiều chất lượng / nhiều CDN dự phòng
 CREATE TABLE IF NOT EXISTS chapter_audio_files (

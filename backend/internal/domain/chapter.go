@@ -36,16 +36,22 @@ func IsValidPlaybackSpeed(speed float64) bool {
 	return false
 }
 
+type TimelineMarker struct {
+	Title        string `json:"title"`
+	StartSeconds int32  `json:"start_seconds"`
+}
+
 type CreateChapterReq struct {
-	StoryID         uuid.UUID       `json:"story_id" validate:"required"`
-	NarratorID      *int32          `json:"narrator_id,omitempty"`
-	ChapterNumber   float64         `json:"chapter_number" validate:"required"`
-	Title           string          `json:"title" validate:"required"`
-	Content         *string         `json:"content,omitempty"`
-	ContentURL      *string         `json:"content_url,omitempty"`
-	IsPremium       *bool           `json:"is_premium,omitempty"`
-	DurationSeconds *int32          `json:"duration_seconds,omitempty"`
-	WaveformData    json.RawMessage `json:"waveform_data,omitempty"`
+	StoryID         uuid.UUID        `json:"story_id" validate:"required"`
+	NarratorID      *int32           `json:"narrator_id,omitempty"`
+	ChapterNumber   float64          `json:"chapter_number" validate:"required"`
+	Title           string           `json:"title" validate:"required"`
+	Content         *string          `json:"content,omitempty"`
+	ContentURL      *string          `json:"content_url,omitempty"`
+	IsPremium       *bool            `json:"is_premium,omitempty"`
+	DurationSeconds *int32           `json:"duration_seconds,omitempty"`
+	WaveformData    json.RawMessage  `json:"waveform_data,omitempty"`
+	TimelineMarkers []TimelineMarker `json:"timeline_markers,omitempty"`
 }
 
 type BulkCreateChaptersReq struct {
@@ -71,6 +77,7 @@ type ChapterResp struct {
 	IsPremium       *bool                  `json:"is_premium,omitempty"`
 	DurationSeconds int32                  `json:"duration_seconds"`
 	WaveformData    json.RawMessage        `json:"waveform_data,omitempty"`
+	TimelineMarkers []TimelineMarker       `json:"timeline_markers,omitempty"`
 	ListenCount     *int64                 `json:"listen_count,omitempty"`
 	CreatedAt       time.Time              `json:"created_at"`
 	UpdatedAt       time.Time              `json:"updated_at"`

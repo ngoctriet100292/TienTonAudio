@@ -2,7 +2,25 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useAudio, PLAYBACK_SPEEDS } from '@/context/audio-context';
-import { Play, Pause, RotateCcw, RotateCw, SkipBack, SkipForward, Volume2, Gauge, ListMusic, Lock, X, Moon, Clock } from 'lucide-react';
+import {
+  Play,
+  Pause,
+  RotateCcw,
+  RotateCw,
+  SkipBack,
+  SkipForward,
+  Volume2,
+  Gauge,
+  ListMusic,
+  Lock,
+  X,
+  Moon,
+  Clock,
+  Milestone,
+  Check,
+} from 'lucide-react';
+import { formatAudioTime, getCurrentMarker } from '@/lib/timeline';
+import { AudioTimelineMarker } from '@/types';
 
 export function StickyAudioPlayer() {
   const {
@@ -28,9 +46,12 @@ export function StickyAudioPlayer() {
   const [speedMenuOpen, setSpeedMenuOpen] = useState(false);
   const [playlistOpen, setPlaylistOpen] = useState(false);
   const [sleepMenuOpen, setSleepMenuOpen] = useState(false);
+  const [timelineOpen, setTimelineOpen] = useState(false);
+
   const speedMenuRef = useRef<HTMLDivElement>(null);
   const playlistDrawerRef = useRef<HTMLDivElement>(null);
   const sleepMenuRef = useRef<HTMLDivElement>(null);
+  const timelineDrawerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -47,6 +68,13 @@ export function StickyAudioPlayer() {
       ) {
         setPlaylistOpen(false);
       }
+      if (
+        timelineDrawerRef.current &&
+        !timelineDrawerRef.current.contains(event.target as Node) &&
+        !(event.target as HTMLElement).closest('[data-timeline-trigger]')
+      ) {
+        setTimelineOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -55,15 +83,77 @@ export function StickyAudioPlayer() {
   if (!currentChapter || !currentStory) return null;
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
-
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60);
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
+  const timelineMarkers: AudioTimelineMarker[] = currentChapter.timeline_markers || [];
+  const currentMarkerInfo = getCurrentMarker(timelineMarkers, currentTime);
+  const activeMarker = currentMarkerInfo?.marker;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-amber-500/20 bg-[#0c121e]/95 backdrop-blur-2xl shadow-2xl">
+      {/* Floating Timeline Chapters Drawer (Mục lục mốc thời gian YouTube) */}
+      {timelineOpen && timelineMarkers.length > 0 && (
+        <div
+          ref={timelineDrawerRef}
+          className="absolute bottom-full left-0 right-0 p-3 sm:px-6 pointer-events-none mb-1"
+        >
+          <div className="mx-auto max-w-2xl rounded-2xl border border-amber-500/30 bg-[#0c121e]/98 p-4 shadow-2xl backdrop-blur-2xl pointer-events-auto animate-in slide-in-from-bottom-3 duration-200">
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-400" />
+                <span className="text-xs font-black uppercase tracking-wider text-white">
+                  Mục Lục Mốc Thời Gian • {currentChapter.title}
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  {timelineMarkers.length} phân đoạn
+                </span>
+              </div>
+              <button
+                onClick={() => setTimelineOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                title="Đóng"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Timeline Markers List */}
+            <div className="max-h-72 overflow-y-auto divide-y divide-white/5 mt-2 scrollbar-thin">
+              {timelineMarkers.map((marker, idx) => {
+                const isActive = activeMarker?.start_seconds === marker.start_seconds;
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      seek(marker.start_seconds);
+                    }}
+                    className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-all ${
+                      isActive
+                        ? 'bg-amber-500/15 border border-amber-500/40 text-amber-300'
+                        : 'hover:bg-slate-800/60 text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-black/40 text-amber-400 font-bold flex-shrink-0 border border-amber-500/20">
+                        {formatAudioTime(marker.start_seconds)}
+                      </span>
+                      <span className="text-xs font-medium truncate">{marker.title}</span>
+                    </div>
+
+                    {isActive && (
+                      <div className="flex items-end gap-0.5 h-4 w-4 flex-shrink-0 ml-2">
+                        <span className="w-1 bg-amber-400 rounded-full animate-bounce [animation-delay:-0.3s] h-3" />
+                        <span className="w-1 bg-amber-400 rounded-full animate-bounce [animation-delay:-0.15s] h-4" />
+                        <span className="w-1 bg-amber-400 rounded-full animate-bounce h-2" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Floating Playlist Drawer */}
       {playlistOpen && playlist.length > 0 && (
         <div
@@ -108,7 +198,6 @@ export function StickyAudioPlayer() {
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      {/* Active Indicator / Soundwave animation */}
                       {isActive ? (
                         <div className="flex items-end gap-0.5 h-4 w-4 flex-shrink-0">
                           <span className="w-1 bg-amber-400 rounded-full animate-bounce [animation-delay:-0.3s] h-3" />
@@ -122,24 +211,28 @@ export function StickyAudioPlayer() {
                       )}
 
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold truncate">
-                          Tập {ch.chapter_number}: {ch.title}
+                        <p className={`text-xs font-bold truncate ${isActive ? 'text-amber-300' : 'text-slate-200'}`}>
+                          {ch.title}
                         </p>
-                        {ch.narrator_name && (
-                          <p className="text-[10px] text-slate-500 mt-0.5">MC: {ch.narrator_name}</p>
-                        )}
+                        <p className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
+                          <span>{ch.duration_seconds > 0 ? formatAudioTime(ch.duration_seconds) : 'Đang cập nhật'}</span>
+                          {ch.timeline_markers && ch.timeline_markers.length > 0 && (
+                            <span className="text-amber-400/80">• {ch.timeline_markers.length} mốc timeline</span>
+                          )}
+                          {ch.narrator_name && <span>• MC: {ch.narrator_name}</span>}
+                        </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                       {ch.is_premium && (
-                        <span className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        <span className="flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-[#ffd166] border border-amber-500/30">
                           <Lock className="w-2.5 h-2.5" /> VIP
                         </span>
                       )}
-                      {ch.duration_seconds > 0 && (
-                        <span className="text-[11px] font-mono text-slate-500">
-                          {formatTime(ch.duration_seconds)}
+                      {isActive && (
+                        <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                          Đang phát
                         </span>
                       )}
                     </div>
@@ -151,9 +244,9 @@ export function StickyAudioPlayer() {
         </div>
       )}
 
-      {/* Vạch tiến độ chạy cạnh trên */}
+      {/* Progress Bar (Timeline) with YouTube-style notch markers */}
       <div
-        className="w-full h-1 bg-white/10 cursor-pointer relative group"
+        className="h-1.5 w-full bg-slate-800 cursor-pointer relative group overflow-visible"
         onClick={(e) => {
           const rect = e.currentTarget.getBoundingClientRect();
           const clickX = e.clientX - rect.left;
@@ -167,10 +260,28 @@ export function StickyAudioPlayer() {
         >
           <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md" />
         </div>
+
+        {/* Timeline markers notches */}
+        {duration > 0 &&
+          timelineMarkers.map((m, idx) => {
+            const leftPct = Math.min(100, Math.max(0, (m.start_seconds / duration) * 100));
+            return (
+              <div
+                key={idx}
+                style={{ left: `${leftPct}%` }}
+                className="absolute top-0 bottom-0 w-0.5 bg-black/80 hover:bg-white hover:w-1 z-10 transition-all pointer-events-auto cursor-pointer"
+                title={`${formatAudioTime(m.start_seconds)} — ${m.title}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  seek(m.start_seconds);
+                }}
+              />
+            );
+          })}
       </div>
 
       <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-3 sm:px-6 lg:px-8">
-        {/* Tên truyện & Tên tập */}
+        {/* Tên truyện, Tên tập & Tên phân đoạn đang phát */}
         <div className="flex items-center gap-2.5 sm:gap-4 flex-1 min-w-0 mr-2">
           <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 overflow-hidden rounded-xl border border-amber-500/30 bg-slate-800 shadow-md">
             {currentStory.cover_image_url ? (
@@ -187,7 +298,16 @@ export function StickyAudioPlayer() {
           </div>
           <div className="truncate">
             <h4 className="text-xs sm:text-sm font-bold text-white truncate">{currentChapter.title}</h4>
-            <p className="text-[10px] sm:text-xs text-slate-400 truncate">{currentStory.title}</p>
+            {activeMarker ? (
+              <div className="flex items-center gap-1.5 text-[10px] text-amber-400 font-medium truncate mt-0.5">
+                <span className="px-1.5 py-0.2 rounded bg-amber-500/20 font-mono text-[9px] border border-amber-500/30">
+                  {formatAudioTime(activeMarker.start_seconds)}
+                </span>
+                <span className="truncate">{activeMarker.title}</span>
+              </div>
+            ) : (
+              <p className="text-[10px] sm:text-xs text-slate-400 truncate">{currentStory.title}</p>
+            )}
           </div>
         </div>
 
@@ -216,7 +336,11 @@ export function StickyAudioPlayer() {
               onClick={togglePlay}
               className="flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-gradient-to-tr from-[#ffd166] to-[#ffb703] text-black shadow-lg shadow-amber-500/30 hover:scale-105 active:scale-95 transition-all"
             >
-              {isPlaying ? <Pause className="w-4 h-4 sm:w-5 sm:h-5 fill-current" /> : <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current ml-0.5" />}
+              {isPlaying ? (
+                <Pause className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
+              ) : (
+                <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current ml-0.5" />
+              )}
             </button>
 
             <button
@@ -239,19 +363,43 @@ export function StickyAudioPlayer() {
           </div>
 
           <div className="flex items-center gap-1 text-[10px] sm:text-[11px] text-slate-400 font-mono">
-            <span>{formatTime(currentTime)}</span>
+            <span>{formatAudioTime(currentTime)}</span>
             <span>/</span>
-            <span>{formatTime(duration)}</span>
+            <span>{formatAudioTime(duration)}</span>
           </div>
         </div>
 
-        {/* Thanh âm lượng, danh sách tập & Bộ chọn tốc độ phát */}
+        {/* Toolbar: Timeline Chapters, Danh sách tập, Hẹn giờ, Tốc độ */}
         <div className="flex items-center justify-end gap-2 sm:gap-3 flex-shrink-0">
+          {/* Nút Mở Mục Lục Mốc Thời Gian (YouTube Timeline Chapters) */}
+          {timelineMarkers.length > 0 && (
+            <button
+              data-timeline-trigger="true"
+              onClick={() => {
+                setTimelineOpen(!timelineOpen);
+                if (playlistOpen) setPlaylistOpen(false);
+              }}
+              className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all shadow-sm ${
+                timelineOpen
+                  ? 'bg-amber-500 text-black border-amber-500 shadow-amber-500/20'
+                  : 'bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-white border-amber-500/30'
+              }`}
+              title="Mục lục mốc thời gian / Timeline Chapters"
+            >
+              <Clock className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Mốc giờ</span>
+              <span className="text-[10px] font-mono opacity-80">({timelineMarkers.length})</span>
+            </button>
+          )}
+
           {/* Nút Mở Danh Sách Tập (Playlist Drawer) */}
           {playlist.length > 0 && (
             <button
               data-playlist-trigger="true"
-              onClick={() => setPlaylistOpen(!playlistOpen)}
+              onClick={() => {
+                setPlaylistOpen(!playlistOpen);
+                if (timelineOpen) setTimelineOpen(false);
+              }}
               className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all shadow-sm ${
                 playlistOpen
                   ? 'bg-amber-500 text-black border-amber-500 shadow-amber-500/20'
@@ -276,12 +424,16 @@ export function StickyAudioPlayer() {
               }`}
               title="Hẹn giờ tắt audio tự động"
             >
-              <Moon className={`w-3 h-3 ${sleepTimer?.isActive ? 'text-indigo-400 fill-indigo-400/40 animate-pulse' : 'text-slate-400'}`} />
+              <Moon
+                className={`w-3 h-3 ${
+                  sleepTimer?.isActive ? 'text-indigo-400 fill-indigo-400/40 animate-pulse' : 'text-slate-400'
+                }`}
+              />
               {sleepTimer?.isActive ? (
                 <span className="font-mono text-[10px] text-indigo-300">
                   {sleepTimer.mode === 'end_of_chapter'
                     ? 'Hết tập'
-                    : formatTime(sleepTimer.remainingSeconds)}
+                    : formatAudioTime(sleepTimer.remainingSeconds)}
                 </span>
               ) : (
                 <span className="hidden sm:inline">Hẹn giờ</span>
@@ -309,9 +461,10 @@ export function StickyAudioPlayer() {
                       className="w-full text-left px-2.5 py-1.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white flex items-center justify-between transition-colors"
                     >
                       <span>{mins} phút</span>
-                      {sleepTimer?.mode === 'duration' && Math.round(sleepTimer.remainingSeconds / 60) === mins && (
-                        <span className="text-emerald-400 font-bold text-[10px]">✓</span>
-                      )}
+                      {sleepTimer?.mode === 'duration' &&
+                        Math.round(sleepTimer.remainingSeconds / 60) === mins && (
+                          <span className="text-emerald-400 font-bold text-[10px]">✓</span>
+                        )}
                     </button>
                   ))}
                   <button

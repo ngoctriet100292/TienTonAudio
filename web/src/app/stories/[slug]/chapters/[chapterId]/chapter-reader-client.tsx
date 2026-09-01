@@ -3,11 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Play, Volume2, ArrowLeft, ArrowRight, BookOpen, Type, Palette, List } from 'lucide-react';
+import { Play, Volume2, ArrowLeft, ArrowRight, BookOpen, Type, Palette, List, Clock } from 'lucide-react';
 import { useAudio } from '@/context/audio-context';
 import { Story, Chapter } from '@/types';
 import { ChapterComments } from '@/components/chapter-comments';
 import { CultivationSpinner } from '@/components/cultivation-spinner';
+import { formatAudioTime } from '@/lib/timeline';
 
 export default function ChapterReaderClient({
   story,
@@ -19,7 +20,7 @@ export default function ChapterReaderClient({
   chapters?: Chapter[];
 }) {
   const router = useRouter();
-  const { currentChapter, isPlaying, playChapter } = useAudio();
+  const { currentChapter, isPlaying, playChapter, seek, currentTime } = useAudio();
   const isThisPlaying = currentChapter?.id === chapter.id && isPlaying;
 
   const [fontSize, setFontSize] = useState<number>(18);
@@ -82,6 +83,53 @@ export default function ChapterReaderClient({
           >
             {isThisPlaying ? 'Đang Phát Audio' : 'Phát Audio Chương Này'}
           </button>
+        </div>
+      )}
+
+      {/* 1.5 MỤC LỤC MỐC THỜI GIAN (YOUTUBE TIMELINE CHAPTERS) */}
+      {chapter.timeline_markers && chapter.timeline_markers.length > 0 && (
+        <div className="p-5 rounded-2xl bg-slate-900/95 border border-amber-500/20 shadow-xl space-y-3">
+          <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-amber-400" />
+              <h3 className="text-xs font-black uppercase tracking-wider text-amber-300">
+                Mục Lục Mốc Thời Gian Audio ({chapter.timeline_markers.length} phân đoạn)
+              </h3>
+            </div>
+            <span className="text-[10px] text-slate-400">Click mốc giờ để nghe trực tiếp</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pt-1 max-h-60 overflow-y-auto pr-1 scrollbar-thin">
+            {chapter.timeline_markers.map((m, idx) => {
+              const isCurrent =
+                isThisPlaying &&
+                currentTime >= m.start_seconds &&
+                (idx === chapter.timeline_markers!.length - 1 ||
+                  currentTime < chapter.timeline_markers![idx + 1].start_seconds);
+
+              return (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    if (!isThisPlaying) {
+                      playChapter(story, chapter, undefined, chapters);
+                    }
+                    seek(m.start_seconds);
+                  }}
+                  className={`flex items-center gap-2.5 p-2 rounded-xl text-left transition-all border ${
+                    isCurrent
+                      ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 shadow-md shadow-amber-500/10'
+                      : 'bg-slate-800/60 hover:bg-slate-800 border-white/5 hover:border-amber-500/30 text-slate-300 hover:text-white'
+                  }`}
+                >
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-black/40 text-amber-400 font-bold flex-shrink-0 border border-amber-500/20">
+                    {formatAudioTime(m.start_seconds)}
+                  </span>
+                  <span className="text-xs font-medium truncate">{m.title}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 

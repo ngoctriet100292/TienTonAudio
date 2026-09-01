@@ -349,13 +349,15 @@ func (h *PartnerHandler) ListStoryChapters(w http.ResponseWriter, r *http.Reques
 }
 
 type CreatePartnerChapterReq struct {
-	ChapterNumber   float64 `json:"chapter_number" validate:"required"`
-	Title           string  `json:"title" validate:"required"`
-	Content         *string `json:"content,omitempty"`
-	ContentURL      *string `json:"content_url,omitempty"`
-	IsPremium       bool    `json:"is_premium"`
-	AudioURL        *string `json:"audio_url,omitempty"`
-	DurationSeconds int32   `json:"duration_seconds"`
+	ChapterNumber   float64                 `json:"chapter_number" validate:"required"`
+	Title           string                  `json:"title" validate:"required"`
+	Content         *string                 `json:"content,omitempty"`
+	ContentURL      *string                 `json:"content_url,omitempty"`
+	IsPremium       bool                    `json:"is_premium"`
+	AudioURL        *string                 `json:"audio_url,omitempty"`
+	DurationSeconds int32                   `json:"duration_seconds"`
+	TimelineMarkers []domain.TimelineMarker `json:"timeline_markers,omitempty"`
+	RawTimestamps   *string                 `json:"raw_timestamps,omitempty"`
 }
 
 // CreateStoryChapter thêm chương mới kèm audio & text
@@ -389,6 +391,11 @@ func (h *PartnerHandler) CreateStoryChapter(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Tự động phân tích mốc thời gian YouTube nếu gửi dạng văn bản raw_timestamps
+	if len(req.TimelineMarkers) == 0 && req.RawTimestamps != nil && *req.RawTimestamps != "" {
+		req.TimelineMarkers = utils.ParseYouTubeTimestamps(*req.RawTimestamps)
+	}
+
 	createdCh, err := h.chapterService.CreateChapter(r.Context(), domain.CreateChapterReq{
 		StoryID:         storyID,
 		ChapterNumber:   req.ChapterNumber,
@@ -397,6 +404,7 @@ func (h *PartnerHandler) CreateStoryChapter(w http.ResponseWriter, r *http.Reque
 		ContentURL:      req.ContentURL,
 		IsPremium:       &req.IsPremium,
 		DurationSeconds: &req.DurationSeconds,
+		TimelineMarkers: req.TimelineMarkers,
 	})
 	if err != nil {
 		utils.ErrorResponse(w, http.StatusBadRequest, err.Error())

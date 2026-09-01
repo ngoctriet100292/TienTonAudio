@@ -19,6 +19,11 @@ export interface Story {
   categories: any[];
 }
 
+export interface AudioTimelineMarker {
+  title: string;
+  start_seconds: number;
+}
+
 export interface Chapter {
   id: string;
   story_id: string;
@@ -31,6 +36,7 @@ export interface Chapter {
   duration_seconds: number;
   listen_count: number;
   narrator_name?: string;
+  timeline_markers?: AudioTimelineMarker[];
   created_at: string;
 }
 
@@ -170,6 +176,8 @@ export interface CreatePartnerChapterReq {
   is_premium: boolean;
   audio_url?: string;
   duration_seconds: number;
+  timeline_markers?: AudioTimelineMarker[];
+  raw_timestamps?: string;
 }
 
 export interface SubscriptionPlan {

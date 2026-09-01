@@ -27,9 +27,10 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { api, getFullAvatarUrl } from '@/lib/api';
-import { PartnerStats, PartnerStoryItem, Chapter, CreatePartnerStoryReq, CreatePartnerChapterReq, StoryStatus } from '@/types';
+import { PartnerStats, PartnerStoryItem, Chapter, CreatePartnerStoryReq, CreatePartnerChapterReq, StoryStatus, AudioTimelineMarker } from '@/types';
 import { StoryStatusBadge } from '@/components/story-status-badge';
 import { CultivationSpinner } from '@/components/cultivation-spinner';
+import { parseYouTubeTimestamps, formatAudioTime } from '@/lib/timeline';
 
 export default function StudioPage() {
   const router = useRouter();
@@ -70,6 +71,8 @@ export default function StudioPage() {
   const [chAudioUrl, setChAudioUrl] = useState('');
   const [chIsPremium, setChIsPremium] = useState(false);
   const [chDuration, setChDuration] = useState<number>(0);
+  const [chTimestamps, setChTimestamps] = useState('');
+  const [parsedMarkers, setParsedMarkers] = useState<AudioTimelineMarker[]>([]);
   const [uploadingAudio, setUploadingAudio] = useState(false);
   const [submittingChapter, setSubmittingChapter] = useState(false);
   const audioInputRef = useRef<HTMLInputElement>(null);
@@ -222,6 +225,8 @@ export default function StudioPage() {
     setChAudioUrl('');
     setChIsPremium(false);
     setChDuration(0);
+    setChTimestamps('');
+    setParsedMarkers([]);
     setChapterModalOpen(true);
   };
 
@@ -275,6 +280,8 @@ export default function StudioPage() {
         is_premium: chIsPremium,
         audio_url: chAudioUrl,
         duration_seconds: chDuration,
+        timeline_markers: parsedMarkers,
+        raw_timestamps: chTimestamps,
       });
       setChapterModalOpen(false);
       // Tải lại danh sách chương
@@ -622,7 +629,12 @@ export default function StudioPage() {
                     <div className="flex items-center gap-3 text-[10px] text-slate-500 mt-1 font-mono">
                       <span>Lượt nghe: {ch.listen_count}</span>
                       {ch.duration_seconds > 0 && (
-                        <span>{Math.floor(ch.duration_seconds / 60)} phút</span>
+                        <span>{formatAudioTime(ch.duration_seconds)}</span>
+                      )}
+                      {ch.timeline_markers && ch.timeline_markers.length > 0 && (
+                        <span className="text-amber-400 font-bold flex items-center gap-0.5 bg-amber-500/15 px-1.5 py-0.2 rounded border border-amber-500/25">
+                          <Clock className="w-2.5 h-2.5" /> {ch.timeline_markers.length} mốc timeline
+                        </span>
                       )}
                       <span>{new Date(ch.created_at).toLocaleDateString('vi-VN')}</span>
                     </div>
@@ -866,12 +878,61 @@ export default function StudioPage() {
                   </button>
                 </div>
                 <textarea
-                  rows={4}
+                  rows={3}
                   placeholder="Dán nội dung chữ của chương để độc giả vừa nghe vừa đọc..."
                   value={chContent}
                   onChange={(e) => setChContent(e.target.value)}
                   className="w-full rounded-xl bg-slate-900 border border-white/10 p-3 text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none resize-none leading-relaxed"
                 />
+              </div>
+
+              {/* Mốc thời gian phân đoạn (YouTube Timestamps cho audio dài 5h-10h) */}
+              <div className="space-y-1.5 p-3.5 rounded-2xl bg-slate-900/90 border border-amber-500/30">
+                <div className="flex items-center justify-between">
+                  <label className="text-slate-200 font-bold flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-amber-400" />
+                    Mốc Thời Gian / Phân Đoạn (YouTube Timestamps)
+                  </label>
+                  {parsedMarkers.length > 0 && (
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">
+                      {parsedMarkers.length} mốc đã nhận
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  Dành cho file audio dài (3h, 5h, 10h). Dán danh sách như mô tả YouTube để người nghe click chuyển nhanh:
+                </p>
+                <textarea
+                  rows={3}
+                  placeholder={`00:00 Mở đầu: Xuất thế\n15:30 Bí cảnh Vô Lượng\n01:15:20 Đột phá Luyện Khí\n03:45:00 Đại chiến Hắc Ma Tông`}
+                  value={chTimestamps}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setChTimestamps(val);
+                    setParsedMarkers(parseYouTubeTimestamps(val));
+                  }}
+                  className="w-full rounded-xl bg-slate-950 border border-white/10 p-2.5 text-white font-mono placeholder-slate-600 focus:border-amber-400 focus:outline-none resize-none leading-relaxed text-[11px]"
+                />
+                {parsedMarkers.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1 max-h-24 overflow-y-auto">
+                    {parsedMarkers.slice(0, 6).map((m, idx) => (
+                      <span
+                        key={idx}
+                        className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-white/10 flex items-center gap-1"
+                      >
+                        <span className="text-amber-400 font-mono font-bold">
+                          {formatAudioTime(m.start_seconds)}
+                        </span>
+                        <span className="truncate max-w-[130px]">{m.title}</span>
+                      </span>
+                    ))}
+                    {parsedMarkers.length > 6 && (
+                      <span className="text-[10px] text-slate-400 px-1 py-0.5 font-mono">
+                        +{parsedMarkers.length - 6} mốc khác...
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Khóa VIP */}

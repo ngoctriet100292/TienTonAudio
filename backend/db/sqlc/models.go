@@ -43,6 +43,7 @@ type Chapter struct {
 	IsPremium       *bool              `json:"is_premium"`
 	DurationSeconds int32              `json:"duration_seconds"`
 	WaveformData    json.RawMessage    `json:"waveform_data"`
+	TimelineMarkers json.RawMessage    `json:"timeline_markers"`
 	ListenCount     *int64             `json:"listen_count"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`

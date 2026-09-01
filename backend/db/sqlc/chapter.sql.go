@@ -65,11 +65,12 @@ INSERT INTO chapters (
     content_url,
     is_premium,
     duration_seconds,
-    waveform_data
+    waveform_data,
+    timeline_markers
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
 )
-RETURNING id, story_id, narrator_id, chapter_number, title, content, content_url, is_premium, duration_seconds, waveform_data, listen_count, created_at, updated_at
+RETURNING id, story_id, narrator_id, chapter_number, title, content, content_url, is_premium, duration_seconds, waveform_data, timeline_markers, listen_count, created_at, updated_at
 `
 
 type CreateChapterParams struct {
@@ -82,6 +83,7 @@ type CreateChapterParams struct {
 	IsPremium       *bool           `json:"is_premium"`
 	DurationSeconds int32           `json:"duration_seconds"`
 	WaveformData    json.RawMessage `json:"waveform_data"`
+	TimelineMarkers json.RawMessage `json:"timeline_markers"`
 }
 
 func (q *Queries) CreateChapter(ctx context.Context, arg CreateChapterParams) (Chapter, error) {
@@ -95,6 +97,7 @@ func (q *Queries) CreateChapter(ctx context.Context, arg CreateChapterParams) (C
 		arg.IsPremium,
 		arg.DurationSeconds,
 		arg.WaveformData,
+		arg.TimelineMarkers,
 	)
 	var i Chapter
 	err := row.Scan(
@@ -108,6 +111,7 @@ func (q *Queries) CreateChapter(ctx context.Context, arg CreateChapterParams) (C
 		&i.IsPremium,
 		&i.DurationSeconds,
 		&i.WaveformData,
+		&i.TimelineMarkers,
 		&i.ListenCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -163,7 +167,7 @@ func (q *Queries) GetChapterAudioFiles(ctx context.Context, chapterID uuid.UUID)
 const getChapterByID = `-- name: GetChapterByID :one
 SELECT 
     c.id, c.story_id, c.narrator_id, c.chapter_number, c.title, c.content, c.content_url, c.is_premium,
-    c.duration_seconds, c.waveform_data, c.listen_count, c.created_at, c.updated_at,
+    c.duration_seconds, c.waveform_data, c.timeline_markers, c.listen_count, c.created_at, c.updated_at,
     n.name AS narrator_name
 FROM chapters c
 LEFT JOIN narrators n ON c.narrator_id = n.id
@@ -181,6 +185,7 @@ type GetChapterByIDRow struct {
 	IsPremium       *bool              `json:"is_premium"`
 	DurationSeconds int32              `json:"duration_seconds"`
 	WaveformData    json.RawMessage    `json:"waveform_data"`
+	TimelineMarkers json.RawMessage    `json:"timeline_markers"`
 	ListenCount     *int64             `json:"listen_count"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
@@ -201,6 +206,7 @@ func (q *Queries) GetChapterByID(ctx context.Context, id uuid.UUID) (GetChapterB
 		&i.IsPremium,
 		&i.DurationSeconds,
 		&i.WaveformData,
+		&i.TimelineMarkers,
 		&i.ListenCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -212,7 +218,7 @@ func (q *Queries) GetChapterByID(ctx context.Context, id uuid.UUID) (GetChapterB
 const getChapterByNumber = `-- name: GetChapterByNumber :one
 SELECT 
     c.id, c.story_id, c.narrator_id, c.chapter_number, c.title, c.content, c.content_url, c.is_premium,
-    c.duration_seconds, c.waveform_data, c.listen_count, c.created_at, c.updated_at,
+    c.duration_seconds, c.waveform_data, c.timeline_markers, c.listen_count, c.created_at, c.updated_at,
     n.name AS narrator_name
 FROM chapters c
 LEFT JOIN narrators n ON c.narrator_id = n.id
@@ -235,6 +241,7 @@ type GetChapterByNumberRow struct {
 	IsPremium       *bool              `json:"is_premium"`
 	DurationSeconds int32              `json:"duration_seconds"`
 	WaveformData    json.RawMessage    `json:"waveform_data"`
+	TimelineMarkers json.RawMessage    `json:"timeline_markers"`
 	ListenCount     *int64             `json:"listen_count"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
@@ -255,6 +262,7 @@ func (q *Queries) GetChapterByNumber(ctx context.Context, arg GetChapterByNumber
 		&i.IsPremium,
 		&i.DurationSeconds,
 		&i.WaveformData,
+		&i.TimelineMarkers,
 		&i.ListenCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -266,7 +274,7 @@ func (q *Queries) GetChapterByNumber(ctx context.Context, arg GetChapterByNumber
 const listChaptersByStory = `-- name: ListChaptersByStory :many
 SELECT 
     c.id, c.story_id, c.narrator_id, c.chapter_number, c.title, c.content, c.content_url, c.is_premium,
-    c.duration_seconds, c.waveform_data, c.listen_count, c.created_at, c.updated_at,
+    c.duration_seconds, c.waveform_data, c.timeline_markers, c.listen_count, c.created_at, c.updated_at,
     n.name AS narrator_name
 FROM chapters c
 LEFT JOIN narrators n ON c.narrator_id = n.id
@@ -285,6 +293,7 @@ type ListChaptersByStoryRow struct {
 	IsPremium       *bool              `json:"is_premium"`
 	DurationSeconds int32              `json:"duration_seconds"`
 	WaveformData    json.RawMessage    `json:"waveform_data"`
+	TimelineMarkers json.RawMessage    `json:"timeline_markers"`
 	ListenCount     *int64             `json:"listen_count"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
@@ -311,6 +320,7 @@ func (q *Queries) ListChaptersByStory(ctx context.Context, storyID uuid.UUID) ([
 			&i.IsPremium,
 			&i.DurationSeconds,
 			&i.WaveformData,
+			&i.TimelineMarkers,
 			&i.ListenCount,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -337,9 +347,10 @@ SET
     is_premium = $7,
     duration_seconds = $8,
     waveform_data = $9,
+    timeline_markers = $10,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = $1
-RETURNING id, story_id, narrator_id, chapter_number, title, content, content_url, is_premium, duration_seconds, waveform_data, listen_count, created_at, updated_at
+RETURNING id, story_id, narrator_id, chapter_number, title, content, content_url, is_premium, duration_seconds, waveform_data, timeline_markers, listen_count, created_at, updated_at
 `
 
 type UpdateChapterParams struct {
@@ -352,6 +363,7 @@ type UpdateChapterParams struct {
 	IsPremium       *bool           `json:"is_premium"`
 	DurationSeconds int32           `json:"duration_seconds"`
 	WaveformData    json.RawMessage `json:"waveform_data"`
+	TimelineMarkers json.RawMessage `json:"timeline_markers"`
 }
 
 func (q *Queries) UpdateChapter(ctx context.Context, arg UpdateChapterParams) (Chapter, error) {
@@ -365,6 +377,7 @@ func (q *Queries) UpdateChapter(ctx context.Context, arg UpdateChapterParams) (C
 		arg.IsPremium,
 		arg.DurationSeconds,
 		arg.WaveformData,
+		arg.TimelineMarkers,
 	)
 	var i Chapter
 	err := row.Scan(
@@ -378,6 +391,7 @@ func (q *Queries) UpdateChapter(ctx context.Context, arg UpdateChapterParams) (C
 		&i.IsPremium,
 		&i.DurationSeconds,
 		&i.WaveformData,
+		&i.TimelineMarkers,
 		&i.ListenCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -395,9 +409,10 @@ INSERT INTO chapters (
     content_url,
     is_premium,
     duration_seconds,
-    waveform_data
+    waveform_data,
+    timeline_markers
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
 )
 ON CONFLICT (story_id, chapter_number) DO UPDATE
 SET 
@@ -405,8 +420,9 @@ SET
     content = EXCLUDED.content,
     content_url = COALESCE(EXCLUDED.content_url, chapters.content_url),
     is_premium = COALESCE(EXCLUDED.is_premium, chapters.is_premium),
+    timeline_markers = COALESCE(EXCLUDED.timeline_markers, chapters.timeline_markers),
     updated_at = CURRENT_TIMESTAMP
-RETURNING id, story_id, narrator_id, chapter_number, title, content, content_url, is_premium, duration_seconds, waveform_data, listen_count, created_at, updated_at
+RETURNING id, story_id, narrator_id, chapter_number, title, content, content_url, is_premium, duration_seconds, waveform_data, timeline_markers, listen_count, created_at, updated_at
 `
 
 type UpsertChapterParams struct {
@@ -419,6 +435,7 @@ type UpsertChapterParams struct {
 	IsPremium       *bool           `json:"is_premium"`
 	DurationSeconds int32           `json:"duration_seconds"`
 	WaveformData    json.RawMessage `json:"waveform_data"`
+	TimelineMarkers json.RawMessage `json:"timeline_markers"`
 }
 
 func (q *Queries) UpsertChapter(ctx context.Context, arg UpsertChapterParams) (Chapter, error) {
@@ -432,6 +449,7 @@ func (q *Queries) UpsertChapter(ctx context.Context, arg UpsertChapterParams) (C
 		arg.IsPremium,
 		arg.DurationSeconds,
 		arg.WaveformData,
+		arg.TimelineMarkers,
 	)
 	var i Chapter
 	err := row.Scan(
@@ -445,6 +463,7 @@ func (q *Queries) UpsertChapter(ctx context.Context, arg UpsertChapterParams) (C
 		&i.IsPremium,
 		&i.DurationSeconds,
 		&i.WaveformData,
+		&i.TimelineMarkers,
 		&i.ListenCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,

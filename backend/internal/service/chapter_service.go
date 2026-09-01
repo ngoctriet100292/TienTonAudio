@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -49,6 +50,11 @@ func (s *chapterService) ListChaptersByStory(ctx context.Context, storyID uuid.U
 
 	result := make([]domain.ChapterResp, len(rows))
 	for i, r := range rows {
+		var timelineMarkers []domain.TimelineMarker
+		if len(r.TimelineMarkers) > 0 {
+			_ = json.Unmarshal(r.TimelineMarkers, &timelineMarkers)
+		}
+
 		result[i] = domain.ChapterResp{
 			ID:              r.ID,
 			StoryID:         r.StoryID,
@@ -61,6 +67,7 @@ func (s *chapterService) ListChaptersByStory(ctx context.Context, storyID uuid.U
 			IsPremium:       r.IsPremium,
 			DurationSeconds: r.DurationSeconds,
 			WaveformData:    r.WaveformData,
+			TimelineMarkers: timelineMarkers,
 			ListenCount:     r.ListenCount,
 			CreatedAt:       r.CreatedAt.Time,
 			UpdatedAt:       r.UpdatedAt.Time,
@@ -99,6 +106,11 @@ func (s *chapterService) GetChapterByID(ctx context.Context, id uuid.UUID) (*dom
 		}
 	}
 
+	var timelineMarkers []domain.TimelineMarker
+	if len(row.TimelineMarkers) > 0 {
+		_ = json.Unmarshal(row.TimelineMarkers, &timelineMarkers)
+	}
+
 	return &domain.ChapterResp{
 		ID:              row.ID,
 		StoryID:         row.StoryID,
@@ -111,6 +123,7 @@ func (s *chapterService) GetChapterByID(ctx context.Context, id uuid.UUID) (*dom
 		IsPremium:       row.IsPremium,
 		DurationSeconds: row.DurationSeconds,
 		WaveformData:    row.WaveformData,
+		TimelineMarkers: timelineMarkers,
 		ListenCount:     row.ListenCount,
 		CreatedAt:       row.CreatedAt.Time,
 		UpdatedAt:       row.UpdatedAt.Time,
@@ -140,6 +153,11 @@ func (s *chapterService) CreateChapter(ctx context.Context, req domain.CreateCha
 		}
 	}
 
+	var timelineData json.RawMessage
+	if len(req.TimelineMarkers) > 0 {
+		timelineData, _ = json.Marshal(req.TimelineMarkers)
+	}
+
 	row, err := s.repo.CreateChapter(ctx, db.CreateChapterParams{
 		StoryID:         req.StoryID,
 		NarratorID:      req.NarratorID,
@@ -150,6 +168,7 @@ func (s *chapterService) CreateChapter(ctx context.Context, req domain.CreateCha
 		IsPremium:       req.IsPremium,
 		DurationSeconds: dur,
 		WaveformData:    req.WaveformData,
+		TimelineMarkers: timelineData,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create chapter error: %w", err)
@@ -166,6 +185,7 @@ func (s *chapterService) CreateChapter(ctx context.Context, req domain.CreateCha
 		IsPremium:       row.IsPremium,
 		DurationSeconds: row.DurationSeconds,
 		WaveformData:    row.WaveformData,
+		TimelineMarkers: req.TimelineMarkers,
 		ListenCount:     row.ListenCount,
 		CreatedAt:       row.CreatedAt.Time,
 		UpdatedAt:       row.UpdatedAt.Time,
@@ -205,6 +225,11 @@ func (s *chapterService) BulkCreateChapters(ctx context.Context, req domain.Bulk
 			}
 		}
 
+		var timelineData json.RawMessage
+		if len(c.TimelineMarkers) > 0 {
+			timelineData, _ = json.Marshal(c.TimelineMarkers)
+		}
+
 		_, err := s.repo.UpsertChapter(ctx, db.UpsertChapterParams{
 			StoryID:         storyID,
 			NarratorID:      c.NarratorID,
@@ -215,6 +240,7 @@ func (s *chapterService) BulkCreateChapters(ctx context.Context, req domain.Bulk
 			IsPremium:       c.IsPremium,
 			DurationSeconds: dur,
 			WaveformData:    c.WaveformData,
+			TimelineMarkers: timelineData,
 		})
 		if err != nil {
 			failedCount++

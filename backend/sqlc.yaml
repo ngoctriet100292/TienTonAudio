@@ -26,3 +26,5 @@ sql:
             go_type: "float64"
           - column: "chapters.waveform_data"
             go_type: "encoding/json.RawMessage"
+          - column: "chapters.timeline_markers"
+            go_type: "encoding/json.RawMessage"
