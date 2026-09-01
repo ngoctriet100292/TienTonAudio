@@ -1,4 +1,4 @@
-import { Story, Chapter, Category, User, UserCultivation, CultivationRealmInfo, PaymentHistoryItem, FavoriteStoryItem, ListeningHistoryItem, NotificationItem, PartnerStats, PartnerStoryItem, CreatePartnerStoryReq, CreatePartnerChapterReq } from '@/types';
+import { Story, Chapter, Category, User, UserCultivation, CultivationRealmInfo, PaymentHistoryItem, FavoriteStoryItem, ListeningHistoryItem, NotificationItem, PartnerStats, PartnerStoryItem, CreatePartnerStoryReq, CreatePartnerChapterReq, SubscriptionPlan, CreatePaymentResp, PaymentStatusResp, UserSubscription } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
 
@@ -302,27 +302,6 @@ class ApiClient {
     return this.request(`/ai/stories/${storyId}/realms`);
   }
 
-  // ---- PAYMENTS / VIP ----
-  async getVipPlans(): Promise<any[]> {
-    try {
-      const res = await this.request<any>('/payments/plans');
-      return res.items || res;
-    } catch {
-      return [
-        { id: '1-month', name: 'Đồng Đan (1 Tháng)', price: 49000, duration_days: 30 },
-        { id: '3-months', name: 'Kim Đan (3 Tháng)', price: 129000, duration_days: 90 },
-        { id: '1-year', name: 'Tiên Vương (1 Năm)', price: 449000, duration_days: 365 },
-      ];
-    }
-  }
-
-  async createPayment(planId: string, provider: 'vnpay' | 'momo' | 'stripe'): Promise<{ checkout_url: string }> {
-    return this.request<{ checkout_url: string }>('/payments/create', {
-      method: 'POST',
-      body: JSON.stringify({ plan_id: planId, provider }),
-    });
-  }
-
   // ---- USER PROFILE ----
   async getMe(): Promise<User | null> {
     try {
@@ -622,6 +601,44 @@ class ApiClient {
 
     const data = await res.json();
     return data.data?.url || data.url || '';
+  }
+
+  // ---- THANH TOÁN & XÁC NHẬN TỰ ĐỘNG (PAYMENTS & AUTO VERIFICATION) ----
+  async getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+    try {
+      const res = await this.request<any>('/payments/plans');
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray(res.items)) return res.items;
+      if (res && Array.isArray(res.data)) return res.data;
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  async createPayment(planId: number, provider: string = 'vietqr'): Promise<CreatePaymentResp> {
+    return await this.request<CreatePaymentResp>('/payments/create', {
+      method: 'POST',
+      body: JSON.stringify({ plan_id: planId, provider }),
+    });
+  }
+
+  async getPaymentStatus(paymentId: string): Promise<PaymentStatusResp> {
+    return await this.request<PaymentStatusResp>(`/payments/${paymentId}/status`);
+  }
+
+  async autoConfirmPayment(paymentId: string): Promise<PaymentStatusResp> {
+    return await this.request<PaymentStatusResp>(`/payments/${paymentId}/confirm-auto`, {
+      method: 'POST',
+    });
+  }
+
+  async getActiveSubscription(): Promise<UserSubscription | null> {
+    try {
+      return await this.request<UserSubscription>('/payments/my-subscription');
+    } catch {
+      return null;
+    }
   }
 }
 

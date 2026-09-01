@@ -280,6 +280,8 @@ func NewRouter(opts RouterOptions) http.Handler {
 		r.Route("/payments", func(r chi.Router) {
 			r.Get("/plans", opts.PaymentHandler.ListSubscriptionPlans)
 			r.Post("/webhook", opts.PaymentHandler.WebhookCallback)
+			r.Get("/{id}/status", opts.PaymentHandler.GetPaymentStatus)
+			r.Post("/{id}/confirm-auto", opts.PaymentHandler.AutoConfirmPayment)
 
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.AuthMiddleware(opts.JWTService))

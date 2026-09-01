@@ -171,3 +171,46 @@ export interface CreatePartnerChapterReq {
   duration_seconds: number;
 }
 
+export interface SubscriptionPlan {
+  id: number;
+  name: string;
+  price: number;
+  duration_days: number;
+  description?: string;
+}
+
+export interface CreatePaymentResp {
+  payment_id: string;
+  order_code: string;
+  amount: number;
+  provider: string;
+  status: string;
+  checkout_url: string;
+  qr_code_url: string;
+  bank_name: string;
+  bank_account: string;
+  account_name: string;
+  transfer_content: string;
+  expires_at: string;
+}
+
+export interface PaymentStatusResp {
+  payment_id: string;
+  status: string;
+  plan_name: string;
+  amount: number;
+  is_completed: boolean;
+  bonus_exp: number;
+  cultivation_realm?: string;
+  expires_at?: string;
+}
+
+export interface UserSubscription {
+  id: string;
+  plan_id: number;
+  plan_name: string;
+  started_at: string;
+  expires_at: string;
+  status: string;
+}
+

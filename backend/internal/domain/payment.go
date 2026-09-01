@@ -20,11 +20,29 @@ type CreatePaymentReq struct {
 }
 
 type CreatePaymentResp struct {
-	PaymentID   uuid.UUID `json:"payment_id"`
-	Amount      float64   `json:"amount"`
-	Provider    string    `json:"provider"`
-	Status      string    `json:"status"`
-	CheckoutURL string    `json:"checkout_url"`
+	PaymentID       uuid.UUID `json:"payment_id"`
+	OrderCode       string    `json:"order_code"`
+	Amount          float64   `json:"amount"`
+	Provider        string    `json:"provider"`
+	Status          string    `json:"status"`
+	CheckoutURL     string    `json:"checkout_url"`
+	QRCodeURL       string    `json:"qr_code_url"`
+	BankName        string    `json:"bank_name"`
+	BankAccount     string    `json:"bank_account"`
+	AccountName     string    `json:"account_name"`
+	TransferContent string    `json:"transfer_content"`
+	ExpiresAt       time.Time `json:"expires_at"`
+}
+
+type PaymentStatusResp struct {
+	PaymentID        uuid.UUID  `json:"payment_id"`
+	Status           string     `json:"status"`
+	PlanName         string     `json:"plan_name"`
+	Amount           float64    `json:"amount"`
+	IsCompleted      bool       `json:"is_completed"`
+	BonusExp         int64      `json:"bonus_exp"`
+	CultivationRealm string     `json:"cultivation_realm,omitempty"`
+	ExpiresAt        *time.Time `json:"expires_at,omitempty"`
 }
 
 type WebhookCallbackReq struct {

@@ -308,6 +308,16 @@ CREATE TABLE IF NOT EXISTS subscription_plans (
     description TEXT
 );
 
+INSERT INTO subscription_plans (id, name, price, duration_days, description) VALUES
+(1, 'Đồng Đan Cảnh (1 Tháng)', 49000, 30, 'Mở khóa toàn bộ chương VIP, Âm thanh chuẩn Studio 320kbps, Tải về ngoại tuyến, Không quảng cáo'),
+(2, 'Kim Đan Cảnh (3 Tháng)', 129000, 90, 'Tất cả đặc quyền Đồng Đan Cảnh, Tiết kiệm 15%, Huy hiệu VIP Kim Đan phát sáng, Tặng +4.500 Tu Vi Đột Phá'),
+(3, 'Tiên Vương Cảnh (1 Năm)', 449000, 365, 'Tất cả đặc quyền Kim Đan, Tiết kiệm 25%, Huy hiệu Tiên Vương mạ vàng độc quyền, Nghe trước các tập audio mới nhất, Tặng +18.250 Tu Vi Đột Phá')
+ON CONFLICT (id) DO UPDATE SET
+    name = EXCLUDED.name,
+    price = EXCLUDED.price,
+    duration_days = EXCLUDED.duration_days,
+    description = EXCLUDED.description;
+
 CREATE TABLE IF NOT EXISTS subscriptions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,

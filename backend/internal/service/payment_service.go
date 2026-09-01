@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,17 +20,24 @@ type PaymentService interface {
 	ListSubscriptionPlans(ctx context.Context) ([]domain.SubscriptionPlanResp, error)
 	CreatePayment(ctx context.Context, userID uuid.UUID, req domain.CreatePaymentReq) (*domain.CreatePaymentResp, error)
 	HandleWebhookCallback(ctx context.Context, req domain.WebhookCallbackReq) error
+	AutoConfirmPayment(ctx context.Context, paymentID uuid.UUID) (*domain.PaymentStatusResp, error)
+	GetPaymentStatus(ctx context.Context, paymentID uuid.UUID) (*domain.PaymentStatusResp, error)
 	GetUserActiveSubscription(ctx context.Context, userID uuid.UUID) (*domain.UserSubscriptionResp, error)
 	ListUserPayments(ctx context.Context, userID uuid.UUID) ([]domain.UserPaymentResp, error)
 }
 
 type paymentService struct {
-	repo     repository.PaymentRepository
-	userRepo repository.UserRepository
+	repo             repository.PaymentRepository
+	userRepo         repository.UserRepository
+	notificationRepo repository.NotificationRepository
 }
 
-func NewPaymentService(repo repository.PaymentRepository, userRepo repository.UserRepository) PaymentService {
-	return &paymentService{repo: repo, userRepo: userRepo}
+func NewPaymentService(repo repository.PaymentRepository, userRepo repository.UserRepository, notificationRepo repository.NotificationRepository) PaymentService {
+	return &paymentService{
+		repo:             repo,
+		userRepo:         userRepo,
+		notificationRepo: notificationRepo,
+	}
 }
 
 func (s *paymentService) ListSubscriptionPlans(ctx context.Context) ([]domain.SubscriptionPlanResp, error) {
@@ -58,26 +67,177 @@ func (s *paymentService) CreatePayment(ctx context.Context, userID uuid.UUID, re
 
 	planID := req.PlanID
 	status := "pending"
+	provider := req.Provider
+	if provider == "" {
+		provider = "vietqr"
+	}
+
 	payment, err := s.repo.CreatePayment(ctx, db.CreatePaymentParams{
 		UserID:   userID,
 		PlanID:   &planID,
 		Amount:   plan.Price,
-		Provider: req.Provider,
+		Provider: provider,
 		Status:   &status,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create payment error: %w", err)
 	}
 
-	// Generate Gateway Checkout URL (Mock / MoMo / VNPay)
-	checkoutURL := fmt.Sprintf("https://payment-gateway.tientonaudio.com/checkout?payment_id=%s&provider=%s", payment.ID, req.Provider)
+	// 1. Sinh mã đơn hàng rút gọn 8 ký tự viết hoa
+	orderCode := strings.ToUpper(strings.ReplaceAll(payment.ID.String(), "-", "")[:8])
+	transferContent := fmt.Sprintf("TT %s", orderCode)
+	bankName := "Ngân hàng Quân Đội (MBBank)"
+	bankAccount := "0348788888"
+	accountName := "TIEN TON AUDIO"
+	amountFloat := utils.NumericToFloat64(payment.Amount)
+
+	// 2. Tạo link VietQR chuẩn Napas 24/7 tự động điền tiền và nội dung
+	qrCodeURL := fmt.Sprintf(
+		"https://img.vietqr.io/image/MB-%s-compact2.png?amount=%.0f&addInfo=%s&accountName=%s",
+		bankAccount,
+		amountFloat,
+		url.QueryEscape(transferContent),
+		url.QueryEscape(accountName),
+	)
+
+	// Gateway checkout URL fallback
+	checkoutURL := fmt.Sprintf("https://payment-gateway.tientonaudio.com/checkout?payment_id=%s&provider=%s", payment.ID, provider)
+	expiresAt := time.Now().Add(15 * time.Minute)
 
 	return &domain.CreatePaymentResp{
+		PaymentID:       payment.ID,
+		OrderCode:       orderCode,
+		Amount:          amountFloat,
+		Provider:        payment.Provider,
+		Status:          getStr(payment.Status),
+		CheckoutURL:     checkoutURL,
+		QRCodeURL:       qrCodeURL,
+		BankName:        bankName,
+		BankAccount:     bankAccount,
+		AccountName:     accountName,
+		TransferContent: transferContent,
+		ExpiresAt:       expiresAt,
+	}, nil
+}
+
+func (s *paymentService) AutoConfirmPayment(ctx context.Context, paymentID uuid.UUID) (*domain.PaymentStatusResp, error) {
+	payment, err := s.repo.GetPaymentByID(ctx, paymentID)
+	if err != nil {
+		return nil, errors.New("đơn thanh toán không tồn tại")
+	}
+
+	planName := "Gói VIP Tiên Tôn"
+	var planDuration int32 = 30
+	if payment.PlanID != nil {
+		if plan, err := s.repo.GetSubscriptionPlanByID(ctx, *payment.PlanID); err == nil {
+			planName = plan.Name
+			planDuration = plan.DurationDays
+		}
+	}
+
+	// Nếu đơn đã kích hoạt rồi
+	if getStr(payment.Status) == "completed" {
+		return &domain.PaymentStatusResp{
+			PaymentID:   payment.ID,
+			Status:      "completed",
+			PlanName:    planName,
+			Amount:      utils.NumericToFloat64(payment.Amount),
+			IsCompleted: true,
+			BonusExp:    int64(planDuration) * 50,
+		}, nil
+	}
+
+	// Cập nhật trạng thái thành completed
+	statusCompleted := "completed"
+	autoTxID := fmt.Sprintf("AUTO_%s", strings.ToUpper(strings.ReplaceAll(payment.ID.String(), "-", "")[:8]))
+	updatedPayment, err := s.repo.UpdatePaymentStatus(ctx, db.UpdatePaymentStatusParams{
+		ID:            payment.ID,
+		Status:        &statusCompleted,
+		TransactionID: &autoTxID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("không thể cập nhật trạng thái đơn: %w", err)
+	}
+
+	// 1. Kích hoạt Subscription VIP
+	expiresAt := time.Now().AddDate(0, 0, int(planDuration))
+	var pgExpiresAt pgtype.Timestamptz
+	_ = pgExpiresAt.Scan(expiresAt)
+
+	_, err = s.repo.ActivateSubscription(ctx, db.ActivateSubscriptionParams{
+		UserID:    uuid.NullUUID{UUID: payment.UserID, Valid: true},
+		PlanID:    updatedPayment.PlanID,
+		ExpiresAt: pgExpiresAt,
+	})
+
+	// 2. Thưởng Đan Dược Đột Phá Tu Vi
+	bonusExp := int64(planDuration) * 50
+	newRealm := "Luyện Khí"
+	if s.userRepo != nil {
+		userCult, err := s.userRepo.GetUserCultivation(ctx, payment.UserID)
+		if err == nil {
+			currExp := int64(0)
+			if userCult.CultivationExp != nil {
+				currExp = *userCult.CultivationExp
+			}
+			newExp := currExp + bonusExp
+			calcRealm, _, _, _, _, _ := domain.CalculateCultivationRealm(newExp)
+			newRealm = calcRealm
+			_, _ = s.userRepo.AddUserCultivationExp(ctx, db.AddUserCultivationExpParams{
+				ID:               payment.UserID,
+				CultivationExp:   &bonusExp,
+				CultivationRealm: &newRealm,
+			})
+		}
+	}
+
+	// 3. Gửi Thông Báo Linh Thư
+	if s.notificationRepo != nil {
+		msg := fmt.Sprintf("Chúc mừng Đạo Hữu đã gia nhập %s! Đan dược đột phá +%d điểm Tu Vi đã được hấp thu vào kinh mạch. Cảnh giới hiện tại: %s.", planName, bonusExp, newRealm)
+		_, _ = s.notificationRepo.CreateNotification(ctx, db.CreateNotificationParams{
+			UserID:  payment.UserID,
+			Title:   "Khai Mở Tiên Mạch: Nâng Cấp VIP Thành Công!",
+			Message: msg,
+			Type:    "vip_expiring",
+		})
+	}
+
+	return &domain.PaymentStatusResp{
+		PaymentID:        payment.ID,
+		Status:           "completed",
+		PlanName:         planName,
+		Amount:           utils.NumericToFloat64(payment.Amount),
+		IsCompleted:      true,
+		BonusExp:         bonusExp,
+		CultivationRealm: newRealm,
+		ExpiresAt:        &expiresAt,
+	}, nil
+}
+
+func (s *paymentService) GetPaymentStatus(ctx context.Context, paymentID uuid.UUID) (*domain.PaymentStatusResp, error) {
+	payment, err := s.repo.GetPaymentByID(ctx, paymentID)
+	if err != nil {
+		return nil, errors.New("đơn thanh toán không tồn tại")
+	}
+
+	planName := "Gói VIP Tiên Tôn"
+	var planDuration int32 = 30
+	if payment.PlanID != nil {
+		if plan, err := s.repo.GetSubscriptionPlanByID(ctx, *payment.PlanID); err == nil {
+			planName = plan.Name
+			planDuration = plan.DurationDays
+		}
+	}
+
+	isCompleted := getStr(payment.Status) == "completed"
+
+	return &domain.PaymentStatusResp{
 		PaymentID:   payment.ID,
-		Amount:      utils.NumericToFloat64(payment.Amount),
-		Provider:    payment.Provider,
 		Status:      getStr(payment.Status),
-		CheckoutURL: checkoutURL,
+		PlanName:    planName,
+		Amount:      utils.NumericToFloat64(payment.Amount),
+		IsCompleted: isCompleted,
+		BonusExp:    int64(planDuration) * 50,
 	}, nil
 }
 
@@ -115,7 +275,7 @@ func (s *paymentService) HandleWebhookCallback(ctx context.Context, req domain.W
 
 			// Thưởng Đan Dược Đột Phá Tu Vi (Cultivation EXP theo số ngày nạp VIP)
 			if s.userRepo != nil {
-				bonusExp := int64(plan.DurationDays) * 50 // 30 ngày = +1.500 EXP, 365 ngày = +18.250 EXP
+				bonusExp := int64(plan.DurationDays) * 50
 				userCult, err := s.userRepo.GetUserCultivation(ctx, payment.UserID)
 				if err == nil {
 					currExp := int64(0)

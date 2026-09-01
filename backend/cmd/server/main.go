@@ -142,7 +142,7 @@ func main() {
 		chapterSvc = service.NewChapterService(chapterRepo, paymentRepo, streamSigner)
 	}
 	if paymentRepo != nil {
-		paymentSvc = service.NewPaymentService(paymentRepo, userRepo)
+		paymentSvc = service.NewPaymentService(paymentRepo, userRepo, notificationRepo)
 	}
 	if adminRepo != nil {
 		adminSvc = service.NewAdminService(adminRepo)
