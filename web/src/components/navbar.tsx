@@ -25,6 +25,7 @@ import {
   PenTool,
   MessageSquare,
   Bookmark,
+  LayoutGrid,
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { getFullAvatarUrl } from '@/lib/api';
@@ -110,14 +111,21 @@ export function Navbar() {
             </div>
           </Link>
 
-          {/* Navigation Links (Desktop - Ẩn trên tablet/mobile để không bị ép chữ 2 dòng) */}
-          <nav className="hidden lg:flex items-center gap-4 xl:gap-6 text-sm font-medium flex-shrink-0">
+          {/* Navigation Links (Desktop: Tinh gọn, chỉ giữ 4 mục chính + Dropdown Tiện Ích) */}
+          <nav className="hidden lg:flex items-center gap-3.5 xl:gap-5 text-sm font-medium flex-shrink-0">
             <Link
               href="/"
               className="text-white hover:text-[#ffb703] transition-colors flex items-center gap-1.5 whitespace-nowrap"
             >
-              <Compass className="w-4 h-4 flex-shrink-0" />
+              <Compass className="w-4 h-4 flex-shrink-0 text-amber-400" />
               <span>Khám Phá</span>
+            </Link>
+            <Link
+              href="/categories"
+              className="text-slate-300 hover:text-[#ffb703] transition-colors flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <BookOpen className="w-4 h-4 flex-shrink-0 text-slate-400" />
+              <span>Thể Loại</span>
             </Link>
             <Link
               href="/rankings"
@@ -127,20 +135,6 @@ export function Navbar() {
               <span>Bảng Vàng</span>
             </Link>
             <Link
-              href="/categories"
-              className="text-slate-300 hover:text-[#ffb703] transition-colors flex items-center gap-1.5 whitespace-nowrap"
-            >
-              <BookOpen className="w-4 h-4 flex-shrink-0" />
-              <span>Thể Loại</span>
-            </Link>
-            <Link
-              href="/community"
-              className="text-slate-300 hover:text-[#ffb703] transition-colors flex items-center gap-1.5 whitespace-nowrap"
-            >
-              <MessageSquare className="w-4 h-4 text-amber-400 flex-shrink-0" />
-              <span>Luận Đạo</span>
-            </Link>
-            <Link
               href="/library"
               className="text-slate-300 hover:text-[#ffb703] transition-colors flex items-center gap-1.5 whitespace-nowrap"
             >
@@ -148,7 +142,7 @@ export function Navbar() {
               <span>Tủ Truyện</span>
             </Link>
 
-            {/* Dropdown Giới Thiệu (Cảnh Giới, Về Chúng Tôi, VIP, AI, Liên Hệ...) */}
+            {/* Dropdown Tiện Ích (Gom Luận Đạo, Cảnh Giới, AI Đạo Hữu, Giới Thiệu, Liên Hệ) */}
             <div
               className="relative flex-shrink-0"
               ref={introRef}
@@ -162,7 +156,8 @@ export function Navbar() {
                   introDropdownOpen ? 'text-[#ffb703]' : 'text-slate-300 hover:text-[#ffb703]'
                 }`}
               >
-                <span>Giới Thiệu</span>
+                <LayoutGrid className="w-3.5 h-3.5 flex-shrink-0 text-slate-400" />
+                <span>Tiện Ích</span>
                 <ChevronDown
                   className={`w-3.5 h-3.5 flex-shrink-0 transition-transform duration-200 ${
                     introDropdownOpen ? 'rotate-180 text-[#ffb703]' : ''
@@ -172,6 +167,31 @@ export function Navbar() {
 
               {introDropdownOpen && (
                 <div className="absolute left-0 mt-1.5 w-72 rounded-2xl border border-white/10 bg-[#0c121e]/98 p-2.5 shadow-2xl backdrop-blur-2xl animate-in fade-in-0 zoom-in-95 z-50">
+                  {/* Luận Đạo - Mạng Xã Hội */}
+                  <Link
+                    href="/community"
+                    onClick={() => setIntroDropdownOpen(false)}
+                    className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-800/80 transition-colors group"
+                  >
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 group-hover:scale-105 transition-transform">
+                      <MessageSquare className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold text-white group-hover:text-emerald-300 transition-colors">
+                          Luận Đạo Các
+                        </p>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 uppercase">
+                          Cộng Đồng
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
+                        Giao lưu, bình phẩm cùng các đạo hữu
+                      </p>
+                    </div>
+                  </Link>
+
+                  {/* Cảnh Giới Tu Tiên */}
                   <Link
                     href="/cultivation"
                     onClick={() => setIntroDropdownOpen(false)}
@@ -186,15 +206,35 @@ export function Navbar() {
                           Cảnh Giới Tu Tiên
                         </p>
                         <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase">
-                          Mới
+                          17 Cảnh
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
-                        17 Cảnh giới & bí kíp tăng tu vi
+                        Bảng cảnh giới & tích lũy tu vi
                       </p>
                     </div>
                   </Link>
 
+                  {/* AI Đạo Hữu */}
+                  <Link
+                    href="/ai"
+                    onClick={() => setIntroDropdownOpen(false)}
+                    className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-800/80 transition-colors group"
+                  >
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 group-hover:scale-105 transition-transform">
+                      <Bot className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-white group-hover:text-indigo-300 transition-colors">
+                        AI Đạo Hữu
+                      </p>
+                      <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
+                        Trợ lý AI giải đáp cốt truyện tu chân
+                      </p>
+                    </div>
+                  </Link>
+
+                  {/* Về Chúng Tôi */}
                   <Link
                     href="/about"
                     onClick={() => setIntroDropdownOpen(false)}
@@ -213,58 +253,18 @@ export function Navbar() {
                     </div>
                   </Link>
 
-                  <Link
-                    href="/vip"
-                    onClick={() => setIntroDropdownOpen(false)}
-                    className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-800/80 transition-colors group"
-                  >
-                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 group-hover:scale-105 transition-transform">
-                      <Sparkles className="w-4 h-4" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">
-                          Hội Viên VIP
-                        </p>
-                        <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase">
-                          VIP
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
-                        Âm thanh 320kbps, không quảng cáo
-                      </p>
-                    </div>
-                  </Link>
-
-                  <Link
-                    href="/ai"
-                    onClick={() => setIntroDropdownOpen(false)}
-                    className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-800/80 transition-colors group"
-                  >
-                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 group-hover:scale-105 transition-transform">
-                      <Bot className="w-4 h-4" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-white group-hover:text-indigo-300 transition-colors">
-                        AI Đạo Hữu
-                      </p>
-                      <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
-                        Trợ lý AI đàm đạo thế giới tu chân
-                      </p>
-                    </div>
-                  </Link>
-
+                  {/* Liên Hệ & Hỗ Trợ */}
                   <Link
                     href="/contact"
                     onClick={() => setIntroDropdownOpen(false)}
                     className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-800/80 transition-colors group"
                   >
-                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 group-hover:scale-105 transition-transform">
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-purple-500/15 text-purple-400 border border-purple-500/30 group-hover:scale-105 transition-transform">
                       <Mail className="w-4 h-4" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-white group-hover:text-emerald-300 transition-colors">
-                        Liên Hệ & Hỗ Trợ
+                      <p className="text-xs font-bold text-white group-hover:text-purple-300 transition-colors">
+                        Liên Hệ & Báo Lỗi
                       </p>
                       <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
                         Góp ý, hợp tác & bản quyền DMCA
@@ -274,14 +274,6 @@ export function Navbar() {
                 </div>
               )}
             </div>
-
-            <Link
-              href="/vip"
-              className="text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 font-semibold whitespace-nowrap px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20"
-            >
-              <Sparkles className="w-4 h-4 flex-shrink-0" />
-              <span>Hội Viên VIP</span>
-            </Link>
           </nav>
         </div>
 
@@ -297,6 +289,16 @@ export function Navbar() {
             />
             <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
           </form>
+
+          {/* Nút VIP nhỏ gọn */}
+          <Link
+            href="/vip"
+            className="hidden sm:flex items-center gap-1.5 text-xs font-bold text-amber-300 hover:text-amber-200 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 via-amber-400/10 to-amber-500/5 border border-amber-500/30 hover:border-amber-500/50 shadow-sm shadow-amber-500/10 transition-all hover:scale-105 active:scale-95"
+            title="Đặc quyền Hội Viên VIP"
+          >
+            <Crown className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+            <span className="font-extrabold tracking-wider">VIP</span>
+          </Link>
 
           {/* Linh Thư Báo Tin (Thông Báo) */}
           {mounted && isAuthenticated && <NotificationDropdown />}
