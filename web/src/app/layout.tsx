@@ -7,6 +7,7 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { StickyAudioPlayer } from "@/components/audio-player";
 import { AmbientSoundModal } from "@/components/ambient-sound-modal";
+import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://tientonaudio.com"),
@@ -110,6 +111,7 @@ export default function RootLayout({
               <StickyAudioPlayer />
               <Footer />
               <AmbientSoundModal />
+              <PwaInstallPrompt />
             </AmbientAudioProvider>
           </AudioProvider>
         </AuthProvider>

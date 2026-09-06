@@ -4,6 +4,7 @@ import { Play, Star, Headphones, Sparkles, Flame, BookOpen, Crown, ChevronRight,
 import { Story } from '@/types';
 import { StoryStatusBadge } from '@/components/story-status-badge';
 import { FavoriteButton } from '@/components/favorite-button';
+import { ResumePlaybackWidget } from '@/components/resume-playback-widget';
 import { api } from '@/lib/api';
 
 // Mock data dự phòng khi backend chưa khởi động
@@ -85,7 +86,10 @@ export default async function HomePage() {
   const heroStory = stories[0] || MOCK_TOP_STORIES[0];
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-16 pt-8">
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-10 sm:space-y-14 pt-6">
+      {/* 0. Widget Đang Nghe Dở / Tiếp Tục Tu Luyện (Nếu có phiên trước đó) */}
+      <ResumePlaybackWidget />
+
       {/* 1. Hero Spotlight Banner */}
       <section className="relative overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-r from-[#141b2b] via-[#0f172a] to-[#0a0f1d] p-8 sm:p-12 shadow-2xl shadow-amber-500/10">
         <div className="absolute -right-16 -bottom-16 h-80 w-80 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />

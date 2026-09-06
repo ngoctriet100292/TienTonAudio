@@ -1,17 +1,41 @@
 {
-  "name": "Tiên Tôn Audio - Truyện Audio Tiên Hiệp 320kbps",
-  "short_name": "Tiên Tôn Audio",
-  "description": "Kho truyện audio tiên hiệp, huyền huyễn, kiếm hiệp âm thanh chuẩn studio 320kbps với trợ lý AI Đạo Hữu",
+  "name": "Tiên Tôn Audio - Nghe Truyện Tiên Hiệp Studio 320kbps",
+  "short_name": "Tiên Tôn",
+  "description": "Nền tảng nghe truyện audio tiên hiệp, huyền huyễn chất lượng cao 320kbps với âm thanh nền Tiên Cảnh và trợ lý AI Đạo Hữu.",
   "start_url": "/",
+  "id": "/",
   "display": "standalone",
-  "background_color": "#0c121e",
-  "theme_color": "#0c121e",
+  "background_color": "#070a11",
+  "theme_color": "#ffb703",
   "orientation": "portrait-primary",
+  "categories": ["entertainment", "books", "music", "audio"],
   "icons": [
     {
       "src": "/favicon.ico",
       "sizes": "64x64 32x32 24x24 16x16",
       "type": "image/x-icon"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Khám Phá Truyện",
+      "url": "/",
+      "description": "Khám phá danh sách truyện tiên hiệp mới nhất"
+    },
+    {
+      "name": "Bảng Vàng Tiên Vương",
+      "url": "/rankings",
+      "description": "Bảng xếp hạng truyện audio nghe nhiều nhất"
+    },
+    {
+      "name": "Tủ Truyện Cá Nhân",
+      "url": "/library",
+      "description": "Truyện đã lưu và lịch sử nghe"
+    },
+    {
+      "name": "Luận Đạo Các",
+      "url": "/community",
+      "description": "Cộng đồng đàm đạo tu chân"
     }
   ]
 }
