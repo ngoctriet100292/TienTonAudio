@@ -135,22 +135,66 @@ export default async function StoryDetailPage({ params }: Props) {
 
   const { story, chapters } = data;
 
-  // JSON-LD Schema cho Google Audiobook & Book Rich Snippet
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://tientonaudio.com';
+
+  // JSON-LD Schema cho Google Audiobook & BreadcrumbList Rich Snippet
   const jsonLd = {
     '@context': 'https://schema.org',
-    '@type': 'Audiobook',
-    name: story.title,
-    author: {
-      '@type': 'Person',
-      name: story.author_name,
-    },
-    description: story.description,
-    image: story.cover_image_url,
-    aggregateRating: {
-      '@type': 'AggregateRating',
-      ratingValue: story.rating_avg,
-      reviewCount: story.rating_count,
-    },
+    '@graph': [
+      {
+        '@type': 'Audiobook',
+        '@id': `${siteUrl}/stories/${story.slug}#audiobook`,
+        name: story.title,
+        url: `${siteUrl}/stories/${story.slug}`,
+        author: {
+          '@type': 'Person',
+          name: story.author_name || 'Tiên Tôn',
+        },
+        readBy: {
+          '@type': 'Person',
+          name: chapters[0]?.narrator_name || 'MC Diễn Đọc Tiên Tôn',
+        },
+        description: story.description,
+        image: story.cover_image_url,
+        inLanguage: 'vi',
+        genre: (story.categories || []).join(', '),
+        publisher: {
+          '@type': 'Organization',
+          name: 'Tiên Tôn Audio',
+          url: siteUrl,
+        },
+        aggregateRating: story.rating_count > 0 ? {
+          '@type': 'AggregateRating',
+          ratingValue: story.rating_avg || 5.0,
+          reviewCount: story.rating_count || 1,
+          bestRating: 5,
+          worstRating: 1,
+        } : undefined,
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          {
+            '@type': 'ListItem',
+            position: 1,
+            name: 'Trang Chủ',
+            item: siteUrl,
+          },
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: story.categories?.[0] || 'Truyện Audio',
+            item: `${siteUrl}/categories/${story.categories?.[0] ? 'tien-hiep' : ''}`,
+          },
+          {
+            '@type': 'ListItem',
+            position: 3,
+            name: story.title,
+            item: `${siteUrl}/stories/${story.slug}`,
+          },
+        ],
+      },
+    ],
   };
 
   return (

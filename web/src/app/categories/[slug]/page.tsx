@@ -76,9 +76,50 @@ export default async function CategoryDetailPage({ params }: Props) {
   });
 
   const stories = filteredStories.length > 0 ? filteredStories : allStories;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://tientonaudio.com';
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'CollectionPage',
+        name: `Truyện Audio ${categoryInfo.name}`,
+        description: categoryInfo.desc,
+        url: `${siteUrl}/categories/${slug}`,
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          {
+            '@type': 'ListItem',
+            position: 1,
+            name: 'Trang Chủ',
+            item: siteUrl,
+          },
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: 'Thể Loại',
+            item: `${siteUrl}/categories`,
+          },
+          {
+            '@type': 'ListItem',
+            position: 3,
+            name: categoryInfo.name,
+            item: `${siteUrl}/categories/${slug}`,
+          },
+        ],
+      },
+    ],
+  };
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8 space-y-8 pb-16">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+
       {/* Header Thể Loại */}
       <div className="border-b border-white/10 pb-6">
         <Link
