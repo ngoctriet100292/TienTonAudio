@@ -96,7 +96,7 @@ export function StickyAudioPlayer() {
   const activeMarker = currentMarkerInfo?.marker;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-amber-500/20 bg-[#0c121e]/95 backdrop-blur-2xl shadow-2xl">
+    <div className="fixed bottom-[53px] md:bottom-0 left-0 right-0 z-50 border-t border-amber-500/20 bg-[#0c121e]/95 backdrop-blur-2xl shadow-2xl">
       {/* Floating Timeline Chapters Drawer (Mục lục mốc thời gian YouTube) */}
       {timelineOpen && timelineMarkers.length > 0 && (
         <div

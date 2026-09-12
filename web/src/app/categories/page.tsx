@@ -9,15 +9,40 @@ export const metadata: Metadata = {
   description: 'Khám phá hàng ngàn bộ truyện audio phân loại theo Tiên Hiệp, Huyền Huyễn, Trùng Sinh, Kiếm Hiệp, Đô Thị...',
 };
 
+const DEFAULT_CATEGORIES: Record<string, { icon: string; desc: string; count: number }> = {
+  'tien-hiep': { icon: '⚔️', desc: 'Tu chân luyện khí, tầm tiên vấn đạo, nghịch thiên cải mệnh, ngự kiếm phi hành.', count: 48 },
+  'huyen-huyen': { icon: '🔮', desc: 'Thế giới kỳ ảo dị giới, đấu khí ma pháp, linh hồn lực, thần thú dị bảo.', count: 35 },
+  'kiem-hiep': { icon: '🗡️', desc: 'Giang hồ sóng gió, ân oán tình thù, hiệp khách hiệp nghĩa, chưởng môn danh phái.', count: 18 },
+  'do-thi-tu-tien': { icon: '🏙️', desc: 'Tiên tôn trùng sinh nơi đô thị phồn hoa, trang bức đả kiểm, bảo vệ mỹ nhân.', count: 15 },
+  'he-thong': { icon: '⚡', desc: 'Bàn tay vàng tối thượng, nhiệm vụ thăng cấp thần tốc chấn hưng tông môn.', count: 22 },
+  'xuyen-khong': { icon: '🌀', desc: 'Linh hồn xuyên qua dị giới, dùng kiến thức hiện đại khuynh đảo càn khôn.', count: 19 },
+  'trung-sinh': { icon: '⚡', desc: 'Sống lại một kiếp, mang theo ký ức kiếp trước chuyển mình trở thành bá chủ.', count: 24 },
+  'khoa-huyen': { icon: '🚀', desc: 'Công nghệ tương lai, cơ giáp không gian, phi thuyền vũ trụ, biến dị gen.', count: 12 },
+};
+
 export default async function CategoriesPage() {
-  const categories = [
-    { name: 'Tiên Hiệp', slug: 'tien-hiep', icon: '⚔️', desc: 'Tu chân luyện khí, tầm tiên vấn đạo, nghịch thiên cải mệnh, ngự kiếm phi hành.', count: 48 },
-    { name: 'Huyền Huyễn', slug: 'huyen-huyen', icon: '🔮', desc: 'Thế giới kỳ ảo dị giới, đấu khí ma pháp, linh hồn lực, thần thú dị bảo.', count: 35 },
-    { name: 'Trùng Sinh', slug: 'trung-sinh', icon: '⚡', desc: 'Sống lại một kiếp, mang theo ký ức kiếp trước chuyển mình trở thành bá chủ.', count: 24 },
-    { name: 'Kiếm Hiệp', slug: 'kiem-hiep', icon: '🗡️', desc: 'Giang hồ sóng gió, ân oán tình thù, hiệp khách hiệp nghĩa, chưởng môn danh phái.', count: 18 },
-    { name: 'Đô Thị Tu Tiên', slug: 'do-thi', icon: '🏙️', desc: 'Tiên tôn trùng sinh nơi đô thị phồn hoa, trang bức đả kiểm, bảo vệ mỹ nhân.', count: 15 },
-    { name: 'Khoa Huyễn', slug: 'khoa-huyen', icon: '🚀', desc: 'Công nghệ tương lai, cơ giáp không gian, phi thuyền vũ trụ, biến dị gen.', count: 12 },
-  ];
+  const apiCategories = await api.getCategories();
+
+  let categories = (apiCategories || []).map((c) => {
+    const meta = DEFAULT_CATEGORIES[c.slug] || { icon: '📜', desc: c.description || 'Danh sách truyện audio hấp dẫn.', count: 10 };
+    return {
+      name: c.name,
+      slug: c.slug,
+      icon: meta.icon,
+      desc: c.description || meta.desc,
+      count: meta.count,
+    };
+  });
+
+  if (categories.length === 0) {
+    categories = Object.entries(DEFAULT_CATEGORIES).map(([slug, meta]) => ({
+      name: slug.replace(/-/g, ' ').toUpperCase(),
+      slug,
+      icon: meta.icon,
+      desc: meta.desc,
+      count: meta.count,
+    }));
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8 space-y-8">

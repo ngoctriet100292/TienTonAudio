@@ -853,6 +853,55 @@ class ApiClient {
       body: JSON.stringify({ token, new_password }),
     });
   }
+
+  // ---- ĐĂNG NHẬP, ĐĂNG KÝ & XÁC THỰC EMAIL/2FA ----
+  async login(email: string, password: string): Promise<any> {
+    return await this.request<any>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+  }
+
+  async register(username: string, email: string, password: string): Promise<any> {
+    return await this.request<any>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ username, email, password }),
+    });
+  }
+
+  async socialLogin(data: {
+    provider: string;
+    email: string;
+    name: string;
+    provider_user_id: string;
+    avatar_url?: string;
+  }): Promise<any> {
+    return await this.request<any>('/auth/social', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async verifyTwoFactorLogin(mfa_token: string, code: string): Promise<any> {
+    return await this.request<any>('/auth/2fa/verify', {
+      method: 'POST',
+      body: JSON.stringify({ mfa_token, code }),
+    });
+  }
+
+  async verifyEmail(token: string): Promise<any> {
+    return await this.request<any>('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+  }
+
+  async resendVerificationEmail(email: string): Promise<any> {
+    return await this.request<any>('/auth/resend-verification', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  }
 }
 
 export const api = new ApiClient(API_BASE_URL);

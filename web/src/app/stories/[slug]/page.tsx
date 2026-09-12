@@ -8,6 +8,7 @@ import ChapterListClient from './chapter-list-client';
 import { StoryStatusBadge } from '@/components/story-status-badge';
 import { StoryActions } from '@/components/story-actions';
 import { ChapterComments } from '@/components/chapter-comments';
+import { FollowButton } from '@/components/follow-button';
 import { api } from '@/lib/api';
 
 interface Props {
@@ -231,9 +232,34 @@ export default async function StoryDetailPage({ params }: Props) {
             {story.title}
           </h1>
 
-          <p className="text-sm font-semibold text-amber-400">
-            ✍️ Tác giả: {story.author_name}
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm font-semibold text-amber-400">
+              ✍️ Tác giả: {story.author_name || 'Tiên Tôn'}
+            </span>
+            {story.author_id && (
+              <FollowButton
+                targetType="author"
+                targetId={story.author_id}
+                targetName={story.author_name || 'Tác giả'}
+                variant="compact"
+              />
+            )}
+            {chapters[0]?.narrator_name && (
+              <div className="flex items-center gap-2 pl-2 border-l border-white/10">
+                <span className="text-xs text-slate-300">
+                  🎙️ Giọng đọc: <strong className="text-white">{chapters[0].narrator_name}</strong>
+                </span>
+                {chapters[0]?.narrator_id && (
+                  <FollowButton
+                    targetType="narrator"
+                    targetId={chapters[0].narrator_id}
+                    targetName={chapters[0].narrator_name}
+                    variant="compact"
+                  />
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Hộp thông số */}
           <div className="flex items-center gap-6 py-3 px-5 rounded-2xl bg-slate-900/80 border border-white/10 w-fit text-xs">

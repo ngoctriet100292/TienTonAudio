@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Headphones, Lock, Mail, User, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { SocialLoginButtons } from '@/components/social-login-buttons';
+import { api } from '@/lib/api';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -44,24 +45,13 @@ export default function RegisterPage() {
       };
 
       const p = mockProfiles[provider];
-      const res = await fetch('http://localhost:8080/api/v1/auth/social', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          provider,
-          email: p.email,
-          name: p.name,
-          provider_user_id: p.provider_user_id,
-          avatar_url: p.avatar_url,
-        }),
+      const payload = await api.socialLogin({
+        provider,
+        email: p.email,
+        name: p.name,
+        provider_user_id: p.provider_user_id,
+        avatar_url: p.avatar_url,
       });
-
-      const json = await res.json();
-      const payload = json.data || json;
-
-      if (!res.ok) {
-        throw new Error(payload.error || json.error || `Đăng nhập ${provider} thất bại.`);
-      }
 
       const accessToken = payload.tokens?.access_token || payload.access_token;
       const refreshToken = payload.tokens?.refresh_token || payload.refresh_token;
@@ -70,7 +60,7 @@ export default function RegisterPage() {
       login(accessToken, refreshToken, user);
       router.push('/');
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || `Đăng nhập ${provider} thất bại.`);
     } finally {
       setLoading(false);
     }
@@ -82,21 +72,10 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:8080/api/v1/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Đăng ký không thành công.');
-      }
-
+      await api.register(username, email, password);
       setSuccess(true);
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Đăng ký không thành công.');
     } finally {
       setLoading(false);
     }

@@ -157,6 +157,26 @@ export default function LibraryPage() {
     }
   };
 
+  const handleUnfollowAuthor = async (authorId: string, authorName: string) => {
+    try {
+      await api.toggleFollowAuthor(authorId);
+      setFollowedAuthors((prev) => prev.filter((a) => a.id !== authorId));
+      showToast(`Đã hủy theo dõi tác giả ${authorName}`);
+    } catch (err: any) {
+      showToast(err.message || 'Lỗi thao tác', 'error');
+    }
+  };
+
+  const handleUnfollowNarrator = async (narratorId: string, narratorName: string) => {
+    try {
+      await api.toggleFollowNarrator(narratorId);
+      setFollowedNarrators((prev) => prev.filter((n) => n.id !== narratorId));
+      showToast(`Đã hủy theo dõi giọng đọc ${narratorName}`);
+    } catch (err: any) {
+      showToast(err.message || 'Lỗi thao tác', 'error');
+    }
+  };
+
   const handleCreatePlaylist = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPlaylistName.trim()) return;
@@ -635,19 +655,28 @@ export default function LibraryPage() {
                 {followedAuthors.map((author) => (
                   <div
                     key={author.id}
-                    className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-900/80 border border-white/10"
+                    className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-900/80 border border-white/10 hover:border-amber-500/30 transition-all"
                   >
-                    <div className="h-10 w-10 rounded-full overflow-hidden bg-slate-800 flex-shrink-0 flex items-center justify-center text-amber-400 font-bold text-sm">
-                      {author.avatar_url ? (
-                        <img src={getFullAvatarUrl(author.avatar_url)} alt={author.name} className="h-full w-full object-cover" />
-                      ) : (
-                        author.name.charAt(0).toUpperCase()
-                      )}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-10 w-10 rounded-full overflow-hidden bg-slate-800 flex-shrink-0 flex items-center justify-center text-amber-400 font-bold text-sm">
+                        {author.avatar_url ? (
+                          <img src={getFullAvatarUrl(author.avatar_url)} alt={author.name} className="h-full w-full object-cover" />
+                        ) : (
+                          author.name.charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-white truncate">{author.name}</p>
+                        <p className="text-[11px] text-slate-400 truncate">{author.bio || 'Tác giả Tiên Hiệp'}</p>
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-white truncate">{author.name}</p>
-                      <p className="text-[11px] text-slate-400 truncate">{author.bio || 'Tác giả Tiên Hiệp'}</p>
-                    </div>
+                    <button
+                      onClick={() => handleUnfollowAuthor(author.id, author.name)}
+                      className="text-[11px] px-2.5 py-1 rounded-lg border border-rose-500/25 text-rose-400 hover:bg-rose-500/10 transition-colors flex-shrink-0 font-medium"
+                      title={`Hủy theo dõi ${author.name}`}
+                    >
+                      Hủy theo dõi
+                    </button>
                   </div>
                 ))}
               </div>
@@ -668,19 +697,28 @@ export default function LibraryPage() {
                 {followedNarrators.map((narrator) => (
                   <div
                     key={narrator.id}
-                    className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-900/80 border border-white/10"
+                    className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-900/80 border border-white/10 hover:border-amber-500/30 transition-all"
                   >
-                    <div className="h-10 w-10 rounded-full overflow-hidden bg-slate-800 flex-shrink-0 flex items-center justify-center text-amber-400 font-bold text-sm">
-                      {narrator.avatar_url ? (
-                        <img src={getFullAvatarUrl(narrator.avatar_url)} alt={narrator.name} className="h-full w-full object-cover" />
-                      ) : (
-                        narrator.name.charAt(0).toUpperCase()
-                      )}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-10 w-10 rounded-full overflow-hidden bg-slate-800 flex-shrink-0 flex items-center justify-center text-amber-400 font-bold text-sm">
+                        {narrator.avatar_url ? (
+                          <img src={getFullAvatarUrl(narrator.avatar_url)} alt={narrator.name} className="h-full w-full object-cover" />
+                        ) : (
+                          narrator.name.charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-white truncate">{narrator.name}</p>
+                        <p className="text-[11px] text-slate-400 truncate">{narrator.bio || 'MC Diễn Đọc Truyền Cảm'}</p>
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-white truncate">{narrator.name}</p>
-                      <p className="text-[11px] text-slate-400 truncate">{narrator.bio || 'MC Diễn Đọc Truyền Cảm'}</p>
-                    </div>
+                    <button
+                      onClick={() => handleUnfollowNarrator(narrator.id, narrator.name)}
+                      className="text-[11px] px-2.5 py-1 rounded-lg border border-rose-500/25 text-rose-400 hover:bg-rose-500/10 transition-colors flex-shrink-0 font-medium"
+                      title={`Hủy theo dõi ${narrator.name}`}
+                    >
+                      Hủy theo dõi
+                    </button>
                   </div>
                 ))}
               </div>

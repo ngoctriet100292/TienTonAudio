@@ -6,6 +6,7 @@ import { AmbientAudioProvider } from "@/context/ambient-audio-context";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { StickyAudioPlayer } from "@/components/audio-player";
+import { BottomTabBar } from "@/components/bottom-tab-bar";
 import { AmbientSoundModal } from "@/components/ambient-sound-modal";
 import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 
@@ -107,8 +108,9 @@ export default function RootLayout({
           <AudioProvider>
             <AmbientAudioProvider>
               <Navbar />
-              <main className="flex-1 pb-24">{children}</main>
+              <main className="flex-1 pb-32 md:pb-24">{children}</main>
               <StickyAudioPlayer />
+              <BottomTabBar />
               <Footer />
               <AmbientSoundModal />
               <PwaInstallPrompt />

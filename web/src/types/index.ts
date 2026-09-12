@@ -35,6 +35,7 @@ export interface Chapter {
   is_premium: boolean;
   duration_seconds: number;
   listen_count: number;
+  narrator_id?: string;
   narrator_name?: string;
   timeline_markers?: AudioTimelineMarker[];
   created_at: string;
@@ -44,6 +45,8 @@ export interface Category {
   id: number;
   name: string;
   slug: string;
+  description?: string;
+  icon?: string;
   story_count?: number;
 }
 

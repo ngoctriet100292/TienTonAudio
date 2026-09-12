@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Headphones, Lock, Mail, KeyRound, ShieldAlert } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { SocialLoginButtons } from '@/components/social-login-buttons';
+import { api } from '@/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -23,7 +24,6 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Mock profiles for testing/demonstration. In production, client SDK tokens are passed
       const mockProfiles = {
         google: {
           email: 'daohuu.google@gmail.com',
@@ -46,24 +46,13 @@ export default function LoginPage() {
       };
 
       const p = mockProfiles[provider];
-      const res = await fetch('http://localhost:8080/api/v1/auth/social', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          provider,
-          email: p.email,
-          name: p.name,
-          provider_user_id: p.provider_user_id,
-          avatar_url: p.avatar_url,
-        }),
+      const payload = await api.socialLogin({
+        provider,
+        email: p.email,
+        name: p.name,
+        provider_user_id: p.provider_user_id,
+        avatar_url: p.avatar_url,
       });
-
-      const json = await res.json();
-      const payload = json.data || json;
-
-      if (!res.ok) {
-        throw new Error(payload.error || json.error || `Đăng nhập ${provider} thất bại.`);
-      }
 
       const accessToken = payload.tokens?.access_token || payload.access_token;
       const refreshToken = payload.tokens?.refresh_token || payload.refresh_token;
@@ -72,7 +61,7 @@ export default function LoginPage() {
       login(accessToken, refreshToken, user);
       router.push('/');
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || `Đăng nhập ${provider} thất bại.`);
     } finally {
       setLoading(false);
     }
@@ -84,18 +73,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:8080/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const json = await res.json();
-      const payload = json.data || json;
-
-      if (!res.ok) {
-        throw new Error(payload.error || json.error || 'Đăng nhập thất bại. Vui lòng kiểm tra lại.');
-      }
+      const payload = await api.login(email, password);
 
       // Nếu yêu cầu 2FA
       if (payload.mfa_required) {
@@ -111,7 +89,7 @@ export default function LoginPage() {
       login(accessToken, refreshToken, user);
       router.push('/');
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại.');
     } finally {
       setLoading(false);
     }
@@ -123,18 +101,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:8080/api/v1/auth/2fa/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mfa_token: mfaToken, code: otpCode }),
-      });
-
-      const json = await res.json();
-      const payload = json.data || json;
-
-      if (!res.ok) {
-        throw new Error(payload.error || json.error || 'Mã xác thực 2FA không chính xác.');
-      }
+      const payload = await api.verifyTwoFactorLogin(mfaToken || '', otpCode);
 
       const accessToken = payload.tokens?.access_token || payload.access_token;
       const refreshToken = payload.tokens?.refresh_token || payload.refresh_token;
@@ -143,7 +110,7 @@ export default function LoginPage() {
       login(accessToken, refreshToken, user);
       router.push('/');
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Mã xác thực 2FA không chính xác.');
     } finally {
       setLoading(false);
     }
