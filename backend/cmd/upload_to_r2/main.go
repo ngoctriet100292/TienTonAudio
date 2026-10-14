@@ -121,8 +121,8 @@ func main() {
 // uploadTextChapters tìm các chương truyện và tải lên Cloudflare R2
 func uploadTextChapters(ctx context.Context, dbPool *pgxpool.Pool, storageSvc storage.StorageService, filterStoryID string, cleanDB bool) {
 	query := `
-		SELECT id, story_id, chapter_number, title, content, content_url 
-		FROM chapters 
+		SELECT id, story_id, chapter_number, title, content, content_url
+		FROM chapters
 		WHERE 1=1
 	`
 	args := []any{}
@@ -199,14 +199,14 @@ func uploadTextChapters(ctx context.Context, dbPool *pgxpool.Pool, storageSvc st
 		var dbErr error
 		if cleanDB {
 			_, dbErr = dbPool.Exec(ctx, `
-				UPDATE chapters 
-				SET content_url = $1, content = NULL, updated_at = CURRENT_TIMESTAMP 
+				UPDATE chapters
+				SET content_url = $1, content = NULL, updated_at = CURRENT_TIMESTAMP
 				WHERE id = $2
 			`, publicURL, ch.id)
 		} else {
 			_, dbErr = dbPool.Exec(ctx, `
-				UPDATE chapters 
-				SET content_url = $1, updated_at = CURRENT_TIMESTAMP 
+				UPDATE chapters
+				SET content_url = $1, updated_at = CURRENT_TIMESTAMP
 				WHERE id = $2
 			`, publicURL, ch.id)
 		}
@@ -300,7 +300,7 @@ func uploadAudioFiles(ctx context.Context, dbPool *pgxpool.Pool, storageSvc stor
 						_, _ = dbPool.Exec(ctx, `
 							INSERT INTO chapter_audio_files (chapter_id, quality, audio_url, file_size_bytes, is_primary)
 							VALUES ($1, '320k', $2, $3, TRUE)
-							ON CONFLICT (chapter_id, quality) 
+							ON CONFLICT (chapter_id, quality)
 							DO UPDATE SET audio_url = EXCLUDED.audio_url, file_size_bytes = EXCLUDED.file_size_bytes
 						`, chID, publicURL, fileSize)
 						log.Printf("    🔗 Đã liên kết Audio với Tập %.1f (ID: %s)", chNum, chID.String())
