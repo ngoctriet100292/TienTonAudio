@@ -7,13 +7,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	db "github.com/IREAKING/tientonaudio/backend/db/sqlc"
 	"github.com/IREAKING/tientonaudio/backend/internal/domain"
 	"github.com/IREAKING/tientonaudio/backend/internal/repository"
 	"github.com/IREAKING/tientonaudio/backend/pkg/auth"
 	"github.com/IREAKING/tientonaudio/backend/pkg/email"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type AuthService interface {
@@ -285,123 +285,9 @@ func (s *authService) Login(ctx context.Context, req domain.LoginReq) (*domain.L
 	}, nil
 }
 
+// Social login remains disabled until provider tokens are verified server-side.
 func (s *authService) SocialLogin(ctx context.Context, req domain.SocialLoginReq) (*domain.LoginResp, error) {
-	if req.Email == "" {
-		return nil, errors.New("email is required for social login")
-	}
-	if req.Provider == "" {
-		return nil, errors.New("provider is required")
-	}
-
-	providerUserID := req.ProviderUserID
-	if providerUserID == "" {
-		providerUserID = req.Email
-	}
-
-	var user db.User
-
-	// 1. Kiểm tra xem đã có tài khoản oauth liên kết chưa
-	oauthAcc, err := s.userRepo.GetOAuthAccountByProvider(ctx, db.GetOAuthAccountByProviderParams{
-		Provider:       req.Provider,
-		ProviderUserID: providerUserID,
-	})
-
-	if err == nil {
-		// Đã có oauth_account, lấy user tương ứng
-		user, err = s.userRepo.GetUserByID(ctx, oauthAcc.UserID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get user: %w", err)
-		}
-	} else {
-		// Chưa có oauth_account, kiểm tra theo email
-		existingUser, err := s.userRepo.GetUserByEmail(ctx, req.Email)
-		if err == nil {
-			// User đã tồn tại -> Liên kết thêm provider này vào oauth_accounts
-			user = existingUser
-			_, _ = s.userRepo.CreateOAuthAccount(ctx, db.CreateOAuthAccountParams{
-				UserID:         user.ID,
-				Provider:       req.Provider,
-				ProviderUserID: providerUserID,
-				Email:          &req.Email,
-				AvatarUrl:      req.AvatarURL,
-			})
-			if !user.IsEmailVerified {
-				_ = s.userRepo.SetUserEmailVerified(ctx, user.ID)
-				user.IsEmailVerified = true
-			}
-		} else {
-			// Tạo user mới
-			baseUsername := ""
-			if req.Name != "" {
-				baseUsername = strings.ToLower(strings.ReplaceAll(req.Name, " ", "_"))
-			} else {
-				parts := strings.Split(req.Email, "@")
-				baseUsername = parts[0]
-			}
-			username := fmt.Sprintf("%s_%d", baseUsername, time.Now().Unix()%10000)
-			if len(username) > 40 {
-				username = username[:40]
-			}
-
-			roleStr := "user"
-			createdUser, err := s.userRepo.CreateUser(ctx, db.CreateUserParams{
-				Username:     username,
-				Email:        req.Email,
-				PasswordHash: nil,
-				AvatarUrl:    req.AvatarURL,
-				Role:         &roleStr,
-			})
-			if err != nil {
-				return nil, fmt.Errorf("failed to create social user: %w", err)
-			}
-
-			// Đánh dấu email đã xác thực
-			_ = s.userRepo.SetUserEmailVerified(ctx, createdUser.ID)
-
-			// Lưu vào oauth_accounts
-			_, _ = s.userRepo.CreateOAuthAccount(ctx, db.CreateOAuthAccountParams{
-				UserID:         createdUser.ID,
-				Provider:       req.Provider,
-				ProviderUserID: providerUserID,
-				Email:          &req.Email,
-				AvatarUrl:      req.AvatarURL,
-			})
-
-			// Lấy lại user đầy đủ
-			user, err = s.userRepo.GetUserByID(ctx, createdUser.ID)
-			if err != nil {
-				return nil, fmt.Errorf("failed to retrieve created user: %w", err)
-			}
-			user.IsEmailVerified = true
-		}
-	}
-
-	userResp := toUserResp(
-		user.ID,
-		user.Username,
-		user.Email,
-		user.AvatarUrl,
-		user.Role,
-		user.IsEmailVerified,
-		user.TwoFactorEnabled,
-		user.CultivationExp,
-		user.CultivationRealm,
-		user.CreatedAt.Time,
-		user.UpdatedAt.Time,
-	)
-	providerStr := req.Provider
-	userResp.Provider = &providerStr
-
-	tokenResp, err := s.issueTokenPair(ctx, user.ID, user.Email, user.Role)
-	if err != nil {
-		return nil, err
-	}
-
-	return &domain.LoginResp{
-		User:        userResp,
-		Tokens:      tokenResp,
-		MFARequired: false,
-	}, nil
+	return nil, errors.New("đăng nhập mạng xã hội chưa khả dụng; vui lòng đăng nhập bằng email và mật khẩu")
 }
 
 func (s *authService) SetupTwoFactor(ctx context.Context, userID uuid.UUID) (*domain.TwoFactorSetupResp, error) {
@@ -426,6 +312,14 @@ func (s *authService) SetupTwoFactor(ctx context.Context, userID uuid.UUID) (*do
 func (s *authService) EnableTwoFactor(ctx context.Context, userID uuid.UUID, req domain.TwoFactorEnableReq) (*domain.TwoFactorEnableResp, error) {
 	if req.Secret == "" || req.Code == "" {
 		return nil, errors.New("secret and 6-digit code are required")
+	}
+
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+	if user.TwoFactorEnabled {
+		return nil, errors.New("two-factor authentication is already enabled; disable it with the current code first")
 	}
 
 	if !auth.ValidateTOTP(req.Secret, req.Code) {

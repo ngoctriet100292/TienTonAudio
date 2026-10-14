@@ -1,8 +1,9 @@
 'use client';
+import { useStoredState } from '@/lib/use-stored-state';
 
-import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
-import { Story, Chapter } from '@/types';
 import { api } from '@/lib/api';
+import { Chapter, Story } from '@/types';
+import React, { createContext, useContext, useEffect, useEffectEvent, useRef, useState } from 'react';
 
 export const PLAYBACK_SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 
@@ -59,8 +60,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
-  const [playbackSpeed, setPlaybackSpeedState] = useState<number>(1.0);
-  const [lastPlayedSession, setLastPlayedSession] = useState<LastPlayedSession | null>(null);
+  const [playbackSpeed, setPlaybackSpeedState] = useStoredState<number>('tienton_audio_speed', 1, (raw) => { const speed = Number(raw); return PLAYBACK_SPEEDS.includes(speed) ? speed : 1; });
+  const [lastPlayedSession, setLastPlayedSession] = useStoredState<LastPlayedSession | null>('tienton_last_played', null);
 
   // Sleep Timer state
   const [sleepTimer, setSleepTimerState] = useState<SleepTimerState | null>(null);
@@ -72,75 +73,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const playbackSpeedRef = useRef<number>(1.0);
   const sleepTimerRef = useRef<SleepTimerState | null>(null);
 
-  currentChapterRef.current = currentChapter;
-  currentStoryRef.current = currentStory;
-  playlistRef.current = playlist;
-  playbackSpeedRef.current = playbackSpeed;
-  sleepTimerRef.current = sleepTimer;
-
   const getStreamUrl = (chapterId: string, speed: number) => {
     const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
-    return `${base}/chapters/${chapterId}/stream?speed=${speed}`;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
+    return `${base}/chapters/${chapterId}/stream?speed=${speed}${tokenParam}`;
   };
-
-  useEffect(() => {
-    const audio = new Audio();
-    audioRef.current = audio;
-
-    // Đọc session nghe dở từ localStorage
-    try {
-      const savedSession = localStorage.getItem('tienton_last_played');
-      if (savedSession) {
-        setLastPlayedSession(JSON.parse(savedSession));
-      }
-    } catch {}
-
-    // Đọc tốc độ phát đã lưu trước đó nếu có
-    const savedSpeed = localStorage.getItem('tienton_audio_speed');
-    if (savedSpeed) {
-      const parsed = parseFloat(savedSpeed);
-      if (!isNaN(parsed) && PLAYBACK_SPEEDS.includes(parsed)) {
-        setPlaybackSpeedState(parsed);
-        playbackSpeedRef.current = parsed;
-        audio.playbackRate = parsed;
-      }
-    }
-
-    audio.ontimeupdate = () => setCurrentTime(audio.currentTime);
-    audio.onloadedmetadata = () => {
-      setDuration(audio.duration);
-      if (audioRef.current) {
-        audioRef.current.playbackRate = playbackSpeedRef.current;
-      }
-    };
-
-    audio.onended = () => {
-      setIsPlaying(false);
-      // Ghi nhận hoàn thành nghe chương
-      if (currentChapterRef.current) {
-        api.saveListeningProgress(
-          currentChapterRef.current.id,
-          Math.floor(audio.duration || 0),
-          true,
-          playbackSpeedRef.current
-        );
-      }
-
-      // Kiểm tra Sleep Timer nếu chọn "Dừng khi hết tập"
-      if (sleepTimerRef.current?.mode === 'end_of_chapter') {
-        setSleepTimerState(null);
-        return;
-      }
-
-      // Tự động chuyển phát tập tiếp theo trong danh sách nếu có
-      handleAutoPlayNext();
-    };
-
-    return () => {
-      audio.pause();
-      audio.src = '';
-    };
-  }, []);
 
   // Hàm lưu phiên nghe dở vào localStorage
   const saveSession = (
@@ -159,35 +97,9 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         duration: Math.floor(dur || chapter.duration_seconds || 0),
         savedAt: Date.now(),
       };
-      localStorage.setItem('tienton_last_played', JSON.stringify(session));
       setLastPlayedSession(session);
-    } catch {}
+    } catch { }
   };
-
-  // Sleep Timer Countdown Ticker
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (sleepTimer && sleepTimer.mode === 'duration' && sleepTimer.remainingSeconds > 0) {
-      timer = setInterval(() => {
-        setSleepTimerState((prev) => {
-          if (!prev) return null;
-          if (prev.remainingSeconds <= 1) {
-            // Hết giờ hẹn: Tắt nhạc
-            if (audioRef.current) {
-              audioRef.current.pause();
-            }
-            setIsPlaying(false);
-            return null;
-          }
-          return {
-            ...prev,
-            remainingSeconds: prev.remainingSeconds - 1,
-          };
-        });
-      }, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [sleepTimer?.isActive, sleepTimer?.mode]);
 
   const setSleepTimer = (option: number | 'end_of_chapter') => {
     if (option === 'end_of_chapter') {
@@ -218,108 +130,9 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     if (audioRef.current) {
       audioRef.current.playbackRate = speed;
     }
-    localStorage.setItem('tienton_audio_speed', speed.toString());
   };
 
-  // Tự động lưu tiến trình nghe mỗi 15 giây lên server & localStorage
-  useEffect(() => {
-    if (!isPlaying || !currentChapter || !currentStory) return;
-
-    const interval = setInterval(() => {
-      if (audioRef.current && audioRef.current.currentTime > 0) {
-        const cur = audioRef.current.currentTime;
-        const dur = audioRef.current.duration || currentChapter.duration_seconds || 0;
-        api.saveListeningProgress(
-          currentChapter.id,
-          Math.floor(cur),
-          false,
-          playbackSpeed
-        );
-        saveSession(currentStory, currentChapter, cur, dur);
-      }
-    }, 15000);
-
-    return () => clearInterval(interval);
-  }, [isPlaying, currentChapter, currentStory, playbackSpeed]);
-
-  // Tích hợp Navigator MediaSession API (Điều khiển từ màn hình khóa / tai nghe Bluetooth / Apple Watch)
-  useEffect(() => {
-    if ('mediaSession' in navigator && currentChapter && currentStory) {
-      const cover = currentStory.cover_image_url || '';
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: currentChapter.title,
-        artist: currentStory.author_name || 'Tiên Tôn Audio',
-        album: `${currentStory.title} • Chuẩn Studio 320kbps`,
-        artwork: cover
-          ? [
-              { src: cover, sizes: '96x96', type: 'image/jpeg' },
-              { src: cover, sizes: '128x128', type: 'image/jpeg' },
-              { src: cover, sizes: '192x192', type: 'image/jpeg' },
-              { src: cover, sizes: '256x256', type: 'image/jpeg' },
-              { src: cover, sizes: '384x384', type: 'image/jpeg' },
-              { src: cover, sizes: '512x512', type: 'image/jpeg' },
-            ]
-          : [],
-      });
-
-      if ('playbackState' in navigator.mediaSession) {
-        navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
-      }
-
-      navigator.mediaSession.setActionHandler('play', () => {
-        audioRef.current?.play();
-        setIsPlaying(true);
-      });
-      navigator.mediaSession.setActionHandler('pause', () => {
-        audioRef.current?.pause();
-        setIsPlaying(false);
-      });
-      navigator.mediaSession.setActionHandler('seekbackward', (details) => {
-        const skipTime = details.seekOffset || 10;
-        skip(-skipTime);
-      });
-      navigator.mediaSession.setActionHandler('seekforward', (details) => {
-        const skipTime = details.seekOffset || 10;
-        skip(skipTime);
-      });
-      navigator.mediaSession.setActionHandler('previoustrack', () => playPrev());
-      navigator.mediaSession.setActionHandler('nexttrack', () => playNext());
-      navigator.mediaSession.setActionHandler('stop', () => {
-        if (audioRef.current) {
-          audioRef.current.pause();
-          audioRef.current.currentTime = 0;
-          setIsPlaying(false);
-        }
-      });
-
-      if ('setActionHandler' in navigator.mediaSession) {
-        try {
-          navigator.mediaSession.setActionHandler('seekto', (details) => {
-            if (details.seekTime !== undefined && details.seekTime !== null) {
-              seek(details.seekTime);
-            }
-          });
-        } catch {
-          // seekto optional fallback
-        }
-      }
-    }
-  }, [currentChapter, currentStory, isPlaying]);
-
-  // Cập nhật vị trí MediaSession positionState thời gian thực
-  useEffect(() => {
-    if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession && duration > 0) {
-      try {
-        navigator.mediaSession.setPositionState({
-          duration: Math.max(1, duration),
-          playbackRate: playbackSpeed,
-          position: Math.min(Math.max(0, currentTime), duration),
-        });
-      } catch {}
-    }
-  }, [currentTime, duration, playbackSpeed]);
-
-  const playChapter = (
+  const playChapter = async (
     story: Story,
     chapter: Chapter,
     streamUrl?: string,
@@ -333,35 +146,67 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       playlistRef.current = chapterList;
     }
 
-    if (audioRef.current) {
-      const url = streamUrl || getStreamUrl(chapter.id, playbackSpeedRef.current);
-      audioRef.current.src = url;
-      audioRef.current.playbackRate = playbackSpeedRef.current;
+    if (!audioRef.current) return;
 
-      const handleLoadedData = () => {
-        if (startTime && startTime > 0 && audioRef.current) {
-          audioRef.current.currentTime = startTime;
-          setCurrentTime(startTime);
+    let targetUrl = streamUrl;
+    if (!targetUrl) {
+      try {
+        const streamData = await api.getSignedStreamUrl(chapter.id, '320kbps', playbackSpeedRef.current);
+        const resolved = streamData.stream_url;
+        if (resolved) {
+          const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+          targetUrl = new URL(resolved, new URL(apiBase, window.location.origin)).toString();
         }
-        audioRef.current?.removeEventListener('loadedmetadata', handleLoadedData);
-      };
-      audioRef.current.addEventListener('loadedmetadata', handleLoadedData);
+      } catch (err: unknown) {
+        console.warn('Could not fetch signed stream url, falling back to direct redirect stream:', err);
+      }
+    }
 
-      audioRef.current
-        .play()
-        .then(() => {
-          setIsPlaying(true);
-          saveSession(
-            story,
-            chapter,
-            startTime || 0,
-            audioRef.current?.duration || chapter.duration_seconds || 0,
-            chapterList
-          );
-        })
-        .catch((e) => {
-          console.warn('Audio playback error:', e);
-        });
+    if (!targetUrl) {
+      targetUrl = getStreamUrl(chapter.id, playbackSpeedRef.current);
+    }
+
+    audioRef.current.src = targetUrl;
+    audioRef.current.playbackRate = playbackSpeedRef.current;
+
+    const applyStartTime = () => {
+      if (startTime && startTime > 0 && audioRef.current) {
+        try {
+          if (Math.abs(audioRef.current.currentTime - startTime) > 1) {
+            audioRef.current.currentTime = startTime;
+            setCurrentTime(startTime);
+          }
+        } catch (e) {
+          console.warn('Could not seek to startTime:', e);
+        }
+      }
+    };
+
+    const handleLoadedData = () => {
+      applyStartTime();
+      audioRef.current?.removeEventListener('loadedmetadata', handleLoadedData);
+      audioRef.current?.removeEventListener('canplay', handleLoadedData);
+    };
+    audioRef.current.addEventListener('loadedmetadata', handleLoadedData);
+    audioRef.current.addEventListener('canplay', handleLoadedData);
+
+    try {
+      await audioRef.current.play();
+      applyStartTime();
+      setIsPlaying(true);
+      saveSession(
+        story,
+        chapter,
+        startTime || 0,
+        audioRef.current?.duration || chapter.duration_seconds || 0,
+        chapterList
+      );
+    } catch (e: unknown) {
+      console.warn('Audio playback error:', e);
+      setIsPlaying(false);
+      if (e instanceof Error && e.name === 'NotSupportedError') {
+        alert('Tập này chưa có file audio khả dụng hoặc định dạng không được trình duyệt hỗ trợ.');
+      }
     }
   };
 
@@ -415,16 +260,32 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       setIsPlaying(false);
       // Lưu vị trí khi pause
       if (audioRef.current.currentTime > 0) {
+        const cur = audioRef.current.currentTime;
+        const dur = audioRef.current.duration || currentChapter.duration_seconds || 0;
         api.saveListeningProgress(
           currentChapter.id,
-          Math.floor(audioRef.current.currentTime),
+          Math.floor(cur),
           false,
-          playbackSpeed
+          playbackSpeed,
+          currentStory?.id
         );
+        if (currentStory) {
+          saveSession(currentStory, currentChapter, cur, dur);
+        }
       }
     } else {
-      audioRef.current.play();
-      setIsPlaying(true);
+      audioRef.current
+        .play()
+        .then(() => {
+          setIsPlaying(true);
+        })
+        .catch((e: unknown) => {
+          console.warn('Resume playback error:', e);
+          setIsPlaying(false);
+          if (e instanceof Error && e.name === 'NotSupportedError') {
+            alert('Không thể phát audio: Tệp audio chưa sẵn sàng hoặc không được hỗ trợ.');
+          }
+        });
     }
   };
 
@@ -444,6 +305,199 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       seek(newTime);
     }
   };
+
+  const onAudioEnded = useEffectEvent(handleAutoPlayNext);
+  const persistCurrentSession = useEffectEvent(saveSession);
+  const onMediaSkip = useEffectEvent(skip);
+  const onMediaPrevious = useEffectEvent(playPrev);
+  const onMediaNext = useEffectEvent(playNext);
+  const onMediaSeek = useEffectEvent(seek);
+
+  useEffect(() => {
+    currentChapterRef.current = currentChapter;
+    currentStoryRef.current = currentStory;
+    if (audioRef.current) audioRef.current.playbackRate = playbackSpeed;
+    playlistRef.current = playlist;
+    playbackSpeedRef.current = playbackSpeed;
+    sleepTimerRef.current = sleepTimer;
+  }, [currentChapter, currentStory, playlist, playbackSpeed, sleepTimer]);
+
+  useEffect(() => {
+    const audio = new Audio();
+    audioRef.current = audio;
+
+    audio.onerror = () => {
+      console.warn('Audio element error code:', audio.error?.code, audio.error?.message);
+      setIsPlaying(false);
+    };
+
+    audio.playbackRate = playbackSpeedRef.current;
+
+    audio.ontimeupdate = () => setCurrentTime(audio.currentTime);
+    audio.onloadedmetadata = () => {
+      setDuration(audio.duration);
+      if (audioRef.current) {
+        audioRef.current.playbackRate = playbackSpeedRef.current;
+      }
+    };
+
+    audio.onended = () => {
+      setIsPlaying(false);
+      // Ghi nhận hoàn thành nghe chương
+      if (currentChapterRef.current) {
+        api.saveListeningProgress(
+          currentChapterRef.current.id,
+          Math.floor(audio.duration || 0),
+          true,
+          playbackSpeedRef.current,
+          currentStoryRef.current?.id
+        );
+      }
+
+      // Kiểm tra Sleep Timer nếu chọn "Dừng khi hết tập"
+      if (sleepTimerRef.current?.mode === 'end_of_chapter') {
+        setSleepTimerState(null);
+        return;
+      }
+
+      // Tự động chuyển phát tập tiếp theo trong danh sách nếu có
+      onAudioEnded();
+    };
+
+    return () => {
+      audio.pause();
+      audio.src = '';
+    };
+  }, []);
+
+  // Sleep Timer Countdown Ticker
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (sleepTimer?.isActive && sleepTimer?.mode === 'duration') {
+      timer = setInterval(() => {
+        setSleepTimerState((prev) => {
+          if (!prev) return null;
+          if (prev.remainingSeconds <= 1) {
+            // Hết giờ hẹn: Tắt nhạc
+            if (audioRef.current) {
+              audioRef.current.pause();
+            }
+            setIsPlaying(false);
+            return null;
+          }
+          return {
+            ...prev,
+            remainingSeconds: prev.remainingSeconds - 1,
+          };
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [sleepTimer?.isActive, sleepTimer?.mode]);
+
+  // Tự động lưu tiến trình nghe mỗi 15 giây lên server & localStorage
+  useEffect(() => {
+    if (!isPlaying || !currentChapter || !currentStory) return;
+
+    const interval = setInterval(() => {
+      if (audioRef.current && audioRef.current.currentTime > 0) {
+        const cur = audioRef.current.currentTime;
+        const dur = audioRef.current.duration || currentChapter.duration_seconds || 0;
+        api.saveListeningProgress(
+          currentChapter.id,
+          Math.floor(cur),
+          false,
+          playbackSpeed,
+          currentStory.id
+        );
+        persistCurrentSession(currentStory, currentChapter, cur, dur);
+      }
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [isPlaying, currentChapter, currentStory, playbackSpeed]);
+
+  // Tích hợp Navigator MediaSession API (Điều khiển từ màn hình khóa / tai nghe Bluetooth / Apple Watch)
+  useEffect(() => {
+    if ('mediaSession' in navigator && currentChapter && currentStory) {
+      const cover = currentStory.cover_image_url || '';
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentChapter.title,
+        artist: currentStory.author_name || 'Tiên Tôn Audio',
+        album: `${currentStory.title} • Chuẩn Studio 320kbps`,
+        artwork: cover
+          ? [
+            { src: cover, sizes: '96x96', type: 'image/jpeg' },
+            { src: cover, sizes: '128x128', type: 'image/jpeg' },
+            { src: cover, sizes: '192x192', type: 'image/jpeg' },
+            { src: cover, sizes: '256x256', type: 'image/jpeg' },
+            { src: cover, sizes: '384x384', type: 'image/jpeg' },
+            { src: cover, sizes: '512x512', type: 'image/jpeg' },
+          ]
+          : [],
+      });
+
+      if ('playbackState' in navigator.mediaSession) {
+        navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+      }
+
+      navigator.mediaSession.setActionHandler('play', () => {
+        audioRef.current
+          ?.play()
+          .then(() => setIsPlaying(true))
+          .catch((e) => {
+            console.warn('MediaSession play error:', e);
+            setIsPlaying(false);
+          });
+      });
+      navigator.mediaSession.setActionHandler('pause', () => {
+        audioRef.current?.pause();
+        setIsPlaying(false);
+      });
+      navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+        const skipTime = details.seekOffset || 10;
+        onMediaSkip(-skipTime);
+      });
+      navigator.mediaSession.setActionHandler('seekforward', (details) => {
+        const skipTime = details.seekOffset || 10;
+        onMediaSkip(skipTime);
+      });
+      navigator.mediaSession.setActionHandler('previoustrack', () => onMediaPrevious());
+      navigator.mediaSession.setActionHandler('nexttrack', () => onMediaNext());
+      navigator.mediaSession.setActionHandler('stop', () => {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+          setIsPlaying(false);
+        }
+      });
+
+      if ('setActionHandler' in navigator.mediaSession) {
+        try {
+          navigator.mediaSession.setActionHandler('seekto', (details) => {
+            if (details.seekTime !== undefined && details.seekTime !== null) {
+              onMediaSeek(details.seekTime);
+            }
+          });
+        } catch {
+          // seekto optional fallback
+        }
+      }
+    }
+  }, [currentChapter, currentStory, isPlaying]);
+
+  // Cập nhật vị trí MediaSession positionState thời gian thực
+  useEffect(() => {
+    if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession && duration > 0) {
+      try {
+        navigator.mediaSession.setPositionState({
+          duration: Math.max(1, duration),
+          playbackRate: playbackSpeed,
+          position: Math.min(Math.max(0, currentTime), duration),
+        });
+      } catch { }
+    }
+  }, [currentTime, duration, playbackSpeed]);
 
   return (
     <AudioContext.Provider

@@ -5,18 +5,24 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
+	"os"
+	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	db "github.com/IREAKING/tientonaudio/backend/db/sqlc"
 	"github.com/IREAKING/tientonaudio/backend/internal/domain"
 	"github.com/IREAKING/tientonaudio/backend/internal/repository"
 	"github.com/IREAKING/tientonaudio/backend/pkg/auth"
 	"github.com/IREAKING/tientonaudio/backend/pkg/storage"
 	"github.com/IREAKING/tientonaudio/backend/pkg/utils"
+	"github.com/google/uuid"
 )
 
+var ErrPremiumRequired = errors.New("chương này yêu cầu gói VIP")
+
 type ChapterService interface {
+	GetStreamFile(ctx context.Context, chapterID, userID uuid.UUID, quality, token string) (*os.File, error)
 	ListChaptersByStory(ctx context.Context, storyID uuid.UUID) ([]domain.ChapterResp, error)
 	GetChapterByID(ctx context.Context, id uuid.UUID) (*domain.ChapterResp, error)
 	CreateChapter(ctx context.Context, req domain.CreateChapterReq) (*domain.ChapterResp, error)
@@ -56,14 +62,13 @@ func (s *chapterService) ListChaptersByStory(ctx context.Context, storyID uuid.U
 		}
 
 		result[i] = domain.ChapterResp{
-			ID:              r.ID,
-			StoryID:         r.StoryID,
-			NarratorID:      r.NarratorID,
-			NarratorName:    r.NarratorName,
-			ChapterNumber:   utils.NumericToFloat64(r.ChapterNumber),
-			Title:           r.Title,
-			Content:         r.Content,
-			ContentURL:      r.ContentUrl,
+			ID:            r.ID,
+			StoryID:       r.StoryID,
+			NarratorID:    r.NarratorID,
+			NarratorName:  r.NarratorName,
+			ChapterNumber: utils.NumericToFloat64(r.ChapterNumber),
+			Title:         r.Title,
+
 			IsPremium:       r.IsPremium,
 			DurationSeconds: r.DurationSeconds,
 			WaveformData:    r.WaveformData,
@@ -82,24 +87,33 @@ func (s *chapterService) GetChapterByID(ctx context.Context, id uuid.UUID) (*dom
 		return nil, fmt.Errorf("chapter not found: %w", err)
 	}
 
+	var userID *uuid.UUID
+	if claims, ok := auth.GetClaimsFromContext(ctx); ok {
+		userID = &claims.UserID
+	}
+	canRead := s.authorizePremium(ctx, row.IsPremium, userID) == nil
+
 	_ = s.repo.IncrementChapterListenCount(ctx, id)
 
 	audioFiles, _ := s.repo.GetChapterAudioFiles(ctx, id)
 	var audioResps []domain.ChapterAudioFileResp
 	for _, af := range audioFiles {
 		audioResps = append(audioResps, domain.ChapterAudioFileResp{
-			ID:            af.ID,
-			ChapterID:     af.ChapterID,
-			Quality:       af.Quality,
-			AudioURL:      af.AudioUrl,
+			ID:        af.ID,
+			ChapterID: af.ChapterID,
+			Quality:   af.Quality,
+
 			FileSizeBytes: af.FileSizeBytes,
 			IsPrimary:     af.IsPrimary,
 		})
 	}
 
-	content := row.Content
+	var content *string
+	if canRead {
+		content = row.Content
+	}
 	// Nếu trong DB content rỗng nhưng có content_url trên R2 Storage, tự động fetch text trả về cho client
-	if (content == nil || *content == "") && row.ContentUrl != nil && *row.ContentUrl != "" && s.storage != nil {
+	if canRead && (content == nil || *content == "") && row.ContentUrl != nil && *row.ContentUrl != "" && s.storage != nil {
 		storageText, err := s.storage.GetFileContent(ctx, *row.ContentUrl)
 		if err == nil && storageText != "" {
 			content = &storageText
@@ -112,14 +126,14 @@ func (s *chapterService) GetChapterByID(ctx context.Context, id uuid.UUID) (*dom
 	}
 
 	return &domain.ChapterResp{
-		ID:              row.ID,
-		StoryID:         row.StoryID,
-		NarratorID:      row.NarratorID,
-		NarratorName:    row.NarratorName,
-		ChapterNumber:   utils.NumericToFloat64(row.ChapterNumber),
-		Title:           row.Title,
-		Content:         content,
-		ContentURL:      row.ContentUrl,
+		ID:            row.ID,
+		StoryID:       row.StoryID,
+		NarratorID:    row.NarratorID,
+		NarratorName:  row.NarratorName,
+		ChapterNumber: utils.NumericToFloat64(row.ChapterNumber),
+		Title:         row.Title,
+		Content:       content,
+
 		IsPremium:       row.IsPremium,
 		DurationSeconds: row.DurationSeconds,
 		WaveformData:    row.WaveformData,
@@ -257,9 +271,20 @@ func (s *chapterService) BulkCreateChapters(ctx context.Context, req domain.Bulk
 }
 
 func (s *chapterService) AddChapterAudioFile(ctx context.Context, chapterID uuid.UUID, quality string, audioURL string, fileSize *int64, isPrimary bool) (*domain.ChapterAudioFileResp, error) {
+	cleanQuality := strings.ToLower(strings.TrimSpace(quality))
+	if strings.Contains(cleanQuality, "320") {
+		cleanQuality = "320k"
+	} else if strings.Contains(cleanQuality, "64") {
+		cleanQuality = "64k"
+	} else if strings.Contains(cleanQuality, "hls") || strings.Contains(cleanQuality, "m3u8") {
+		cleanQuality = "hls"
+	} else {
+		cleanQuality = "128k"
+	}
+
 	row, err := s.repo.AddChapterAudioFile(ctx, db.AddChapterAudioFileParams{
 		ChapterID:     chapterID,
-		Quality:       quality,
+		Quality:       cleanQuality,
 		AudioUrl:      audioURL,
 		FileSizeBytes: fileSize,
 		IsPrimary:     &isPrimary,
@@ -284,17 +309,8 @@ func (s *chapterService) GetSignedStreamURL(ctx context.Context, userID *uuid.UU
 		return nil, errors.New("chapter not found")
 	}
 
-	// Kiểm tra nếu chương yêu cầu VIP
-	if chapter.IsPremium != nil && *chapter.IsPremium {
-		if userID == nil {
-			return nil, errors.New("chương này yêu cầu gói VIP, vui lòng đăng nhập để nghe")
-		}
-		if s.paymentRepo != nil {
-			sub, err := s.paymentRepo.GetUserActiveSubscription(ctx, *userID)
-			if err != nil || sub.Status == nil || *sub.Status != "active" {
-				return nil, errors.New("chương này yêu cầu gói VIP, vui lòng nâng cấp tài khoản")
-			}
-		}
+	if err := s.authorizePremium(ctx, chapter.IsPremium, userID); err != nil {
+		return nil, err
 	}
 
 	audioFiles, err := s.repo.GetChapterAudioFiles(ctx, chapterID)
@@ -330,13 +346,18 @@ func (s *chapterService) GetSignedStreamURL(ctx context.Context, userID *uuid.UU
 		uID = *userID
 	}
 
-	token := "default-token"
-	expiresAt := time.Now().Add(2 * time.Hour)
-	if s.signer != nil {
-		token, expiresAt = s.signer.GenerateSignedStreamToken(chapterID, uID, targetFile.Quality, 2*time.Hour)
+	if s.storage == nil || s.signer == nil {
+		return nil, errors.New("secure audio storage is unavailable")
 	}
-
-	signedURL := auth.BuildSignedAudioURL(targetFile.AudioUrl, token, expiresAt)
+	token, expiresAt := s.signer.GenerateSignedStreamToken(chapterID, uID, targetFile.Quality, 2*time.Hour)
+	signedURL, err := s.storage.GetPresignedReadURL(ctx, targetFile.AudioUrl, 2*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+	if signedURL == "" {
+		params := url.Values{"token": {token}, "user_id": {uID.String()}, "quality": {targetFile.Quality}}
+		signedURL = fmt.Sprintf("/api/v1/chapters/%s/media?%s", chapterID, params.Encode())
+	}
 
 	playbackSpeed := 1.0
 	if speed != nil && domain.IsValidPlaybackSpeed(*speed) {
@@ -355,4 +376,43 @@ func (s *chapterService) GetSignedStreamURL(ctx context.Context, userID *uuid.UU
 
 func (s *chapterService) GetPlaybackSpeeds() []domain.PlaybackSpeedInfo {
 	return domain.PlaybackSpeedPresets
+}
+func (s *chapterService) authorizePremium(ctx context.Context, premium *bool, userID *uuid.UUID) error {
+	if premium == nil || !*premium {
+		return nil
+	}
+	if userID == nil || s.paymentRepo == nil {
+		return ErrPremiumRequired
+	}
+	sub, err := s.paymentRepo.GetUserActiveSubscription(ctx, *userID)
+	if err != nil || sub.Status == nil || *sub.Status != "active" {
+		return ErrPremiumRequired
+	}
+	return nil
+}
+
+func (s *chapterService) GetStreamFile(ctx context.Context, chapterID, userID uuid.UUID, quality, token string) (*os.File, error) {
+	if s.signer == nil || s.storage == nil {
+		return nil, errors.New("secure audio storage is unavailable")
+	}
+	if err := s.signer.ValidateSignedStreamToken(token, chapterID, userID, quality); err != nil {
+		return nil, err
+	}
+	chapter, err := s.repo.GetChapterByID(ctx, chapterID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.authorizePremium(ctx, chapter.IsPremium, &userID); err != nil {
+		return nil, err
+	}
+	files, err := s.repo.GetChapterAudioFiles(ctx, chapterID)
+	if err != nil {
+		return nil, err
+	}
+	for _, file := range files {
+		if file.Quality == quality {
+			return s.storage.OpenLocalFile(file.AudioUrl)
+		}
+	}
+	return nil, errors.New("audio file not found")
 }

@@ -1,30 +1,29 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import {
-  Crown,
-  CheckCircle2,
-  Sparkles,
-  ShieldCheck,
-  Zap,
-  QrCode,
-  Copy,
-  Check,
-  Clock,
-  Flame,
-  ArrowRight,
-  RefreshCw,
-  X,
-  AlertCircle,
-  Headphones,
-  Lock,
-} from 'lucide-react';
+import { MediaImage } from '@/components/media-image';
+
+import { getErrorMessage } from '@/lib/errors';
+
+import { CultivationSpinner } from '@/components/cultivation-spinner';
 import { useAuth } from '@/context/auth-context';
 import { api } from '@/lib/api';
-import { SubscriptionPlan, CreatePaymentResp, PaymentStatusResp, UserSubscription } from '@/types';
-import { CultivationSpinner } from '@/components/cultivation-spinner';
+import { CreatePaymentResp, PaymentStatusResp, SubscriptionPlan, UserSubscription } from '@/types';
+import {
+  AlertCircle,
+  Check,
+  CheckCircle2,
+  Clock,
+  Copy,
+  Crown,
+  Flame,
+  QrCode,
+  ShieldCheck,
+  Sparkles,
+  X,
+  Zap
+} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 
 export default function VipPage() {
   const router = useRouter();
@@ -35,7 +34,7 @@ export default function VipPage() {
   const [loading, setLoading] = useState(true);
 
   // Modal Thanh Toán
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
+  const [, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [paymentOrder, setPaymentOrder] = useState<CreatePaymentResp | null>(null);
   const [creatingPayment, setCreatingPayment] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -47,6 +46,80 @@ export default function VipPage() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handlePaymentCompleted = async (statusRes: PaymentStatusResp) => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+    setPaymentSuccess(statusRes);
+    if (refreshProfile) {
+      await refreshProfile();
+    }
+    const updatedSub = await api.getActiveSubscription();
+    setActiveSub(updatedSub);
+  };
+
+  // Khởi tạo thanh toán VietQR
+  const handleSelectPlan = async (plan: SubscriptionPlan) => {
+    if (!isAuthenticated) {
+      router.push('/login?redirect=/vip');
+      return;
+    }
+
+    setSelectedPlan(plan);
+    setCreatingPayment(true);
+    setPaymentSuccess(null);
+    setCountdown(900);
+
+    try {
+      const order = await api.createPayment(plan.id, 'vietqr');
+      setPaymentOrder(order);
+      setPaymentModalOpen(true);
+    } catch (err: unknown) {
+      alert(getErrorMessage(err) || 'Lỗi tạo đơn thanh toán');
+    } finally {
+      setCreatingPayment(false);
+    }
+  };
+
+  // Xác nhận tự động ngay (Auto Verification / Instant Test)
+  const handleCheckPayment = async () => {
+    if (!paymentOrder) return;
+    setCheckingPayment(true);
+    try {
+      const res = await api.getPaymentStatus(paymentOrder.payment_id);
+      if (res.is_completed) {
+        await handlePaymentCompleted(res);
+      } else {
+        alert("Giao dịch chưa được xác nhận. Vui lòng chờ đối soát thanh toán.");
+      }
+    } catch (err: unknown) {
+      alert(getErrorMessage(err) || 'Lỗi xác nhận tự động');
+    } finally {
+      setCheckingPayment(false);
+    }
+  };
+
+  // Sao chép nội dung
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
+  };
+
+  const formatCountdown = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const getPlanBonusExp = (days: number) => {
+    return days * 50;
+  };
 
   // Load plans & active subscription
   useEffect(() => {
@@ -107,6 +180,8 @@ export default function VipPage() {
     return () => clearInterval(timer);
   }, [paymentModalOpen, countdown, paymentSuccess]);
 
+  const onPaymentCompleted = useEffectEvent(handlePaymentCompleted);
+
   // Tự động Polling kiểm tra trạng thái đơn hàng mỗi 3 giây
   useEffect(() => {
     if (paymentModalOpen && paymentOrder && !paymentSuccess) {
@@ -114,7 +189,7 @@ export default function VipPage() {
         try {
           const statusRes = await api.getPaymentStatus(paymentOrder.payment_id);
           if (statusRes && statusRes.is_completed) {
-            handlePaymentCompleted(statusRes);
+            void onPaymentCompleted(statusRes);
           }
         } catch {
           // Bỏ qua lỗi polling tạm thời
@@ -128,76 +203,6 @@ export default function VipPage() {
       }
     };
   }, [paymentModalOpen, paymentOrder, paymentSuccess]);
-
-  const handlePaymentCompleted = async (statusRes: PaymentStatusResp) => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-    }
-    setPaymentSuccess(statusRes);
-    if (refreshProfile) {
-      await refreshProfile();
-    }
-    const updatedSub = await api.getActiveSubscription();
-    setActiveSub(updatedSub);
-  };
-
-  // Khởi tạo thanh toán VietQR
-  const handleSelectPlan = async (plan: SubscriptionPlan) => {
-    if (!isAuthenticated) {
-      router.push('/login?redirect=/vip');
-      return;
-    }
-
-    setSelectedPlan(plan);
-    setCreatingPayment(true);
-    setPaymentSuccess(null);
-    setCountdown(900);
-
-    try {
-      const order = await api.createPayment(plan.id, 'vietqr');
-      setPaymentOrder(order);
-      setPaymentModalOpen(true);
-    } catch (err: any) {
-      alert(err.message || 'Lỗi tạo đơn thanh toán');
-    } finally {
-      setCreatingPayment(false);
-    }
-  };
-
-  // Xác nhận tự động ngay (Auto Verification / Instant Test)
-  const handleAutoConfirm = async () => {
-    if (!paymentOrder) return;
-    setCheckingPayment(true);
-    try {
-      const res = await api.autoConfirmPayment(paymentOrder.payment_id);
-      await handlePaymentCompleted(res);
-    } catch (err: any) {
-      alert(err.message || 'Lỗi xác nhận tự động');
-    } finally {
-      setCheckingPayment(false);
-    }
-  };
-
-  // Sao chép nội dung
-  const copyToClipboard = (text: string, field: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedField(field);
-    setTimeout(() => setCopiedField(null), 2000);
-  };
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
-  };
-
-  const formatCountdown = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
-
-  const getPlanBonusExp = (days: number) => {
-    return days * 50;
-  };
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-12 pb-24 space-y-12">
@@ -252,14 +257,13 @@ export default function VipPage() {
             return (
               <div
                 key={plan.id}
-                className={`relative flex flex-col justify-between rounded-3xl p-7 transition-all ${
-                  isPopular
+                className={`relative flex flex-col justify-between rounded-3xl p-7 transition-all ${isPopular
                     ? 'bg-gradient-to-b from-[#1c2438] to-[#0f172a] border-2 border-amber-500 shadow-2xl shadow-amber-500/20 md:-translate-y-2'
                     : 'bg-slate-900/80 border border-white/10 hover:border-white/20'
-                }`}
+                  }`}
               >
                 {isPopular && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-[#ffd166] to-[#ffb703] px-3.5 py-0.5 text-[10px] font-black text-black shadow-md flex items-center gap-1">
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-[#ffd166] to-[#ffb703] px-3.5 py-0.5 text-[11px] font-black text-black shadow-md flex items-center gap-1">
                     <Sparkles className="w-3 h-3" /> KHUYÊN DÙNG • TIẾT KIỆM 15%
                   </div>
                 )}
@@ -321,11 +325,10 @@ export default function VipPage() {
                 <button
                   onClick={() => handleSelectPlan(plan)}
                   disabled={creatingPayment}
-                  className={`mt-8 w-full py-3.5 rounded-xl font-black text-xs sm:text-sm transition-all shadow-lg flex items-center justify-center gap-2 ${
-                    isPopular
+                  className={`mt-8 w-full py-3.5 rounded-xl font-black text-xs sm:text-sm transition-all shadow-lg flex items-center justify-center gap-2 ${isPopular
                       ? 'bg-gradient-to-r from-[#ffd166] to-[#ffb703] text-black shadow-amber-500/30 hover:scale-102 active:scale-98'
                       : 'bg-slate-800 hover:bg-slate-700 text-white border border-white/10'
-                  }`}
+                    }`}
                 >
                   <Zap className="w-4 h-4" />
                   {activeSub ? 'GIA HẠN GÓI NÀY' : 'NÂNG CẤP NGAY'}
@@ -416,7 +419,7 @@ export default function VipPage() {
                 {/* Khung QR Code & Đếm Ngược */}
                 <div className="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-900/90 border border-white/10 space-y-3">
                   <div className="relative p-2 bg-white rounded-2xl shadow-xl">
-                    <img
+                    <MediaImage
                       src={paymentOrder.qr_code_url}
                       alt="VietQR Napas 24/7"
                       className="w-48 h-48 sm:w-56 sm:h-56 object-contain"
@@ -499,7 +502,7 @@ export default function VipPage() {
                   <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30">
                     <div>
                       <span className="text-amber-400 font-bold block">Nội dung chuyển khoản:</span>
-                      <span className="text-[10px] text-slate-400">Giữ nguyên để hệ thống tự duyệt</span>
+                      <span className="text-[11px] text-slate-400">Giữ nguyên để hệ thống tự duyệt</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-black text-amber-300 text-sm">
@@ -525,22 +528,22 @@ export default function VipPage() {
                   <div className="flex items-start gap-2 text-[11px] text-slate-400">
                     <AlertCircle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
                     <span>
-                      Mở app ngân hàng (Vietcombank, MB, Techcombank...) quét mã QR trên để hệ thống tự động ghi nhận ngay.
+                      Mở app ngân hàng để quét mã QR. Gói VIP được kích hoạt sau khi giao dịch được đối soát.
                     </span>
                   </div>
 
                   {/* Nút Kích Hoạt Tự Động Ngay (Mô phỏng / Xác nhận giao dịch) */}
                   <button
-                    onClick={handleAutoConfirm}
+                    onClick={handleCheckPayment}
                     disabled={checkingPayment}
                     className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs shadow-md shadow-emerald-500/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
                   >
                     {checkingPayment ? (
-                      <CultivationSpinner size="xs" text="Đang kích hoạt gói VIP..." showText={true} />
+                      <CultivationSpinner size="xs" text="Đang kiểm tra thanh toán..." showText={true} />
                     ) : (
                       <>
                         <ShieldCheck className="w-4 h-4" />
-                        Đã Chuyển Khoản • Xác Nhận Tự Động Ngay
+                        Kiểm tra trạng thái thanh toán
                       </>
                     )}
                   </button>

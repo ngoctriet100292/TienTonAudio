@@ -1,34 +1,36 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import {
-  MessageSquare,
-  Sparkles,
-  Heart,
-  Share2,
-  Send,
-  Trash2,
-  BookOpen,
-  Headphones,
-  Flame,
-  Crown,
-  Filter,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
-  Compass,
-  Zap,
-  TrendingUp,
-  User,
-  ShieldCheck,
-  ChevronDown,
-} from 'lucide-react';
+import { MediaImage } from '@/components/media-image';
+
+import { useAsyncResource } from '@/lib/use-async-resource';
+
+import { getErrorMessage } from '@/lib/errors';
+
+import { CultivationSpinner } from '@/components/cultivation-spinner';
 import { useAuth } from '@/context/auth-context';
 import { api, getFullAvatarUrl } from '@/lib/api';
-import { CommunityPost, CommunityComment, Story } from '@/types';
-import { CultivationSpinner } from '@/components/cultivation-spinner';
+import { CommunityComment, CommunityPost, Story } from '@/types';
+import {
+  AlertCircle,
+  BookOpen,
+  CheckCircle2,
+  Compass,
+  Crown,
+  Flame,
+  Headphones,
+  Heart,
+  MessageSquare,
+  Send,
+  Share2,
+  ShieldCheck,
+  Sparkles,
+  Trash2,
+  User,
+  Zap
+} from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import React, { useState } from 'react';
 
 const TOPICS = [
   { id: 'all', label: 'Tất Cả', icon: '✨' },
@@ -43,15 +45,14 @@ export default function CommunityPage() {
   const router = useRouter();
   const { user, isAuthenticated, refreshProfile } = useAuth();
 
-  const [posts, setPosts] = useState<CommunityPost[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedTopic, setSelectedTopic] = useState('all');
+  const { data: posts, setData: setPosts, loading } = useAsyncResource<CommunityPost[]>(`community:${selectedTopic}:${user?.id || 'guest'}`, () => api.getCommunityPosts(selectedTopic, 1, 30), []);
 
   // Đăng bài state
   const [content, setContent] = useState('');
   const [topic, setTopic] = useState('luan_dao');
   const [selectedStoryId, setSelectedStoryId] = useState<string>('');
-  const [stories, setStories] = useState<Story[]>([]);
+  const { data: stories } = useAsyncResource<Story[]>('community-stories', () => api.getStories(1, 50), []);
   const [posting, setPosting] = useState(false);
 
   // Comments state map: postId -> comments list
@@ -67,31 +68,6 @@ export default function CommunityPage() {
     setTimeout(() => setToastMsg(null), 3000);
   };
 
-  useEffect(() => {
-    loadPosts(selectedTopic);
-    loadStories();
-  }, [selectedTopic]);
-
-  const loadStories = async () => {
-    try {
-      const res = await api.getStories(1, 50);
-      setStories(res || []);
-    } catch {
-      // Fallback
-    }
-  };
-
-  const loadPosts = async (topicFilter: string) => {
-    setLoading(true);
-    try {
-      const data = await api.getCommunityPosts(topicFilter, 1, 30);
-      setPosts(data || []);
-    } catch {
-      // Fallback
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,8 +93,8 @@ export default function CommunityPage() {
       setSelectedStoryId('');
       showToast('Phát đàn luận đạo thành công! Đạo Hữu được cộng +50 Tu Vi EXP');
       if (refreshProfile) refreshProfile();
-    } catch (err: any) {
-      showToast(err.message || 'Lỗi phát đàn luận đạo', 'error');
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err) || 'Lỗi phát đàn luận đạo', 'error');
     } finally {
       setPosting(false);
     }
@@ -139,8 +115,8 @@ export default function CommunityPage() {
             : p
         )
       );
-    } catch (err: any) {
-      showToast(err.message || 'Lỗi tương tác', 'error');
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err) || 'Lỗi tương tác', 'error');
     }
   };
 
@@ -182,8 +158,8 @@ export default function CommunityPage() {
       );
       showToast('Gửi đàm đạo thành công (+10 Tu Vi)');
       if (refreshProfile) refreshProfile();
-    } catch (err: any) {
-      showToast(err.message || 'Lỗi gửi bình luận', 'error');
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err) || 'Lỗi gửi bình luận', 'error');
     } finally {
       setSubmittingComment((prev) => ({ ...prev, [postId]: false }));
     }
@@ -196,8 +172,8 @@ export default function CommunityPage() {
       await api.deleteCommunityPost(postId);
       setPosts((prev) => prev.filter((p) => p.id !== postId));
       showToast('Đã thu hồi bài luận đạo');
-    } catch (err: any) {
-      showToast(err.message || 'Lỗi xóa bài', 'error');
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err) || 'Lỗi xóa bài', 'error');
     }
   };
 
@@ -231,16 +207,17 @@ export default function CommunityPage() {
     return new Date(dateStr).toLocaleDateString('vi-VN');
   };
 
+
+
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8 pb-24 space-y-8">
       {/* Toast Notification */}
       {toastMsg && (
         <div
-          className={`fixed top-20 right-5 z-50 rounded-2xl px-4 py-3 text-xs font-bold shadow-2xl flex items-center gap-2 border animate-in fade-in slide-in-from-top-2 ${
-            toastMsg.type === 'success'
+          className={`fixed top-20 right-5 z-50 rounded-2xl px-4 py-3 text-xs font-bold shadow-2xl flex items-center gap-2 border animate-in fade-in slide-in-from-top-2 ${toastMsg.type === 'success'
               ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40'
               : 'bg-rose-950/90 text-rose-300 border-rose-500/40'
-          }`}
+            }`}
         >
           {toastMsg.type === 'success' ? (
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -252,7 +229,7 @@ export default function CommunityPage() {
       )}
 
       {/* Header Luận Đạo Các */}
-      <div className="relative overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-r from-[#141b2b] via-[#0f172a] to-[#1c162e] p-8 shadow-2xl shadow-amber-500/10">
+      <div className="motion-card relative overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-r from-[#141b2b] via-[#0f172a] to-[#1c162e] p-8 shadow-2xl shadow-amber-500/10">
         <div className="absolute -right-16 -bottom-16 h-72 w-72 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
         <div className="relative z-10 max-w-2xl space-y-3">
           <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-3.5 py-1 text-xs font-bold text-amber-400">
@@ -273,11 +250,11 @@ export default function CommunityPage() {
         {/* CỘT CHÍNH (FEED) */}
         <div className="lg:col-span-2 space-y-6">
           {/* KHUNG PHÁT ĐÀN LUẬN ĐẠO (CREATE POST) */}
-          <div className="rounded-3xl border border-white/10 bg-[#0f172a]/90 p-5 sm:p-6 shadow-xl backdrop-blur-xl space-y-4">
+          <div className="motion-card rounded-3xl border border-white/10 bg-[#0f172a]/90 p-5 sm:p-6 shadow-xl backdrop-blur-xl space-y-4">
             <div className="flex items-center gap-3 border-b border-white/10 pb-3">
               <div className="h-10 w-10 rounded-full overflow-hidden bg-gradient-to-tr from-[#ffd166] to-[#ffb703] text-black font-black flex items-center justify-center flex-shrink-0">
                 {user?.avatar_url ? (
-                  <img src={getFullAvatarUrl(user.avatar_url)} alt={user.username} className="h-full w-full object-cover" />
+                  <MediaImage src={getFullAvatarUrl(user.avatar_url)} alt={user.username} className="h-full w-full object-cover" />
                 ) : (
                   user?.username?.[0]?.toUpperCase() || <User className="w-5 h-5" />
                 )}
@@ -287,7 +264,7 @@ export default function CommunityPage() {
                   {user?.username || 'Vô Danh Đạo Hữu'}
                   {user?.cultivation_realm && (
                     <span
-                      className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase"
+                      className="text-[11px] font-black px-2 py-0.5 rounded-full uppercase"
                       style={{
                         backgroundColor: `${user.cultivation_color || '#38BDF8'}20`,
                         color: user.cultivation_color || '#38BDF8',
@@ -361,11 +338,10 @@ export default function CommunityPage() {
               <button
                 key={t.id}
                 onClick={() => setSelectedTopic(t.id)}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                  selectedTopic === t.id
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${selectedTopic === t.id
                     ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
                     : 'bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-white border border-white/10'
-                }`}
+                  }`}
               >
                 <span>{t.icon}</span>
                 <span>{t.label}</span>
@@ -399,14 +375,14 @@ export default function CommunityPage() {
                   <div
                     key={post.id}
                     id={`post-${post.id}`}
-                    className="rounded-3xl border border-white/10 bg-[#0f172a]/90 p-5 sm:p-6 shadow-xl space-y-4 transition-all hover:border-white/20"
+                    className="motion-card rounded-3xl border border-white/10 bg-[#0f172a]/90 p-5 sm:p-6 shadow-xl space-y-4 transition-all hover:border-white/20"
                   >
                     {/* Header Bài Viết */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-full overflow-hidden bg-slate-800 border border-white/10 flex-shrink-0 flex items-center justify-center font-bold text-amber-400">
                           {post.author_avatar ? (
-                            <img
+                            <MediaImage
                               src={getFullAvatarUrl(post.author_avatar)}
                               alt={post.author_name}
                               className="h-full w-full object-cover"
@@ -423,7 +399,7 @@ export default function CommunityPage() {
                             </span>
                             {post.cultivation_realm && (
                               <span
-                                className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase border shadow-sm"
+                                className="text-[11px] font-black px-2 py-0.5 rounded-full uppercase border shadow-sm"
                                 style={{
                                   backgroundColor: `${post.cultivation_color || '#38BDF8'}15`,
                                   borderColor: `${post.cultivation_color || '#38BDF8'}40`,
@@ -434,7 +410,7 @@ export default function CommunityPage() {
                               </span>
                             )}
                             {post.author_role === 'admin' && (
-                              <span className="text-[9px] font-mono font-black px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 uppercase">
+                              <span className="text-[11px] font-mono font-black px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 uppercase">
                                 Admin
                               </span>
                             )}
@@ -447,7 +423,7 @@ export default function CommunityPage() {
 
                       <div className="flex items-center gap-2">
                         <span
-                          className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border ${topicBadge.color}`}
+                          className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border ${topicBadge.color}`}
                         >
                           {topicBadge.label}
                         </span>
@@ -476,7 +452,7 @@ export default function CommunityPage() {
                         className="flex items-center gap-3 p-3 rounded-2xl bg-slate-900 border border-amber-500/20 hover:border-amber-500/50 transition-all group"
                       >
                         {post.story_cover_url ? (
-                          <img
+                          <MediaImage
                             src={post.story_cover_url}
                             alt={post.story_title}
                             className="h-12 w-9 rounded-lg object-cover flex-shrink-0"
@@ -487,7 +463,7 @@ export default function CommunityPage() {
                           </div>
                         )}
                         <div className="min-w-0 flex-1">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1">
                             <Headphones className="w-3 h-3" /> Tác Phẩm Đàm Đạo
                           </span>
                           <p className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors truncate">
@@ -506,11 +482,10 @@ export default function CommunityPage() {
                         {/* Nút Like */}
                         <button
                           onClick={() => handleToggleLike(post.id)}
-                          className={`flex items-center gap-1.5 font-bold transition-all ${
-                            post.is_liked
+                          className={`flex items-center gap-1.5 font-bold transition-all ${post.is_liked
                               ? 'text-rose-400 fill-rose-400'
                               : 'text-slate-400 hover:text-rose-400'
-                          }`}
+                            }`}
                         >
                           <Heart
                             className={`w-4 h-4 ${post.is_liked ? 'fill-rose-500 text-rose-500 animate-bounce' : ''}`}
@@ -555,7 +530,7 @@ export default function CommunityPage() {
                               >
                                 <div className="h-7 w-7 rounded-full overflow-hidden bg-slate-800 border border-white/10 flex-shrink-0 flex items-center justify-center font-bold text-amber-400 text-[11px]">
                                   {c.author_avatar ? (
-                                    <img
+                                    <MediaImage
                                       src={getFullAvatarUrl(c.author_avatar)}
                                       alt={c.author_name}
                                       className="h-full w-full object-cover"
@@ -570,7 +545,7 @@ export default function CommunityPage() {
                                       <span className="font-bold text-white">{c.author_name}</span>
                                       {c.cultivation_realm && (
                                         <span
-                                          className="text-[9px] font-black px-1.5 py-0.2 rounded-full uppercase"
+                                          className="text-[11px] font-black px-1.5 py-0.2 rounded-full uppercase"
                                           style={{
                                             backgroundColor: `${c.cultivation_color || '#38BDF8'}20`,
                                             color: c.cultivation_color || '#38BDF8',
@@ -580,7 +555,7 @@ export default function CommunityPage() {
                                         </span>
                                       )}
                                     </div>
-                                    <span className="text-[10px] text-slate-500 font-mono">
+                                    <span className="text-[11px] text-slate-500 font-mono">
                                       {formatRelativeTime(c.created_at)}
                                     </span>
                                   </div>
@@ -633,7 +608,7 @@ export default function CommunityPage() {
         {/* CỘT PHẢI (SIDEBAR) */}
         <div className="space-y-6">
           {/* QUY TẮC TIÊN MÔN */}
-          <div className="rounded-3xl border border-amber-500/20 bg-slate-900/80 p-5 space-y-3">
+          <div className="motion-card rounded-3xl border border-amber-500/20 bg-slate-900/80 p-5 space-y-3">
             <h3 className="text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-amber-400" />
               Môn Quy Luận Đạo
@@ -655,7 +630,7 @@ export default function CommunityPage() {
           </div>
 
           {/* LỐI TẮT BẢNG VÀNG & CẢNH GIỚI */}
-          <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-indigo-950/40 via-slate-900 to-slate-900 p-5 space-y-3">
+          <div className="motion-card rounded-3xl border border-white/10 bg-gradient-to-br from-indigo-950/40 via-slate-900 to-slate-900 p-5 space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
                 <Flame className="w-4 h-4 text-amber-400" />
@@ -678,7 +653,7 @@ export default function CommunityPage() {
           </div>
 
           {/* BANNER VIP TIÊN TÔN */}
-          <div className="rounded-3xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-slate-900 to-slate-900 p-5 space-y-3">
+          <div className="motion-card rounded-3xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-slate-900 to-slate-900 p-5 space-y-3">
             <div className="flex items-center gap-2 text-amber-400 font-black text-xs uppercase tracking-wider">
               <Crown className="w-4 h-4" />
               Hội Viên Tiên Tôn Các

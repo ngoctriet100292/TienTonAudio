@@ -322,3 +322,20 @@ Chạy trực tiếp binary đã build:
 ## 📄 Bản quyền (License)
 Dự án được phân phối dưới giấy phép [MIT License](LICENSE).
 Tác giả & Đội ngũ phát triển TienTonAudio © 2026.
+
+
+## Cập nhật bảo mật và tích hợp
+
+- Backend yêu cầu Go 1.26.5 theo `backend/go.mod`.
+- Đăng nhập mạng xã hội đang tạm dừng cho đến khi có xác minh OAuth phía server. Dùng email/mật khẩu và 2FA hiện có.
+- API ghi nội dung chung chỉ dành cho admin. Đối tác sử dụng `/api/v1/partner/...`, nơi quyền sở hữu được kiểm tra.
+- `/payments/{id}/confirm-auto` trả HTTP 410. Client chỉ được kiểm tra trạng thái đơn của chính mình.
+- Adapter thanh toán tin cậy gửi webhook đã đối soát với `payment_id`, `transaction_id`, `status` (`completed` hoặc `failed`) và `amount` là số nguyên VND. Webhook cần `X-Webhook-Secret` hoặc chữ ký HMAC-SHA256 qua `X-Signature`. Payload ngân hàng chưa có adapter sẽ trả HTTP 422. Không cấu hình secret sẽ trả HTTP 503.
+- Với `ENVIRONMENT=production`, phải đặt `JWT_SECRET_KEY` và `PAYMENT_WEBHOOK_SECRET` riêng, ít nhất 32 ký tự, không dùng giá trị mẫu.
+- Text và audio trong storage local không được phục vụ công khai. Audio local dùng link có chữ ký; R2 dùng presigned GET URL. Bucket chứa text/audio phải tắt truy cập công khai (`r2.dev` và domain công khai); mã nguồn không thể thu hồi URL đã công khai trên Cloudflare. Khi chuyển bucket sang private, cần phục vụ ảnh bìa/avatar qua bucket công khai riêng hoặc proxy chỉ cho phép các thư mục ảnh.
+- Docker web dùng `API_INTERNAL_ORIGIN=http://backend:8080` cho gọi API từ server. `NEXT_PUBLIC_API_URL` là URL API mà trình duyệt truy cập được và phải đặt khi build image.
+
+- Web: `cd web && npm test && npm run lint && npm run build` kiểm tra API client, TypeScript và build. Refresh token được xoay một lần cho các request đồng thời; lỗi kết nối tạm thời không xóa phiên. QR 2FA được tạo trong trình duyệt, không gửi secret tới dịch vụ QR bên ngoài.
+- Rate limiter dùng bộ đếm nguyên tử với thời hạn cố định. `TRUSTED_PROXY_CIDRS` phải chỉ chứa IP/CIDR của proxy thực tế; mặc định bỏ qua header IP do client tự gửi.
+
+- Web sử dụng Next.js 16.3.8. Sau cập nhật, `npm audit --omit=dev` không báo lỗ hổng; audit đầy đủ còn 5 cảnh báo trong chuỗi ESLint → fast-glob → micromatch → braces. `braces` chưa có bản vá theo https://github.com/advisories/GHSA-vfj7-8cjw-p6xm; không dùng `npm audit fix --force` để hạ eslint-config-next về nhánh 14.x.

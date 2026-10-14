@@ -1,25 +1,26 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import { MediaImage } from '@/components/media-image';
+
+import { useAsyncResource } from '@/lib/use-async-resource';
+
+import { getErrorMessage } from '@/lib/errors';
+
+import { CultivationSpinner } from '@/components/cultivation-spinner';
+import { useAuth } from '@/context/auth-context';
+import { api, getFullAvatarUrl } from '@/lib/api';
 import {
-  MessageSquare,
-  Heart,
-  Send,
-  Loader2,
-  User,
-  Sparkles,
-  LogIn,
-  CornerDownRight,
   ChevronDown,
   ChevronUp,
-  Smile,
-  ThumbsUp,
-  Flame,
+  CornerDownRight,
+  LogIn,
+  MessageSquare,
+  Send,
+  Sparkles,
+  ThumbsUp
 } from 'lucide-react';
-import { api, getFullAvatarUrl } from '@/lib/api';
-import { useAuth } from '@/context/auth-context';
-import { CultivationSpinner } from '@/components/cultivation-spinner';
 import Link from 'next/link';
+import React, { useEffect, useRef, useState } from 'react';
 
 export const REACTION_TYPES = [
   { type: 'like', emoji: '👍', label: 'Thích', color: 'text-blue-400', bg: 'bg-blue-500/20 border-blue-500/40' },
@@ -56,26 +57,10 @@ interface ChapterCommentsProps {
 
 export function ChapterComments({ chapterId, chapterTitle }: ChapterCommentsProps) {
   const { user, isAuthenticated } = useAuth();
-  const [comments, setComments] = useState<CommentItemData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: comments, setData: setComments, loading } = useAsyncResource<CommentItemData[]>(`${chapterId}:${user?.id || 'guest'}`, () => api.getChapterComments(chapterId), []);
   const [newComment, setNewComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!chapterId) return;
-    setLoading(true);
-    api.getChapterComments(chapterId)
-      .then((data) => {
-        setComments(Array.isArray(data) ? data : []);
-      })
-      .catch(() => {
-        setComments([]);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [chapterId]);
 
   const handleSubmitRootComment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,7 +72,7 @@ export function ChapterComments({ chapterId, chapterTitle }: ChapterCommentsProp
     try {
       const created = await api.createComment(chapterId, newComment.trim());
       const item: CommentItemData = {
-        ...(created.data || created),
+        ...created,
         username: user?.username || 'Đạo Hữu',
         avatar_url: user?.avatar_url,
         cultivation_realm: user?.cultivation_realm || 'Luyện Khí',
@@ -99,12 +84,14 @@ export function ChapterComments({ chapterId, chapterTitle }: ChapterCommentsProp
       };
       setComments((prev) => [item, ...prev]);
       setNewComment('');
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Không thể đăng bình luận. Vui lòng thử lại sau.');
+    } catch (err: unknown) {
+      setErrorMsg(getErrorMessage(err) || 'Không thể đăng bình luận. Vui lòng thử lại sau.');
     } finally {
       setSubmitting(false);
     }
   };
+
+
 
   return (
     <div className="space-y-6 pt-8 border-t border-white/10">
@@ -129,7 +116,7 @@ export function ChapterComments({ chapterId, chapterTitle }: ChapterCommentsProp
           <div className="flex items-center gap-2.5 text-xs text-slate-300">
             <span className="font-bold text-amber-400">Đạo Hữu: {user?.username}</span>
             {user?.cultivation_realm && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30">
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30">
                 {user.cultivation_realm} Cảnh
               </span>
             )}
@@ -245,16 +232,6 @@ function CommentCard({
   const [showReactionMenu, setShowReactionMenu] = useState(false);
   const reactionMenuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (reactionMenuRef.current && !reactionMenuRef.current.contains(e.target as Node)) {
-        setShowReactionMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
   const handleReact = async (type: ReactionType) => {
     if (!isAuthenticated) return;
     setShowReactionMenu(false);
@@ -289,7 +266,7 @@ function CommentCard({
           ...prev,
           total_reactions: res.total_reactions ?? prev.total_reactions,
           reactions: res.reactions ?? prev.reactions,
-          user_reaction: res.user_reaction !== undefined ? res.user_reaction : nextReaction,
+          user_reaction: res.action === 'removed' ? null : res.reaction_type || nextReaction,
         }));
       }
     } catch (e) {
@@ -323,7 +300,7 @@ function CommentCard({
     try {
       const res = await api.replyComment(data.id, replyContent.trim());
       const newReplyItem: CommentItemData = {
-        ...(res.data || res),
+        ...res,
         username: user?.username || 'Đạo Hữu',
         avatar_url: user?.avatar_url,
         cultivation_realm: user?.cultivation_realm || 'Luyện Khí',
@@ -340,8 +317,8 @@ function CommentCard({
       setShowReplyBox(false);
       setShowReplies(true);
       setRepliesLoaded(true);
-    } catch (err: any) {
-      setReplyError(err.message || 'Không thể đăng trả lời.');
+    } catch (err: unknown) {
+      setReplyError(getErrorMessage(err) || 'Không thể đăng trả lời.');
     } finally {
       setSubmittingReply(false);
     }
@@ -354,20 +331,29 @@ function CommentCard({
     (r) => data.reactions && (data.reactions[r.type] || 0) > 0
   );
 
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (reactionMenuRef.current && !reactionMenuRef.current.contains(e.target as Node)) {
+        setShowReactionMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
     <div
-      className={`rounded-2xl p-4 sm:p-5 transition-all ${
-        isReply
+      className={`rounded-2xl p-4 sm:p-5 transition-all ${isReply
           ? 'bg-slate-950/60 border border-white/5 ml-4 sm:ml-8 mt-2.5'
           : 'bg-slate-900/60 border border-white/10 hover:border-white/15'
-      }`}
+        }`}
     >
       {/* Tác giả & Cảnh giới */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-xl overflow-hidden bg-slate-800 border border-amber-500/20 flex-shrink-0 flex items-center justify-center">
             {data.avatar_url ? (
-              <img
+              <MediaImage
                 src={getFullAvatarUrl(data.avatar_url)}
                 alt={data.username}
                 className="h-full w-full object-cover"
@@ -384,12 +370,12 @@ function CommentCard({
                 {data.username || 'Đạo Hữu'}
               </span>
               {data.cultivation_realm && (
-                <span className="text-[10px] font-semibold px-2 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                <span className="text-[11px] font-semibold px-2 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">
                   {data.cultivation_realm} Cảnh
                 </span>
               )}
             </div>
-            <span className="text-[10px] text-slate-500 font-mono">
+            <span className="text-[11px] text-slate-500 font-mono">
               {data.created_at ? new Date(data.created_at).toLocaleString('vi-VN') : ''}
             </span>
           </div>
@@ -420,11 +406,10 @@ function CommentCard({
           <button
             onClick={() => setShowReactionMenu(!showReactionMenu)}
             onMouseEnter={() => setShowReactionMenu(true)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all ${
-              currentReactionObj
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all ${currentReactionObj
                 ? `${currentReactionObj.bg} ${currentReactionObj.color}`
                 : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
-            }`}
+              }`}
           >
             {currentReactionObj ? (
               <>
@@ -452,9 +437,8 @@ function CommentCard({
                     key={item.type}
                     onClick={() => handleReact(item.type)}
                     title={item.label}
-                    className={`p-2 rounded-xl text-lg hover:scale-125 active:scale-95 transition-transform ${
-                      isSelected ? 'bg-white/15' : 'hover:bg-white/10'
-                    }`}
+                    className={`p-2 rounded-xl text-lg hover:scale-125 active:scale-95 transition-transform ${isSelected ? 'bg-white/15' : 'hover:bg-white/10'
+                      }`}
                   >
                     {item.emoji}
                   </button>

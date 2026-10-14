@@ -74,12 +74,18 @@ type JWTService struct {
 	refreshTTL time.Duration
 }
 
-func NewJWTService(secret, issuer string) *JWTService {
+func NewJWTService(secret, issuer string, accessTTL, refreshTTL time.Duration) *JWTService {
+	if accessTTL <= 0 {
+		accessTTL = AccessTokenTTL
+	}
+	if refreshTTL <= 0 {
+		refreshTTL = RefreshTokenTTL
+	}
 	return &JWTService{
 		secret:     []byte(secret),
 		issuer:     issuer,
-		acessTTL:   AccessTokenTTL,
-		refreshTTL: RefreshTokenTTL,
+		acessTTL:   accessTTL,
+		refreshTTL: refreshTTL,
 	}
 }
 

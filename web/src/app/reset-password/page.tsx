@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import { getErrorMessage } from '@/lib/errors';
+
+import { api } from '@/lib/api';
+import { AlertCircle, ArrowLeft, CheckCircle2, Lock, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Lock, ArrowLeft, CheckCircle2, AlertCircle, ShieldCheck } from 'lucide-react';
-import { api } from '@/lib/api';
+import React, { Suspense, useState } from 'react';
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -43,10 +45,10 @@ function ResetPasswordForm() {
       setTimeout(() => {
         router.push('/login');
       }, 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setStatus({
         type: 'error',
-        text: err.message || 'Mã khôi phục không hợp lệ hoặc đã quá hạn.',
+        text: getErrorMessage(err) || 'Mã khôi phục không hợp lệ hoặc đã quá hạn.',
       });
     } finally {
       setLoading(false);
@@ -69,14 +71,13 @@ function ResetPasswordForm() {
       </div>
 
       {/* Form Card */}
-      <div className="rounded-3xl border border-white/10 bg-[#0f172a]/90 p-6 sm:p-8 backdrop-blur-xl shadow-2xl space-y-5">
+      <div className="motion-card rounded-3xl border border-white/10 bg-[#0f172a]/90 p-6 sm:p-8 backdrop-blur-xl shadow-2xl space-y-5">
         {status && (
           <div
-            className={`p-4 rounded-2xl text-xs font-bold flex items-start gap-2.5 border animate-in fade-in-0 ${
-              status.type === 'success'
+            className={`p-4 rounded-2xl text-xs font-bold flex items-start gap-2.5 border animate-in fade-in-0 ${status.type === 'success'
                 ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/30'
                 : 'bg-rose-950/80 text-rose-300 border-rose-500/30'
-            }`}
+              }`}
           >
             {status.type === 'success' ? (
               <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />

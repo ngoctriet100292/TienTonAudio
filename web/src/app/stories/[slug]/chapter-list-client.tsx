@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { Play, Volume2, Lock, Clock, BookOpen, Search } from 'lucide-react';
-import { Story, Chapter } from '@/types';
 import { useAudio } from '@/context/audio-context';
+import { Chapter, Story } from '@/types';
+import { BookOpen, Clock, Lock, Play, Search, Volume2 } from 'lucide-react';
+import Link from 'next/link';
+import { useState } from 'react';
 
 export default function ChapterListClient({ story, chapters }: { story: Story; chapters: Chapter[] }) {
   const { currentChapter, isPlaying, playChapter } = useAudio();
@@ -12,9 +12,9 @@ export default function ChapterListClient({ story, chapters }: { story: Story; c
 
   const filteredChapters = searchTerm.trim()
     ? chapters.filter((c) =>
-        c.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.chapter_number.toString().includes(searchTerm)
-      )
+      c.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.chapter_number.toString().includes(searchTerm)
+    )
     : chapters;
 
   const formatDuration = (secs: number) => {
@@ -47,11 +47,10 @@ export default function ChapterListClient({ story, chapters }: { story: Story; c
           return (
             <div
               key={ch.id}
-              className={`flex items-center justify-between p-3.5 rounded-xl border transition-all ${
-                isCurrent
+              className={`flex items-center justify-between p-3.5 rounded-xl border transition-all ${isCurrent
                   ? 'bg-amber-500/15 border-amber-500/50 shadow-md shadow-amber-500/10'
                   : 'bg-slate-900/60 border-white/10 hover:border-amber-500/30 hover:bg-slate-850'
-              }`}
+                }`}
             >
               {/* Cột trái: Nhấp vào để mở trình đọc truyện chữ */}
               <Link
@@ -59,9 +58,8 @@ export default function ChapterListClient({ story, chapters }: { story: Story; c
                 className="flex items-center gap-3 truncate flex-1 hover:opacity-90 group"
               >
                 <div
-                  className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${
-                    isCurrent ? 'bg-gradient-to-r from-[#ffd166] to-[#ffb703] text-black' : 'bg-slate-800 text-amber-400 group-hover:bg-amber-500/20'
-                  }`}
+                  className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${isCurrent ? 'bg-gradient-to-r from-[#ffd166] to-[#ffb703] text-black' : 'bg-slate-800 text-amber-400 group-hover:bg-amber-500/20'
+                    }`}
                 >
                   <BookOpen className="w-4 h-4" />
                 </div>
@@ -103,11 +101,10 @@ export default function ChapterListClient({ story, chapters }: { story: Story; c
                 {ch.duration_seconds > 0 && (
                   <button
                     onClick={() => playChapter(story, ch, undefined, chapters)}
-                    className={`p-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
-                      isCurrent && isPlaying
+                    className={`p-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${isCurrent && isPlaying
                         ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
                         : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                    }`}
+                      }`}
                     title="Phát Audio"
                   >
                     {isCurrent && isPlaying ? <Volume2 className="w-3.5 h-3.5 animate-pulse" /> : <Play className="w-3.5 h-3.5 fill-current" />}
@@ -115,7 +112,7 @@ export default function ChapterListClient({ story, chapters }: { story: Story; c
                 )}
 
                 {ch.is_premium && (
-                  <span className="flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded bg-gradient-to-r from-amber-400 to-amber-600 text-black shadow-sm">
+                  <span className="flex items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded bg-gradient-to-r from-amber-400 to-amber-600 text-black shadow-sm">
                     <Lock className="w-2.5 h-2.5" />
                     VIP
                   </span>

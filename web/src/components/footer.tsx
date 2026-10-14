@@ -1,10 +1,9 @@
-import React from 'react';
+import { Flame, Headphones, Heart, PenTool, ShieldCheck, Sparkles } from 'lucide-react';
 import Link from 'next/link';
-import { Headphones, ShieldCheck, Sparkles, Heart, Flame, PenTool } from 'lucide-react';
 
 export function Footer() {
   return (
-    <footer className="border-t border-white/10 bg-[#070a11] text-slate-400 text-xs mt-24">
+    <footer className="site-footer border-t border-white/10 text-slate-400 text-sm mt-20">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Cột giới thiệu */}
@@ -13,7 +12,7 @@ export function Footer() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#ffd166] to-[#ffb703]">
                 <Headphones className="h-4 w-4 text-black" />
               </div>
-              <span className="text-base font-black text-white">TIÊN TÔN AUDIO</span>
+              <span className="text-base font-semibold tracking-tight text-white">Tiên Tôn Audio</span>
             </div>
             <p className="text-slate-400 leading-relaxed">
               Trang nghe truyện audio và đọc tiểu thuyết tiên hiệp, huyền huyễn, kiếm hiệp chuẩn âm thanh 320kbps với trợ lý AI Đạo Hữu.
@@ -22,7 +21,7 @@ export function Footer() {
 
           {/* Cột Thể Loại SEO */}
           <div>
-            <h3 className="font-bold text-white uppercase tracking-wider mb-3 text-sm">Thể Loại Hot</h3>
+            <h3 className="font-bold text-white uppercase tracking-wider mb-3 text-sm">Thể loại nổi bật</h3>
             <ul className="space-y-2">
               <li><Link href="/categories/tien-hiep" className="hover:text-[#ffb703]">Truyện Tiên Hiệp</Link></li>
               <li><Link href="/categories/huyen-huyen" className="hover:text-[#ffb703]">Truyện Huyền Huyễn</Link></li>
@@ -34,7 +33,7 @@ export function Footer() {
 
           {/* Cột Tác Phẩm Kinh Điển */}
           <div>
-            <h3 className="font-bold text-white uppercase tracking-wider mb-3 text-sm">Bảng Vàng Audio</h3>
+            <h3 className="font-bold text-white uppercase tracking-wider mb-3 text-sm">Truyện được yêu thích</h3>
             <ul className="space-y-2">
               <li><Link href="/stories/pham-nhan-tu-tien" className="hover:text-[#ffb703]">Phàm Nhân Tu Tiên Audio</Link></li>
               <li><Link href="/stories/vo-luyen-dinh-phong" className="hover:text-[#ffb703]">Võ Luyện Đỉnh Phong Audio</Link></li>
@@ -47,7 +46,10 @@ export function Footer() {
           <div>
             <h3 className="font-bold text-white uppercase tracking-wider mb-3 text-sm">Dịch Vụ & Pháp Lý</h3>
             <ul className="space-y-2">
-              <li className="flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Chính sách bản quyền DMCA</li>
+              <li><Link href="/about" className="hover:text-[#ffb703]">Về chúng tôi</Link></li>
+              <li><Link href="/policies" className="hover:text-[#ffb703]">Trung tâm chính sách</Link></li>
+              <li><Link href="/privacy" className="hover:text-[#ffb703]">Bảo mật & dữ liệu</Link></li>
+              <li className="flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> <Link href="/copyright" className="hover:text-[#ffb703]">Chính sách bản quyền</Link></li>
               <li className="flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 text-amber-400" /> <Link href="/vip" className="hover:text-[#ffb703]">Gói Hội Viên VIP Tiên Tôn</Link></li>
               <li className="flex items-center gap-1.5"><PenTool className="w-3.5 h-3.5 text-amber-400" /> <Link href="/studio" className="hover:text-[#ffb703]">Kênh Đối Tác Sáng Tác</Link></li>
               <li className="flex items-center gap-1.5"><Flame className="w-3.5 h-3.5 text-amber-400" /> <Link href="/cultivation" className="hover:text-[#ffb703]">17 Cảnh Giới Tu Tiên</Link></li>

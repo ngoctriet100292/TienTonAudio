@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
-import { ShieldAlert, X, Send, CheckCircle2, AlertCircle } from 'lucide-react';
-import { api } from '@/lib/api';
+import { getErrorMessage } from '@/lib/errors';
+
 import { useAuth } from '@/context/auth-context';
+import { api } from '@/lib/api';
+import { AlertCircle, CheckCircle2, Send, ShieldAlert, X } from 'lucide-react';
+import React, { useState } from 'react';
 
 interface ReportModalProps {
   isOpen: boolean;
@@ -59,8 +61,8 @@ export function ReportModal({ isOpen, onClose, targetType, targetId, targetTitle
         setMsg(null);
         setDescription('');
       }, 2000);
-    } catch (err: any) {
-      setMsg({ type: 'error', text: err.message || 'Lỗi gửi báo cáo' });
+    } catch (err: unknown) {
+      setMsg({ type: 'error', text: getErrorMessage(err) || 'Lỗi gửi báo cáo' });
     } finally {
       setSubmitting(false);
     }
@@ -90,11 +92,10 @@ export function ReportModal({ isOpen, onClose, targetType, targetId, targetTitle
 
         {msg && (
           <div
-            className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 border ${
-              msg.type === 'success'
+            className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 border ${msg.type === 'success'
                 ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/30'
                 : 'bg-rose-950/80 text-rose-300 border-rose-500/30'
-            }`}
+              }`}
           >
             {msg.type === 'success' ? (
               <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />

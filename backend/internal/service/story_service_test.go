@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	db "github.com/IREAKING/tientonaudio/backend/db/sqlc"
 	"github.com/IREAKING/tientonaudio/backend/pkg/utils"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type mockStoryRepo struct {
@@ -299,8 +299,6 @@ func (m *mockStoryRepo) GetFollowedNarrators(ctx context.Context, userID uuid.UU
 	return []db.GetFollowedNarratorsRow{{ID: 1, Name: "MC Đình Soạn", Slug: "mc-dinh-soan"}}, nil
 }
 
-
-
 func TestStoryService_ViewsAndFavorites(t *testing.T) {
 	repo := newMockStoryRepo()
 	svc := NewStoryService(repo, nil, nil)
@@ -417,3 +415,6 @@ func TestStoryService_RelatedAndFollows(t *testing.T) {
 	}
 }
 
+func (m *mockStoryRepo) GetStoryIDByChapterID(ctx context.Context, chapterID uuid.UUID) (uuid.UUID, error) {
+	return uuid.Nil, errors.New("chapter not found")
+}

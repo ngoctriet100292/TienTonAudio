@@ -20,15 +20,23 @@ type Service struct {
 	pool *pgxpool.Pool
 }
 
-func NewService(ctx context.Context, connString string) (*Service, error) {
+func NewService(ctx context.Context, connString string, maxConns, minConns int32) (*Service, error) {
 	config, err := pgxpool.ParseConfig(connString)
 	if err != nil {
 		return nil, err
 	}
 
-	// Tinh chỉnh pool settings
-	config.MaxConns = 30
-	config.MinConns = 5
+	// Tinh chỉnh pool settings theo config
+	if maxConns > 0 {
+		config.MaxConns = maxConns
+	} else {
+		config.MaxConns = 30
+	}
+	if minConns > 0 {
+		config.MinConns = minConns
+	} else {
+		config.MinConns = 5
+	}
 	config.MaxConnLifetime = 1 * time.Hour
 	config.MaxConnIdleTime = 15 * time.Minute
 
@@ -59,6 +67,13 @@ func (s *Service) Pool() *pgxpool.Pool {
 	return s.pool
 }
 
+func (s *Service) Ping(ctx context.Context) error {
+	if s.pool == nil {
+		return fmt.Errorf("database pool is not initialized")
+	}
+	return s.pool.Ping(ctx)
+}
+
 func (s *Service) Close() {
 	if s.pool != nil {
 		s.pool.Close()
@@ -71,6 +86,20 @@ func (s *Service) AutoMigrate(ctx context.Context) error {
 	if _, err := s.pool.Exec(ctx, schemaSQL); err != nil {
 		return fmt.Errorf("auto-migration failed: %w", err)
 	}
+
+	// Đảm bảo constraint quality hỗ trợ cả 320k và 320kbps
+	fixQualitySQL := `
+		DO $$
+		BEGIN
+			ALTER TABLE chapter_audio_files DROP CONSTRAINT IF EXISTS chapter_audio_files_quality_check;
+			ALTER TABLE chapter_audio_files ADD CONSTRAINT chapter_audio_files_quality_check
+				CHECK (quality IN ('64k', '128k', '320k', '320kbps', '128kbps', '64kbps', 'hls'));
+		EXCEPTION
+			WHEN OTHERS THEN NULL;
+		END $$;
+	`
+	_, _ = s.pool.Exec(ctx, fixQualitySQL)
+
 	slog.Info("database schema migration completed successfully")
 	return nil
 }

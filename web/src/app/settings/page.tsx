@@ -1,48 +1,51 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import {
-  User,
-  Lock,
-  ShieldCheck,
-  ShieldAlert,
-  CheckCircle2,
-  AlertCircle,
-  Copy,
-  Check,
-  Crown,
-  Settings as SettingsIcon,
-  Flame,
-  Zap,
-  Sparkles,
-  Award,
-  Upload,
-  Camera,
-  Heart,
-  HeartOff,
-  Clock,
-  CreditCard,
-  Receipt,
-  BookOpen,
-  Play,
-  Star,
-  Trash2,
-  Loader2,
-  ChevronRight,
-  ExternalLink,
-} from 'lucide-react';
+import { MediaImage } from '@/components/media-image';
+
+import { useAsyncResource } from '@/lib/use-async-resource';
+
+import { getErrorMessage } from '@/lib/errors';
+
+import { CultivationSpinner } from '@/components/cultivation-spinner';
+import { ALL_REALMS } from '@/components/cultivation-view';
 import { useAuth } from '@/context/auth-context';
 import { api } from '@/lib/api';
-import { ALL_REALMS, RealmItem } from '@/components/cultivation-view';
-import { CultivationSpinner } from '@/components/cultivation-spinner';
 import {
-  UserCultivation,
   FavoriteStoryItem,
   ListeningHistoryItem,
   PaymentHistoryItem,
+  UserCultivation,
+  UserSubscription,
 } from '@/types';
+import {
+  AlertCircle,
+  Award,
+  BookOpen,
+  Camera,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  Copy,
+  CreditCard,
+  Crown,
+  Flame,
+  Heart,
+  HeartOff,
+  Lock,
+  Play,
+  Receipt,
+  ShieldAlert,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  Upload,
+  User,
+  Zap
+} from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import React, { useEffect, useRef, useState } from 'react';
 
 type TabType = 'profile' | 'favorites' | 'history' | 'payments' | 'cultivation' | 'password' | '2fa';
 
@@ -62,12 +65,15 @@ export default function SettingsPage() {
   const [cultivationTierFilter, setCultivationTierFilter] = useState<'all' | 'pham' | 'tien' | 'chiton'>('all');
 
   // Tu vi state
-  const [cultivationData, setCultivationData] = useState<UserCultivation | null>(null);
-  const [cultivationLoading, setCultivationLoading] = useState(false);
+  const { data: cultivationData } = useAsyncResource<UserCultivation | null>(isAuthenticated && activeTab === 'cultivation' ? `settings-cultivation:${user?.id}` : null, () => api.getCultivation(), null);
 
   // Form profile & avatar
-  const [username, setUsername] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
+  const [usernameDraft, setUsernameDraft] = useState<{ userId: string; value: string } | null>(null);
+  const username = usernameDraft && usernameDraft.userId === user?.id ? usernameDraft.value : user?.username || '';
+  const setUsername = (value: string) => { if (user) setUsernameDraft({ userId: user.id, value }); };
+  const [avatarDraft, setAvatarDraft] = useState<{ userId: string; value: string } | null>(null);
+  const avatarUrl = avatarDraft && avatarDraft.userId === user?.id ? avatarDraft.value : user?.avatar_url || '';
+  const setAvatarUrl = (value: string) => { if (user) setAvatarDraft({ userId: user.id, value }); };
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [profileMsg, setProfileMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
@@ -80,7 +86,7 @@ export default function SettingsPage() {
   const [passwordLoading, setPasswordLoading] = useState(false);
 
   // Form 2FA
-  const [mfaSetupData, setMfaSetupData] = useState<{ secret: string; qr_code_url: string } | null>(null);
+  const [mfaSetupData, setMfaSetupData] = useState<{ secret: string; qr_code_url: string; qr_image_url: string } | null>(null);
   const [mfaOtp, setMfaOtp] = useState('');
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const [copiedCodes, setCopiedCodes] = useState(false);
@@ -88,47 +94,14 @@ export default function SettingsPage() {
   const [mfaLoading, setMfaLoading] = useState(false);
 
   // Favorites state
-  const [favorites, setFavorites] = useState<FavoriteStoryItem[]>([]);
-  const [favoritesLoading, setFavoritesLoading] = useState(false);
+  const { data: favorites, loading: favoritesLoading } = useAsyncResource<FavoriteStoryItem[]>(isAuthenticated && activeTab === 'favorites' ? `settings-favorites:${user?.id}` : null, () => api.getUserFavorites(), []);
 
   // History state
-  const [history, setHistory] = useState<ListeningHistoryItem[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
+  const { data: history, loading: historyLoading } = useAsyncResource<ListeningHistoryItem[]>(isAuthenticated && activeTab === 'history' ? `settings-history:${user?.id}` : null, () => api.getUserHistory(), []);
 
   // Payments state
-  const [payments, setPayments] = useState<PaymentHistoryItem[]>([]);
-  const [paymentsLoading, setPaymentsLoading] = useState(false);
-  const [activeSubscription, setActiveSubscription] = useState<any>(null);
-
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push('/login');
-    }
-    if (user) {
-      setUsername(user.username || '');
-      setAvatarUrl(user.avatar_url || '');
-    }
-  }, [user, isAuthenticated, isLoading, router]);
-
-  // Load data based on active tab
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    if (activeTab === 'cultivation') {
-      setCultivationLoading(true);
-      api.getCultivation().then(setCultivationData).finally(() => setCultivationLoading(false));
-    } else if (activeTab === 'favorites') {
-      setFavoritesLoading(true);
-      api.getUserFavorites().then(setFavorites).finally(() => setFavoritesLoading(false));
-    } else if (activeTab === 'history') {
-      setHistoryLoading(true);
-      api.getUserHistory().then(setHistory).finally(() => setHistoryLoading(false));
-    } else if (activeTab === 'payments') {
-      setPaymentsLoading(true);
-      api.getUserPayments().then(setPayments).finally(() => setPaymentsLoading(false));
-      api.getMySubscription().then(setActiveSubscription);
-    }
-  }, [activeTab, isAuthenticated]);
+  const { data: payments, loading: paymentsLoading } = useAsyncResource<PaymentHistoryItem[]>(isAuthenticated && activeTab === 'payments' ? `settings-payments:${user?.id}` : null, () => api.getUserPayments(), []);
+  const { data: activeSubscription } = useAsyncResource<UserSubscription | null>(isAuthenticated && activeTab === 'payments' ? `subscription:${user?.id}` : null, () => api.getMySubscription(), null);
 
   // 1. Tải ảnh đại diện lên (Upload Avatar)
   const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -153,8 +126,8 @@ export default function SettingsPage() {
       setAvatarUrl(res.avatar_url);
       await refreshProfile();
       setProfileMsg({ type: 'success', text: 'Tải và cập nhật ảnh đại diện thành công!' });
-    } catch (err: any) {
-      setProfileMsg({ type: 'error', text: err.message || 'Lỗi tải ảnh đại diện lên' });
+    } catch (err: unknown) {
+      setProfileMsg({ type: 'error', text: getErrorMessage(err) || 'Lỗi tải ảnh đại diện lên' });
     } finally {
       setIsUploadingAvatar(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -171,8 +144,8 @@ export default function SettingsPage() {
       await api.updateProfile({ username, avatar_url: avatarUrl });
       await refreshProfile();
       setProfileMsg({ type: 'success', text: 'Cập nhật hồ sơ đạo hữu thành công!' });
-    } catch (err: any) {
-      setProfileMsg({ type: 'error', text: err.message });
+    } catch (err: unknown) {
+      setProfileMsg({ type: 'error', text: getErrorMessage(err) });
     } finally {
       setProfileLoading(false);
     }
@@ -195,8 +168,8 @@ export default function SettingsPage() {
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (err: any) {
-      setPasswordMsg({ type: 'error', text: err.message });
+    } catch (err: unknown) {
+      setPasswordMsg({ type: 'error', text: getErrorMessage(err) });
     } finally {
       setPasswordLoading(false);
     }
@@ -208,9 +181,11 @@ export default function SettingsPage() {
     setMfaMsg(null);
     try {
       const data = await api.setup2FA();
-      setMfaSetupData(data);
-    } catch (err: any) {
-      setMfaMsg({ type: 'error', text: err.message });
+      const { toDataURL } = await import('qrcode');
+      const qrImage = await toDataURL(data.qr_code_url, { width: 256, margin: 2 });
+      setMfaSetupData({ ...data, qr_image_url: qrImage });
+    } catch (err: unknown) {
+      setMfaMsg({ type: 'error', text: getErrorMessage(err) });
     } finally {
       setMfaLoading(false);
     }
@@ -221,14 +196,15 @@ export default function SettingsPage() {
     setMfaMsg(null);
     setMfaLoading(true);
     try {
-      const data = await api.enable2FA(mfaOtp);
+      if (!mfaSetupData) throw new Error("Vui lòng thiết lập 2FA trước khi xác nhận.");
+      const data = await api.enable2FA(mfaSetupData.secret, mfaOtp);
       setBackupCodes(data?.backup_codes || []);
       setMfaMsg({ type: 'success', text: 'Kích hoạt 2FA thành công! Vui lòng lưu các mã cứu hộ dưới đây.' });
       await refreshProfile();
       setMfaSetupData(null);
       setMfaOtp('');
-    } catch (err: any) {
-      setMfaMsg({ type: 'error', text: err.message });
+    } catch (err: unknown) {
+      setMfaMsg({ type: 'error', text: getErrorMessage(err) });
     } finally {
       setMfaLoading(false);
     }
@@ -243,12 +219,20 @@ export default function SettingsPage() {
       await api.disable2FA(code);
       setMfaMsg({ type: 'success', text: 'Đã hủy bảo mật 2FA thành công.' });
       await refreshProfile();
-    } catch (err: any) {
-      setMfaMsg({ type: 'error', text: err.message });
+    } catch (err: unknown) {
+      setMfaMsg({ type: 'error', text: getErrorMessage(err) });
     } finally {
       setMfaLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [user, isAuthenticated, isLoading, router]);
+
+  // Load data based on active tab
 
   if (!user) return null;
 
@@ -257,7 +241,7 @@ export default function SettingsPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pt-8 pb-16 space-y-8">
       {/* Header Profile Banner */}
-      <div className="relative overflow-hidden rounded-3xl border border-amber-500/20 bg-gradient-to-r from-[#131b2e] via-[#0f172a] to-[#070a11] p-6 sm:p-8 shadow-2xl">
+      <div className="motion-card relative overflow-hidden rounded-3xl border border-amber-500/20 bg-gradient-to-r from-[#131b2e] via-[#0f172a] to-[#070a11] p-6 sm:p-8 shadow-2xl">
         <div className="absolute top-0 right-0 -mr-16 -mt-16 h-64 w-64 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
 
         <div className="flex flex-col sm:flex-row items-center gap-6 relative z-10">
@@ -265,7 +249,7 @@ export default function SettingsPage() {
           <div className="relative group">
             <div className="relative flex h-24 w-24 sm:h-28 sm:w-28 items-center justify-center rounded-full overflow-hidden border-2 border-amber-400/60 shadow-xl shadow-amber-500/20 bg-slate-800">
               {fullAvatar ? (
-                <img
+                <MediaImage
                   src={fullAvatar}
                   alt={user.username}
                   className="h-full w-full object-cover"
@@ -279,7 +263,7 @@ export default function SettingsPage() {
               {isUploadingAvatar && (
                 <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-amber-400 gap-1.5 backdrop-blur-sm">
                   <CultivationSpinner size="sm" showText={false} />
-                  <span className="text-[10px] font-bold">Đang tải lên R2...</span>
+                  <span className="text-[11px] font-bold">Đang tải lên R2...</span>
                 </div>
               )}
             </div>
@@ -344,77 +328,70 @@ export default function SettingsPage() {
       <div className="flex gap-2 border-b border-white/10 pb-px overflow-x-auto scrollbar-none">
         <button
           onClick={() => setActiveTab('profile')}
-          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold rounded-t-xl transition-all whitespace-nowrap ${
-            activeTab === 'profile'
+          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold rounded-t-xl transition-all whitespace-nowrap ${activeTab === 'profile'
               ? 'bg-slate-800 text-amber-400 border-b-2 border-amber-400'
               : 'text-slate-400 hover:text-white'
-          }`}
+            }`}
         >
           <User className="w-4 h-4" /> Hồ Sơ & Avatar
         </button>
 
         <button
           onClick={() => setActiveTab('favorites')}
-          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold rounded-t-xl transition-all whitespace-nowrap ${
-            activeTab === 'favorites'
+          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold rounded-t-xl transition-all whitespace-nowrap ${activeTab === 'favorites'
               ? 'bg-slate-800 text-amber-400 border-b-2 border-amber-400'
               : 'text-slate-400 hover:text-white'
-          }`}
+            }`}
         >
           <Heart className="w-4 h-4 text-rose-400" /> Truyện Yêu Thích
         </button>
 
         <button
           onClick={() => setActiveTab('history')}
-          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold rounded-t-xl transition-all whitespace-nowrap ${
-            activeTab === 'history'
+          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold rounded-t-xl transition-all whitespace-nowrap ${activeTab === 'history'
               ? 'bg-slate-800 text-amber-400 border-b-2 border-amber-400'
               : 'text-slate-400 hover:text-white'
-          }`}
+            }`}
         >
           <Clock className="w-4 h-4 text-blue-400" /> Truyện Đã Lưu & Lịch Sử
         </button>
 
         <button
           onClick={() => setActiveTab('payments')}
-          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold rounded-t-xl transition-all whitespace-nowrap ${
-            activeTab === 'payments'
+          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold rounded-t-xl transition-all whitespace-nowrap ${activeTab === 'payments'
               ? 'bg-slate-800 text-amber-400 border-b-2 border-amber-400'
               : 'text-slate-400 hover:text-white'
-          }`}
+            }`}
         >
           <Receipt className="w-4 h-4 text-emerald-400" /> Lịch Sử Thanh Toán
         </button>
 
         <button
           onClick={() => setActiveTab('cultivation')}
-          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold rounded-t-xl transition-all whitespace-nowrap ${
-            activeTab === 'cultivation'
+          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold rounded-t-xl transition-all whitespace-nowrap ${activeTab === 'cultivation'
               ? 'bg-slate-800 text-amber-400 border-b-2 border-amber-400'
               : 'text-slate-400 hover:text-white'
-          }`}
+            }`}
         >
           <Flame className="w-4 h-4 text-amber-400" /> Động Phủ Tu Vi
         </button>
 
         <button
           onClick={() => setActiveTab('password')}
-          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold rounded-t-xl transition-all whitespace-nowrap ${
-            activeTab === 'password'
+          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold rounded-t-xl transition-all whitespace-nowrap ${activeTab === 'password'
               ? 'bg-slate-800 text-amber-400 border-b-2 border-amber-400'
               : 'text-slate-400 hover:text-white'
-          }`}
+            }`}
         >
           <Lock className="w-4 h-4" /> Đổi Mật Khẩu
         </button>
 
         <button
           onClick={() => setActiveTab('2fa')}
-          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold rounded-t-xl transition-all whitespace-nowrap ${
-            activeTab === '2fa'
+          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold rounded-t-xl transition-all whitespace-nowrap ${activeTab === '2fa'
               ? 'bg-slate-800 text-amber-400 border-b-2 border-amber-400'
               : 'text-slate-400 hover:text-white'
-          }`}
+            }`}
         >
           <ShieldCheck className="w-4 h-4" /> Bảo Mật 2FA
         </button>
@@ -432,11 +409,10 @@ export default function SettingsPage() {
 
           {profileMsg && (
             <div
-              className={`p-3.5 rounded-xl text-xs flex items-center gap-2 ${
-                profileMsg.type === 'success'
+              className={`p-3.5 rounded-xl text-xs flex items-center gap-2 ${profileMsg.type === 'success'
                   ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
                   : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
-              }`}
+                }`}
             >
               {profileMsg.type === 'success' ? (
                 <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
@@ -457,7 +433,7 @@ export default function SettingsPage() {
               <div className="relative flex-shrink-0">
                 <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-amber-400/50 bg-slate-950 flex items-center justify-center">
                   {fullAvatar ? (
-                    <img src={fullAvatar} alt="Preview" className="h-full w-full object-cover" />
+                    <MediaImage src={fullAvatar} alt="Preview" className="h-full w-full object-cover" />
                   ) : (
                     <User className="w-8 h-8 text-slate-500" />
                   )}
@@ -597,7 +573,7 @@ export default function SettingsPage() {
                 >
                   <Link href={`/stories/${story.slug}`} className="block relative aspect-[2/3] overflow-hidden bg-slate-950">
                     {story.cover_image_url ? (
-                      <img
+                      <MediaImage
                         src={story.cover_image_url}
                         alt={story.title}
                         className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -607,7 +583,7 @@ export default function SettingsPage() {
                         Tiên Tôn
                       </div>
                     )}
-                    <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md text-[10px] font-black text-amber-400 flex items-center gap-1">
+                    <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md text-[11px] font-black text-amber-400 flex items-center gap-1">
                       <Star className="w-3 h-3 fill-amber-400" />
                       {story.rating_avg ? story.rating_avg.toFixed(1) : '5.0'}
                     </div>
@@ -699,9 +675,9 @@ export default function SettingsPage() {
                     <div className="flex items-center gap-4 flex-1 min-w-0">
                       <div className="h-16 w-12 flex-shrink-0 rounded-xl overflow-hidden bg-slate-800 border border-white/5">
                         {item.cover_image_url ? (
-                          <img src={item.cover_image_url} alt="" className="h-full w-full object-cover" />
+                          <MediaImage src={item.cover_image_url} alt="" className="h-full w-full object-cover" />
                         ) : (
-                          <div className="h-full w-full flex items-center justify-center text-[10px] text-slate-500">
+                          <div className="h-full w-full flex items-center justify-center text-[11px] text-slate-500">
                             Ảnh
                           </div>
                         )}
@@ -726,7 +702,7 @@ export default function SettingsPage() {
                               style={{ width: `${progressPct}%` }}
                             />
                           </div>
-                          <span className="text-[10px] font-mono text-slate-400">
+                          <span className="text-[11px] font-mono text-slate-400">
                             {item.duration_seconds > 0 ? `${progressPct}% đã nghe` : 'Đã đọc bản chữ'}
                           </span>
                         </div>
@@ -792,8 +768,8 @@ export default function SettingsPage() {
                 {activeSubscription?.expires_at
                   ? new Date(activeSubscription.expires_at).toLocaleDateString('vi-VN')
                   : user.is_premium
-                  ? 'Đang hiệu lực'
-                  : 'Không giới hạn'}
+                    ? 'Đang hiệu lực'
+                    : 'Không giới hạn'}
               </p>
             </div>
           </div>
@@ -826,7 +802,7 @@ export default function SettingsPage() {
           ) : (
             <div className="overflow-x-auto rounded-2xl border border-white/10 bg-slate-900/60">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-800/70 border-b border-white/10 text-slate-400 uppercase font-mono text-[10px]">
+                <thead className="bg-slate-800/70 border-b border-white/10 text-slate-400 uppercase font-mono text-[11px]">
                   <tr>
                     <th className="py-3 px-4">Gói Dịch Vụ</th>
                     <th className="py-3 px-4">Số Tiền</th>
@@ -846,7 +822,7 @@ export default function SettingsPage() {
                         <td className="py-3.5 px-4 font-bold text-white">
                           {p.plan_name || 'Gói VIP'}
                           {p.duration_days && (
-                            <span className="ml-1.5 text-[10px] text-slate-400 font-normal">
+                            <span className="ml-1.5 text-[11px] text-slate-400 font-normal">
                               ({p.duration_days} ngày)
                             </span>
                           )}
@@ -859,13 +835,12 @@ export default function SettingsPage() {
                         </td>
                         <td className="py-3.5 px-4">
                           <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                              isSuccess
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${isSuccess
                                 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
                                 : isPending
-                                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-                                : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
-                            }`}
+                                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                              }`}
                           >
                             {isSuccess ? 'Thành công' : isPending ? 'Chờ xử lý' : 'Thất bại'}
                           </span>
@@ -873,7 +848,7 @@ export default function SettingsPage() {
                         <td className="py-3.5 px-4 text-slate-400 font-mono">
                           {p.created_at ? new Date(p.created_at).toLocaleString('vi-VN') : '-'}
                         </td>
-                        <td className="py-3.5 px-4 font-mono text-slate-500 text-[10px]">
+                        <td className="py-3.5 px-4 font-mono text-slate-500 text-[11px]">
                           {p.transaction_id || p.id.slice(0, 8)}
                         </td>
                       </tr>
@@ -889,14 +864,14 @@ export default function SettingsPage() {
       {/* TAB 5: ĐỘNG PHỦ TU VI */}
       {activeTab === 'cultivation' && (
         <div className="space-y-8 animate-in fade-in-0 duration-300">
-          <div className="relative overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-b from-[#131b2e] to-[#0a0f1d] p-6 sm:p-8 shadow-2xl">
+          <div className="motion-card relative overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-b from-[#131b2e] to-[#0a0f1d] p-6 sm:p-8 shadow-2xl">
             <div className="absolute top-0 right-0 -mr-16 -mt-16 h-64 w-64 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
 
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 pb-6 border-b border-white/10">
               <div className="flex items-center gap-4">
                 <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-200 text-black shadow-lg shadow-amber-500/30">
                   <Flame className="w-8 h-8" />
-                  <span className="absolute -top-2 -right-2 px-2 py-0.5 rounded-full bg-slate-900 border border-amber-400/40 text-[10px] font-black text-amber-300">
+                  <span className="absolute -top-2 -right-2 px-2 py-0.5 rounded-full bg-slate-900 border border-amber-400/40 text-[11px] font-black text-amber-300">
                     Cấp {cultivationData?.level || user.cultivation_level || 1}
                   </span>
                 </div>
@@ -917,7 +892,7 @@ export default function SettingsPage() {
 
               <div className="flex items-center gap-3 w-full sm:w-auto">
                 <div className="px-4 py-2 rounded-xl bg-slate-800/80 border border-white/10 text-right w-full sm:w-auto">
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Hấp Thu Linh Khí</p>
+                  <p className="text-[11px] text-slate-400 uppercase tracking-wider font-bold">Hấp Thu Linh Khí</p>
                   <p className="text-base font-black text-emerald-400 font-mono">
                     {cultivationData?.exp_multiplier ? `${cultivationData.exp_multiplier}x` : '1.0x'} Tốc Độ
                   </p>
@@ -984,44 +959,40 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={() => setCultivationTierFilter('all')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                    cultivationTierFilter === 'all'
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${cultivationTierFilter === 'all'
                       ? 'bg-amber-400 text-black shadow-md shadow-amber-500/20'
                       : 'text-slate-400 hover:text-white'
-                  }`}
+                    }`}
                 >
                   Tất Cả (17)
                 </button>
                 <button
                   type="button"
                   onClick={() => setCultivationTierFilter('pham')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                    cultivationTierFilter === 'pham'
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${cultivationTierFilter === 'pham'
                       ? 'bg-sky-400 text-black shadow-md shadow-sky-500/20'
                       : 'text-slate-400 hover:text-white'
-                  }`}
+                    }`}
                 >
                   Phàm Giới (7)
                 </button>
                 <button
                   type="button"
                   onClick={() => setCultivationTierFilter('tien')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                    cultivationTierFilter === 'tien'
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${cultivationTierFilter === 'tien'
                       ? 'bg-purple-400 text-black shadow-md shadow-purple-500/20'
                       : 'text-slate-400 hover:text-white'
-                  }`}
+                    }`}
                 >
                   Tiên Giới (6)
                 </button>
                 <button
                   type="button"
                   onClick={() => setCultivationTierFilter('chiton')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                    cultivationTierFilter === 'chiton'
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${cultivationTierFilter === 'chiton'
                       ? 'bg-rose-400 text-black shadow-md shadow-rose-500/20'
                       : 'text-slate-400 hover:text-white'
-                  }`}
+                    }`}
                 >
                   Chí Tôn (4)
                 </button>
@@ -1040,13 +1011,12 @@ export default function SettingsPage() {
                 return (
                   <div
                     key={realm.level}
-                    className={`relative p-5 rounded-3xl border transition-all ${
-                      isCurrent
+                    className={`relative p-5 rounded-3xl border transition-all ${isCurrent
                         ? 'border-amber-400/80 bg-gradient-to-br from-amber-500/15 to-slate-900/90 shadow-xl shadow-amber-500/10 ring-1 ring-amber-400/30'
                         : isPassed
-                        ? 'border-emerald-500/25 bg-slate-900/50 hover:border-emerald-500/40'
-                        : 'border-white/5 bg-slate-900/30 opacity-70 hover:opacity-100 hover:border-white/10'
-                    }`}
+                          ? 'border-emerald-500/25 bg-slate-900/50 hover:border-emerald-500/40'
+                          : 'border-white/5 bg-slate-900/30 opacity-70 hover:opacity-100 hover:border-white/10'
+                      }`}
                   >
                     {/* Header Thẻ */}
                     <div className="flex items-start justify-between gap-3">
@@ -1065,7 +1035,7 @@ export default function SettingsPage() {
                           <div className="flex items-center gap-2">
                             <h5 className="text-base font-black text-white">{realm.name} Cảnh</h5>
                             <span
-                              className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                              className="text-[11px] font-bold px-2 py-0.5 rounded-full"
                               style={{
                                 backgroundColor: `${realm.color}20`,
                                 color: realm.color,
@@ -1083,13 +1053,12 @@ export default function SettingsPage() {
 
                       {/* Huy hiệu trạng thái */}
                       <span
-                        className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase font-mono tracking-wider flex-shrink-0 flex items-center gap-1 ${
-                          isCurrent
+                        className={`text-[11px] font-bold px-2.5 py-1 rounded-full uppercase font-mono tracking-wider flex-shrink-0 flex items-center gap-1 ${isCurrent
                             ? 'bg-amber-400 text-black shadow-md shadow-amber-500/20 animate-pulse'
                             : isPassed
-                            ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                            : 'bg-slate-800 text-slate-400 border border-white/5'
-                        }`}
+                              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                              : 'bg-slate-800 text-slate-400 border border-white/5'
+                          }`}
                       >
                         {isCurrent ? '🌟 Đang Tu' : isPassed ? '✓ Đã Đột Phá' : '🔒 Chưa Đạt'}
                       </span>
@@ -1249,7 +1218,7 @@ export default function SettingsPage() {
               </p>
 
               <div className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl max-w-xs mx-auto">
-                <img src={mfaSetupData.qr_code_url} alt="QR Code 2FA" className="w-48 h-48" />
+                <MediaImage src={mfaSetupData.qr_image_url} unoptimized width={256} height={256} alt="QR Code 2FA" className="w-48 h-48" />
               </div>
 
               <div className="space-y-1">

@@ -1,11 +1,11 @@
-import React from 'react';
+
+import { FavoriteButton } from '@/components/favorite-button';
+import { MediaImage } from '@/components/media-image';
+import { StoryStatusBadge } from '@/components/story-status-badge';
+import { api } from '@/lib/api';
+import { ArrowUpDown, Filter, Headphones, Search, Sparkles, Star } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Search, Star, Headphones, Filter, ArrowUpDown, Sparkles } from 'lucide-react';
-import { api } from '@/lib/api';
-import { Story } from '@/types';
-import { StoryStatusBadge } from '@/components/story-status-badge';
-import { FavoriteButton } from '@/components/favorite-button';
 
 export const metadata: Metadata = {
   title: 'Tìm Kiếm Truyện Tiên Hiệp Audio',
@@ -23,9 +23,9 @@ export default async function SearchPage({ searchParams }: Props) {
   const currentSort = sort || 'views';
 
   const rawResults = query ? await api.searchStories(query) : await api.getStories(1, 24);
-  
+
   // Lọc theo trạng thái
-  let results = currentStatus
+  const results = currentStatus
     ? rawResults.filter((s) => s.status === currentStatus)
     : [...rawResults];
 
@@ -91,11 +91,10 @@ export default async function SearchPage({ searchParams }: Props) {
                 <Link
                   key={f.value}
                   href={buildFilterUrl(f.value, undefined)}
-                  className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all ${
-                    isActive
+                  className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all ${isActive
                       ? 'bg-amber-500 text-black border-amber-500 shadow-md shadow-amber-500/20'
                       : 'bg-slate-900/80 text-slate-300 border-white/10 hover:border-amber-500/40 hover:text-white'
-                  }`}
+                    }`}
                 >
                   {f.label}
                 </Link>
@@ -115,11 +114,10 @@ export default async function SearchPage({ searchParams }: Props) {
                 <Link
                   key={opt.value}
                   href={buildFilterUrl(undefined, opt.value)}
-                  className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all ${
-                    isActive
+                  className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all ${isActive
                       ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm'
                       : 'bg-slate-900/60 text-slate-400 border-white/10 hover:border-white/20 hover:text-white'
-                  }`}
+                    }`}
                 >
                   {opt.label}
                 </Link>
@@ -148,7 +146,7 @@ export default async function SearchPage({ searchParams }: Props) {
             >
               <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-slate-800">
                 {story.cover_image_url && (
-                  <img
+                  <MediaImage
                     src={story.cover_image_url}
                     alt={story.title}
                     className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"

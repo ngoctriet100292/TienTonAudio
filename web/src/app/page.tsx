@@ -1,11 +1,12 @@
-import React from 'react';
-import Link from 'next/link';
-import { Play, Star, Headphones, Sparkles, Flame, BookOpen, Crown, ChevronRight, MessageSquare, Zap, PenTool, ShieldCheck, QrCode } from 'lucide-react';
-import { Story } from '@/types';
-import { StoryStatusBadge } from '@/components/story-status-badge';
+
 import { FavoriteButton } from '@/components/favorite-button';
+import { MediaImage } from '@/components/media-image';
 import { ResumePlaybackWidget } from '@/components/resume-playback-widget';
+import { StoryStatusBadge } from '@/components/story-status-badge';
 import { api } from '@/lib/api';
+import { Story } from '@/types';
+import { BookOpen, ChevronRight, Crown, Flame, Headphones, MessageSquare, PenTool, Play, Sparkles, Star, Zap } from 'lucide-react';
+import Link from 'next/link';
 
 // Mock data dự phòng khi backend chưa khởi động
 const MOCK_TOP_STORIES: Story[] = [
@@ -68,12 +69,12 @@ const MOCK_TOP_STORIES: Story[] = [
 ];
 
 const CATEGORIES = [
-  { name: 'Tất Cả', icon: '✨', count: 120 },
-  { name: 'Tiên Hiệp', icon: '⚔️', count: 48 },
-  { name: 'Huyền Huyễn', icon: '🔮', count: 35 },
-  { name: 'Trùng Sinh', icon: '⚡', count: 19 },
-  { name: 'Kiếm Hiệp', icon: '🗡️', count: 14 },
-  { name: 'Đô Thị Tu Tiên', icon: '🏙️', count: 12 },
+  { slug: '', name: 'Tất cả', icon: '✨', count: 120 },
+  { slug: 'tien-hiep', name: 'Tiên hiệp', icon: '⚔️', count: 48 },
+  { slug: 'huyen-huyen', name: 'Huyền huyễn', icon: '🔮', count: 35 },
+  { slug: 'trung-sinh', name: 'Trùng sinh', icon: '⚡', count: 19 },
+  { slug: 'kiem-hiep', name: 'Kiếm hiệp', icon: '🗡️', count: 14 },
+  { slug: 'do-thi', name: 'Đô thị tu tiên', icon: '🏙️', count: 12 },
 ];
 
 export default async function HomePage() {
@@ -86,43 +87,54 @@ export default async function HomePage() {
   const heroStory = stories[0] || MOCK_TOP_STORIES[0];
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-10 sm:space-y-14 pt-6">
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-10 sm:space-y-14 pt-5 sm:pt-8">
       {/* 0. Widget Đang Nghe Dở / Tiếp Tục Tu Luyện (Nếu có phiên trước đó) */}
       <ResumePlaybackWidget />
 
-      {/* 1. Hero Spotlight Banner */}
-      <section className="relative overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-r from-[#141b2b] via-[#0f172a] to-[#0a0f1d] p-8 sm:p-12 shadow-2xl shadow-amber-500/10">
-        <div className="absolute -right-16 -bottom-16 h-80 w-80 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
-        <div className="relative z-10 max-w-2xl space-y-6">
-          <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-3.5 py-1 text-xs font-bold text-amber-400">
-            <Sparkles className="h-3.5 w-3.5" />
-            TIÊN TÔN AUDIO STUDIO 320KBPS
+      <section className="hero-spotlight relative overflow-hidden rounded-[28px] border border-white/10 px-6 py-10 sm:px-10 sm:py-12 lg:px-14 lg:py-14">
+        <div className="relative grid items-center gap-10 md:grid-cols-[1.35fr_0.8fr] lg:gap-16">
+          <div className="max-w-2xl">
+            <div className="mb-6 inline-flex items-center gap-2.5 text-xs font-medium tracking-[0.14em] text-amber-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+              KHÔNG GIAN TRUYỆN & AUDIO
+            </div>
+            <h1 className="hero-title text-[36px] text-white sm:text-[48px] lg:text-[58px]">
+              Mỗi câu chuyện,<br />
+              <span className="gold-text">một thế giới để lắng nghe.</span>
+            </h1>
+            <p className="mt-6 max-w-xl text-sm leading-[1.85] text-slate-300 sm:text-base">
+              Dành một khoảng thời gian cho riêng mình. Khám phá truyện tiên hiệp,
+              đắm chìm trong giọng đọc yêu thích và tiếp tục câu chuyện ở bất cứ đâu.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link href={`/stories/${heroStory.slug}`} className="gold-gradient inline-flex min-h-12 items-center justify-center gap-2.5 rounded-xl px-6 text-sm font-semibold text-slate-950 shadow-lg shadow-black/15 transition-transform hover:-translate-y-0.5">
+                <Play className="h-4 w-4 fill-current" />
+                Bắt đầu lắng nghe
+              </Link>
+              <Link href="/categories" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.035] px-5 text-sm font-medium text-slate-200 transition-colors hover:border-white/25 hover:bg-white/[0.07]">
+                Khám phá thư viện <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+            <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-400">
+              <span className="inline-flex items-center gap-2"><Headphones className="h-3.5 w-3.5 text-amber-300" /> Âm thanh 320kbps</span>
+              <span className="inline-flex items-center gap-2"><BookOpen className="h-3.5 w-3.5 text-amber-300" /> Nghe và đọc cùng lúc</span>
+            </div>
           </div>
-
-          <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white leading-tight">
-            Thưởng Thức <span className="gold-text">Tuyệt Phẩm Audio</span> Tiên Hiệp Đỉnh Cao
-          </h1>
-
-          <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
-            Hàng ngàn chương truyện tiên hiệp, huyền huyễn chất lượng phòng thu 320kbps. Nghe audio mượt mà trên mọi thiết bị và đàm đạo cốt truyện cùng trợ lý AI Đạo Hữu.
-          </p>
-
-          <div className="flex flex-wrap items-center gap-4 pt-2">
-            <Link
-              href={`/stories/${heroStory.slug}`}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#ffd166] to-[#ffb703] px-6 py-3 text-sm font-black text-black shadow-lg shadow-amber-500/30 hover:scale-105 active:scale-95 transition-all"
-            >
-              <Play className="h-4 w-4 fill-current" />
-              Nghe: {heroStory.title.length > 25 ? heroStory.title.slice(0, 25) + '...' : heroStory.title}
-            </Link>
-            <Link
-              href="/categories"
-              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold text-white hover:bg-white/10 transition-colors backdrop-blur-md"
-            >
-              <BookOpen className="h-4 w-4" />
-              Xem Toàn Bộ Thể Loại
-            </Link>
-          </div>
+          <Link href={`/stories/${heroStory.slug}`} className="group relative mx-auto hidden w-full max-w-[260px] md:block lg:max-w-[280px]" aria-label={`Khám phá ${heroStory.title}`}>
+            <div className="hero-cover relative aspect-[3/4] overflow-hidden rounded-[18px] border border-white/15 bg-slate-800">
+              <MediaImage src={heroStory.cover_image_url} alt={heroStory.title} width={420} height={560} sizes="280px" preload className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/10 to-transparent" />
+              <span className="absolute left-4 top-4 rounded-full border border-white/20 bg-slate-950/65 px-3 py-1.5 text-[11px] font-medium text-amber-200 backdrop-blur-md">Lựa chọn hôm nay</span>
+              <div className="absolute inset-x-5 bottom-5">
+                <p className="mb-2 text-xs text-amber-200">{heroStory.author_name || 'Tiên Tôn Audio'}</p>
+                <h2 className="text-lg font-semibold leading-relaxed text-white">{heroStory.title}</h2>
+                <div className="mt-4 flex items-center justify-between border-t border-white/15 pt-3 text-xs text-slate-300">
+                  <span>{heroStory.total_chapters.toLocaleString('vi-VN')} chương</span>
+                  <span className="flex items-center gap-1.5"><Star className="h-3.5 w-3.5 fill-amber-300 text-amber-300" /> {heroStory.rating_avg.toFixed(1)}</span>
+                </div>
+              </div>
+            </div>
+          </Link>
         </div>
       </section>
 
@@ -131,7 +143,7 @@ export default async function HomePage() {
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <Flame className="w-5 h-5 text-amber-400" />
-            Khám Phá Theo Thể Loại
+            Tìm câu chuyện hợp với bạn
           </h2>
           <Link href="/categories" className="text-xs text-amber-400 hover:underline flex items-center gap-1 font-semibold">
             Xem tất cả <ChevronRight className="w-3 h-3" />
@@ -140,40 +152,40 @@ export default async function HomePage() {
 
         <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
           {CATEGORIES.map((cat, idx) => (
-            <button
+            <Link
+              href={cat.slug ? `/categories/${cat.slug}` : '/categories'}
               key={cat.name}
-              className={`flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-2xl border text-xs font-semibold transition-all ${
-                idx === 0
+              className={`flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-2xl border text-xs font-semibold transition-all ${idx === 0
                   ? 'bg-gradient-to-r from-[#ffd166] to-[#ffb703] text-black border-transparent shadow-md shadow-amber-500/20'
                   : 'bg-slate-900/60 border-white/10 text-slate-300 hover:border-amber-500/40 hover:text-white'
-              }`}
+                }`}
             >
               <span>{cat.icon}</span>
               <span>{cat.name}</span>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${idx === 0 ? 'bg-black/20 text-black' : 'bg-slate-800 text-slate-400'}`}>
+              <span className={`text-[11px] px-1.5 py-0.5 rounded-full ${idx === 0 ? 'bg-black/20 text-black' : 'bg-slate-800 text-slate-400'}`}>
                 {cat.count}
               </span>
-            </button>
+            </Link>
           ))}
         </div>
       </section>
 
-      {/* 3. Bảng Vàng Tiên Vương (Top Views Leaderboard) */}
+      {/* 3. Được nghe nhiều nhất (Top Views Leaderboard) */}
       <section className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-black text-white flex items-center gap-2">
               <Crown className="w-6 h-6 text-[#ffd166]" />
-              Bảng Vàng Tiên Vương
+              Được nghe nhiều nhất
             </h2>
-            <p className="text-xs text-slate-400 mt-1">Các tác phẩm có lượng Đạo Hữu lắng nghe đông đảo nhất tuần</p>
+            <p className="text-xs text-slate-400 mt-1">Những câu chuyện được cộng đồng yêu thích</p>
           </div>
           <Link href="/rankings" className="text-xs text-amber-400 hover:underline flex items-center gap-1 font-semibold">
-            Bảng Xếp Hạng Đầy Đủ <ChevronRight className="w-3 h-3" />
+            Xem bảng xếp hạng <ChevronRight className="w-3 h-3" />
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
           {stories.map((story, index) => {
             const rankBadges = [
               'bg-gradient-to-r from-amber-300 to-amber-500 text-black', // #1
@@ -185,11 +197,11 @@ export default async function HomePage() {
               <Link
                 key={story.id}
                 href={`/stories/${story.slug}`}
-                className="group relative flex flex-col glass-card rounded-2xl overflow-hidden p-3"
+                className="story-card group relative flex flex-col glass-card rounded-2xl overflow-hidden p-3"
               >
                 {/* Ảnh bìa & Huy hiệu thứ hạng */}
                 <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-slate-800">
-                  <img
+                  <MediaImage
                     src={story.cover_image_url}
                     alt={story.title}
                     className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -241,17 +253,17 @@ export default async function HomePage() {
       </section>
 
       {/* 4. Banner Nâng Cấp VIP & VietQR Tự Động */}
-      <section className="relative overflow-hidden rounded-3xl border border-amber-500/40 bg-gradient-to-r from-[#1c2438] via-[#0f172a] to-[#1a1528] p-8 sm:p-10 shadow-2xl shadow-amber-500/10 flex flex-col lg:flex-row items-center justify-between gap-6">
+      <section className="feature-banner relative overflow-hidden rounded-3xl border border-amber-500/20 bg-gradient-to-r from-[#1c2438] via-[#0f172a] to-[#1a1528] p-8 sm:p-10 shadow-2xl shadow-amber-500/10 flex flex-col lg:flex-row items-center justify-between gap-6">
         <div className="space-y-3 max-w-xl">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-bold uppercase tracking-wider">
             <Crown className="w-3.5 h-3.5" />
             Hội Viên VIP Tiên Tôn
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white">
-            Âm Thanh Chuẩn 320kbps • <span className="gold-text">Đột Phá Tu Vi</span>
+            Lắng nghe trọn vẹn. <span className="gold-text">Tận hưởng nhiều hơn.</span>
           </h2>
           <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-            Mở khóa 100% tập audio độc quyền, không quảng cáo và nhận đan dược cộng hàng ngàn điểm Tu Vi thăng cấp Cảnh Giới. Thanh toán tự động qua <strong className="text-white">VietQR Napas 24/7</strong> kích hoạt tức thời.
+            Khám phá các chương dành riêng cho hội viên và tích lũy Tu Vi trên hành trình lắng nghe. Gói VIP được kích hoạt sau khi thanh toán được xác nhận.
           </p>
         </div>
 
@@ -261,20 +273,20 @@ export default async function HomePage() {
             className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#ffd166] to-[#ffb703] hover:from-amber-400 hover:to-amber-500 text-black font-black px-6 py-3.5 shadow-xl shadow-amber-500/25 transition-all hover:scale-105"
           >
             <Zap className="w-4 h-4" />
-            Nâng Cấp VIP Ngay (49k/tháng)
+            Khám phá gói VIP
           </Link>
           <Link
             href="/cultivation"
             className="inline-flex items-center gap-2 rounded-2xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white border border-white/10 font-bold text-xs px-5 py-3.5 transition-all"
           >
             <Flame className="w-4 h-4 text-amber-400" />
-            Xem 17 Cảnh Giới
+            Hành trình Tu Vi
           </Link>
         </div>
       </section>
 
       {/* 5. Banner Kênh Đối Tác Sáng Tác Studio */}
-      <section className="rounded-3xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/40 via-slate-900 to-slate-900 p-8 sm:p-10 flex flex-col md:flex-row items-center justify-between gap-6 backdrop-blur-xl">
+      <section className="feature-banner rounded-3xl border border-emerald-500/20 bg-gradient-to-r from-emerald-950/40 via-slate-900 to-slate-900 p-8 sm:p-10 flex flex-col md:flex-row items-center justify-between gap-6 backdrop-blur-xl">
         <div className="space-y-3 max-w-xl">
           <div className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-400 uppercase tracking-widest">
             <PenTool className="w-4 h-4" />
@@ -298,7 +310,7 @@ export default async function HomePage() {
       </section>
 
       {/* 6. AI Đạo Hữu Banner */}
-      <section className="rounded-3xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-slate-900/80 p-8 sm:p-10 flex flex-col md:flex-row items-center justify-between gap-6 backdrop-blur-xl">
+      <section className="feature-banner rounded-3xl border border-indigo-500/20 bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-slate-900/80 p-8 sm:p-10 flex flex-col md:flex-row items-center justify-between gap-6 backdrop-blur-xl">
         <div className="space-y-3 max-w-xl">
           <div className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-400 uppercase tracking-widest">
             <Sparkles className="w-4 h-4" />

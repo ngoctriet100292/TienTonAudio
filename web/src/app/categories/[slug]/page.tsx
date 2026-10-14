@@ -1,11 +1,13 @@
-import React from 'react';
+
+import { serializeJsonLd } from '@/lib/json-ld';
+
+import { FavoriteButton } from '@/components/favorite-button';
+import { MediaImage } from '@/components/media-image';
+import { StoryStatusBadge } from '@/components/story-status-badge';
+import { api } from '@/lib/api';
+import { ArrowLeft, Headphones, Sparkles, Star } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { BookOpen, Headphones, Star, Sparkles, ArrowLeft } from 'lucide-react';
-import { api } from '@/lib/api';
-import { Story } from '@/types';
-import { StoryStatusBadge } from '@/components/story-status-badge';
-import { FavoriteButton } from '@/components/favorite-button';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -64,11 +66,11 @@ export default async function CategoryDetailPage({ params }: Props) {
 
   // Lấy danh sách truyện từ API
   const allStories = await api.getStories(1, 30);
-  
+
   // Lọc theo thể loại
   const filteredStories = allStories.filter((s) => {
     if (!s.categories || !Array.isArray(s.categories)) return true;
-    return s.categories.some((c: any) => {
+    return s.categories.some((c) => {
       const cName = typeof c === 'string' ? c.toLowerCase() : (c?.name || '').toLowerCase();
       const targetName = categoryInfo.name.toLowerCase();
       return cName.includes(targetName) || targetName.includes(cName);
@@ -117,7 +119,7 @@ export default async function CategoryDetailPage({ params }: Props) {
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8 space-y-8 pb-16">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
 
       {/* Header Thể Loại */}
@@ -165,7 +167,7 @@ export default async function CategoryDetailPage({ params }: Props) {
             >
               <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-slate-800">
                 {story.cover_image_url && (
-                  <img
+                  <MediaImage
                     src={story.cover_image_url}
                     alt={story.title}
                     className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"

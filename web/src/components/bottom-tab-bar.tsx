@@ -1,20 +1,18 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Compass, BookOpen, Crown, Bookmark, Sparkles, User, LogIn } from 'lucide-react';
+import { MediaImage } from '@/components/media-image';
+
 import { useAuth } from '@/context/auth-context';
 import { getFullAvatarUrl } from '@/lib/api';
+import { useHydrated } from '@/lib/use-hydrated';
+import { Bookmark, BookOpen, Compass, Crown, Sparkles, User } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 export function BottomTabBar() {
   const pathname = usePathname();
   const { user, isAuthenticated } = useAuth();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useHydrated();
 
   const navItems = [
     {
@@ -59,30 +57,27 @@ export function BottomTabBar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition-all ${
-                item.isActive
+              className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition-all ${item.isActive
                   ? 'text-amber-400 scale-105'
                   : 'text-slate-400 hover:text-slate-200'
-              }`}
+                }`}
             >
               <div className="relative">
                 <Icon
-                  className={`w-5 h-5 ${
-                    item.isActive
+                  className={`w-5 h-5 ${item.isActive
                       ? 'text-amber-400 stroke-[2.5]'
                       : item.highlight
-                      ? 'text-amber-300'
-                      : 'text-slate-400'
-                  }`}
+                        ? 'text-amber-300'
+                        : 'text-slate-400'
+                    }`}
                 />
                 {item.highlight && !item.isActive && (
                   <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
                 )}
               </div>
               <span
-                className={`text-[10px] font-semibold mt-0.5 truncate max-w-[56px] text-center ${
-                  item.isActive ? 'text-amber-400 font-bold' : ''
-                }`}
+                className={`text-[11px] font-semibold mt-0.5 truncate max-w-[56px] text-center ${item.isActive ? 'text-amber-400 font-bold' : ''
+                  }`}
               >
                 {item.label}
               </span>
@@ -93,17 +88,16 @@ export function BottomTabBar() {
         {/* Tab Cá Nhân / Tu Vi */}
         <Link
           href={mounted && isAuthenticated ? '/settings' : '/login'}
-          className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition-all ${
-            pathname.startsWith('/settings') || pathname.startsWith('/login')
+          className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition-all ${pathname.startsWith('/settings') || pathname.startsWith('/login')
               ? 'text-amber-400 scale-105'
               : 'text-slate-400 hover:text-slate-200'
-          }`}
+            }`}
         >
           {mounted && isAuthenticated && user ? (
             <div className="relative">
-              <div className="w-5 h-5 rounded-full overflow-hidden border border-amber-400/80 bg-slate-800 flex items-center justify-center text-[9px] font-bold text-amber-300">
+              <div className="w-5 h-5 rounded-full overflow-hidden border border-amber-400/80 bg-slate-800 flex items-center justify-center text-[11px] font-bold text-amber-300">
                 {user.avatar_url ? (
-                  <img
+                  <MediaImage
                     src={getFullAvatarUrl(user.avatar_url)}
                     alt={user.username}
                     className="w-full h-full object-cover"
@@ -118,11 +112,10 @@ export function BottomTabBar() {
             <User className="w-5 h-5 text-slate-400" />
           )}
           <span
-            className={`text-[10px] font-semibold mt-0.5 truncate max-w-[56px] text-center ${
-              pathname.startsWith('/settings') || pathname.startsWith('/login')
+            className={`text-[11px] font-semibold mt-0.5 truncate max-w-[56px] text-center ${pathname.startsWith('/settings') || pathname.startsWith('/login')
                 ? 'text-amber-400 font-bold'
                 : ''
-            }`}
+              }`}
           >
             {mounted && isAuthenticated ? 'Tu Vi' : 'Tài Khoản'}
           </span>

@@ -1,84 +1,32 @@
 'use client';
+import { useAsyncResource } from '@/lib/use-async-resource';
 
-import React, { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { CultivationSpinner } from '@/components/cultivation-spinner';
+import { useAuth } from '@/context/auth-context';
+import { api } from '@/lib/api';
+import { NotificationItem } from '@/types';
 import {
   Bell,
-  MessageSquare,
   BookOpen,
-  Crown,
-  Sparkles,
-  CheckCheck,
   Check,
-  Clock,
+  CheckCheck,
   ChevronRight,
-  Info,
+  Clock,
+  Crown,
+  MessageSquare,
+  Sparkles
 } from 'lucide-react';
-import { api } from '@/lib/api';
-import { useAuth } from '@/context/auth-context';
-import { NotificationItem } from '@/types';
-import { CultivationSpinner } from '@/components/cultivation-spinner';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import React, { useEffect, useRef, useState } from 'react';
 
 export function NotificationDropdown() {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [open, setOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const { data: notifications, setData: setNotifications, loading } = useAsyncResource<NotificationItem[]>(isAuthenticated && open ? `notifications:${user?.id}` : null, () => api.getNotifications(1, 15), []);
+  const { data: unreadCount, setData: setUnreadCount, reload: fetchUnreadCount } = useAsyncResource(isAuthenticated ? `unread:${user?.id}` : null, () => api.getUnreadNotificationCount(), 0);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const fetchUnreadCount = async () => {
-    if (!isAuthenticated) return;
-    try {
-      const count = await api.getUnreadNotificationCount();
-      setUnreadCount(count);
-    } catch {
-      // Bỏ qua lỗi kết nối
-    }
-  };
-
-  const fetchNotifications = async () => {
-    if (!isAuthenticated) return;
-    setLoading(true);
-    try {
-      const [items, count] = await Promise.all([
-        api.getNotifications(1, 15),
-        api.getUnreadNotificationCount(),
-      ]);
-      setNotifications(items);
-      setUnreadCount(count);
-    } catch {
-      // Bỏ qua lỗi
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 45000); // Cập nhật định kỳ 45s
-    return () => clearInterval(interval);
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    if (open) {
-      fetchNotifications();
-    }
-  }, [open]);
-
-  // Đóng dropdown khi click ra ngoài
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   const handleMarkAsRead = async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -157,6 +105,24 @@ export function NotificationDropdown() {
     }
   };
 
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const interval = setInterval(fetchUnreadCount, 45000); // Cập nhật định kỳ 45s
+    return () => clearInterval(interval);
+  }, [isAuthenticated, fetchUnreadCount]);
+
+
+  // Đóng dropdown khi click ra ngoài
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   if (!isAuthenticated) return null;
 
   return (
@@ -170,7 +136,7 @@ export function NotificationDropdown() {
       >
         <Bell className="w-5 h-5" />
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 to-amber-600 text-black text-[10px] font-black shadow-md shadow-amber-500/40 animate-pulse">
+          <span className="absolute top-1 right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 to-amber-600 text-black text-[11px] font-black shadow-md shadow-amber-500/40 animate-pulse">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -187,7 +153,7 @@ export function NotificationDropdown() {
                 Linh Thư Báo Tin
               </span>
               {unreadCount > 0 && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
                   {unreadCount} mới
                 </span>
               )}
@@ -224,9 +190,8 @@ export function NotificationDropdown() {
                 <div
                   key={item.id}
                   onClick={() => handleItemClick(item)}
-                  className={`p-3 sm:p-3.5 flex items-start gap-3 hover:bg-slate-800/60 transition-colors cursor-pointer group relative ${
-                    !item.is_read ? 'bg-amber-500/[0.04]' : ''
-                  }`}
+                  className={`p-3 sm:p-3.5 flex items-start gap-3 hover:bg-slate-800/60 transition-colors cursor-pointer group relative ${!item.is_read ? 'bg-amber-500/[0.04]' : ''
+                    }`}
                 >
                   {/* Icon loại thông báo */}
                   {getNotificationIcon(item.type)}
@@ -235,9 +200,8 @@ export function NotificationDropdown() {
                   <div className="flex-1 min-w-0 pr-2">
                     <div className="flex items-center justify-between gap-1">
                       <h4
-                        className={`text-xs font-bold truncate ${
-                          !item.is_read ? 'text-white' : 'text-slate-300'
-                        }`}
+                        className={`text-xs font-bold truncate ${!item.is_read ? 'text-white' : 'text-slate-300'
+                          }`}
                       >
                         {item.title}
                       </h4>
@@ -248,7 +212,7 @@ export function NotificationDropdown() {
                     <p className="text-[11px] text-slate-400 mt-1 line-clamp-2 leading-relaxed">
                       {item.message}
                     </p>
-                    <div className="flex items-center gap-1 text-[10px] text-slate-500 mt-1.5 font-mono">
+                    <div className="flex items-center gap-1 text-[11px] text-slate-500 mt-1.5 font-mono">
                       <Clock className="w-2.5 h-2.5" />
                       <span>{formatRelativeTime(item.created_at)}</span>
                     </div>

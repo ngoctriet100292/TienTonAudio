@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { ListMusic, Plus, Check, X, FolderPlus } from 'lucide-react';
-import { api } from '@/lib/api';
+import { useAsyncResource } from '@/lib/use-async-resource';
+
 import { useAuth } from '@/context/auth-context';
+import { api } from '@/lib/api';
 import { Playlist } from '@/types';
+import { Check, FolderPlus, ListMusic, Plus, X } from 'lucide-react';
+import React, { useState } from 'react';
 
 interface AddToPlaylistModalProps {
   isOpen: boolean;
@@ -20,31 +22,12 @@ export function AddToPlaylistModal({
   chapterTitle,
 }: AddToPlaylistModalProps) {
   const { isAuthenticated } = useAuth();
-  const [playlists, setPlaylists] = useState<Playlist[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { data: playlists, setData: setPlaylists, loading } = useAsyncResource<Playlist[]>(isOpen && isAuthenticated ? `add-playlist:${chapterId}` : null, () => api.getUserPlaylists(), []);
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [addedMap, setAddedMap] = useState<{ [key: string]: boolean }>({});
   const [showCreate, setShowCreate] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [creating, setCreating] = useState(false);
-
-  useEffect(() => {
-    if (isOpen && isAuthenticated) {
-      loadPlaylists();
-    }
-  }, [isOpen, isAuthenticated]);
-
-  const loadPlaylists = async () => {
-    setLoading(true);
-    try {
-      const data = await api.getUserPlaylists();
-      setPlaylists(data || []);
-    } catch {
-      // Fallback
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleAdd = async (playlistId: string) => {
     setAddingTo(playlistId);
@@ -76,6 +59,8 @@ export function AddToPlaylistModal({
       setCreating(false);
     }
   };
+
+
 
   if (!isOpen) return null;
 
@@ -119,11 +104,10 @@ export function AddToPlaylistModal({
                   <button
                     onClick={() => handleAdd(pl.id)}
                     disabled={isAdded || addingTo === pl.id}
-                    className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1 transition-all ${
-                      isAdded
+                    className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1 transition-all ${isAdded
                         ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                         : 'bg-amber-500 text-black hover:bg-amber-400'
-                    }`}
+                      }`}
                   >
                     {isAdded ? (
                       <>

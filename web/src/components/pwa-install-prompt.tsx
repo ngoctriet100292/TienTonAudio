@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Download, X, Smartphone, Sparkles } from 'lucide-react';
+import { Download, Smartphone, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -12,6 +12,22 @@ export function PwaInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
+
+  const handleInstall = async () => {
+    if (deferredPrompt) {
+      await deferredPrompt.prompt();
+      const choice = await deferredPrompt.userChoice;
+      if (choice.outcome === 'accepted') {
+        setShowPrompt(false);
+      }
+      setDeferredPrompt(null);
+    }
+  };
+
+  const handleDismiss = () => {
+    setShowPrompt(false);
+    localStorage.setItem('tienton_pwa_prompt_dismissed', Date.now().toString());
+  };
 
   useEffect(() => {
     // Kiểm tra xem user đã bấm tắt banner trong 7 ngày qua chưa
@@ -41,32 +57,15 @@ export function PwaInstallPrompt() {
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
     if (isIosDevice && !isStandalone) {
-      setIsIOS(true);
       // Hiển thị sau 3 giây cho trải nghiệm mượt mà
-      const timer = setTimeout(() => setShowPrompt(true), 3000);
-      return () => clearTimeout(timer);
+      const timer = setTimeout(() => { setIsIOS(true); setShowPrompt(true); }, 3000);
+      return () => { clearTimeout(timer); window.removeEventListener('beforeinstallprompt', handleBeforeInstall); };
     }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
     };
   }, []);
-
-  const handleInstall = async () => {
-    if (deferredPrompt) {
-      await deferredPrompt.prompt();
-      const choice = await deferredPrompt.userChoice;
-      if (choice.outcome === 'accepted') {
-        setShowPrompt(false);
-      }
-      setDeferredPrompt(null);
-    }
-  };
-
-  const handleDismiss = () => {
-    setShowPrompt(false);
-    localStorage.setItem('tienton_pwa_prompt_dismissed', Date.now().toString());
-  };
 
   if (!showPrompt) return null;
 
@@ -88,7 +87,7 @@ export function PwaInstallPrompt() {
               <p className="text-xs font-black text-white uppercase tracking-wide">
                 Cài Đặt App Tiên Tôn
               </p>
-              <span className="text-[9px] px-1.5 py-0.2 rounded font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              <span className="text-[11px] px-1.5 py-0.2 rounded font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
                 PWA
               </span>
             </div>

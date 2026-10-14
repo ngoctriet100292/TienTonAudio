@@ -1,9 +1,10 @@
-import React from 'react';
-import type { Metadata } from 'next';
-import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+
+import { serializeJsonLd } from '@/lib/json-ld';
 import { api } from '@/lib/api';
 import { Chapter } from '@/types';
+import { ArrowLeft } from 'lucide-react';
+import type { Metadata } from 'next';
+import Link from 'next/link';
 import ChapterReaderClient from './chapter-reader-client';
 
 interface Props {
@@ -26,14 +27,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, chapterId } = await params;
   const story = await api.getStoryBySlug(slug);
   let chapterTitle = `Chương ${chapterId}`;
-  let storyTitle = story?.title || slug.replace(/-/g, ' ').toUpperCase();
+  const storyTitle = story?.title || slug.replace(/-/g, ' ').toUpperCase();
 
   try {
     const ch = await api.getChapter(chapterId);
     if (ch) {
       chapterTitle = ch.title;
     }
-  } catch {}
+  } catch { }
 
   const title = `${chapterTitle} - ${storyTitle} Audio & Truyện Chữ Chuẩn 320kbps | Tiên Tôn Audio`;
   const description = `Nghe audio và đọc ${chapterTitle} truyện ${storyTitle} của tác giả ${story?.author_name || 'Đang cập nhật'}. Chất lượng âm thanh chuẩn phòng thu 320kbps.`;
@@ -172,7 +173,7 @@ export default async function ChapterPage({ params }: Props) {
       {/* Google AudioObject & Breadcrumb JSON-LD */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
 
       {/* Breadcrumb Navigation */}

@@ -1,42 +1,46 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import {
-  Bookmark,
-  Heart,
-  History,
-  ListMusic,
-  Plus,
-  Play,
-  Trash2,
-  BookOpen,
-  Headphones,
-  User,
-  Mic,
-  Clock,
-  ExternalLink,
-  CheckCircle2,
-  AlertCircle,
-  FolderPlus,
-  X,
-  Sparkles,
-} from 'lucide-react';
-import { useAuth } from '@/context/auth-context';
+import { MediaImage } from '@/components/media-image';
+
+import { useAsyncResource } from '@/lib/use-async-resource';
+
+import { getErrorMessage } from '@/lib/errors';
+
+import { CultivationSpinner } from '@/components/cultivation-spinner';
 import { useAudio } from '@/context/audio-context';
+import { useAuth } from '@/context/auth-context';
 import { api, getFullAvatarUrl } from '@/lib/api';
 import {
+  Chapter,
   FavoriteStoryItem,
+  FollowedAuthor,
+  FollowedNarrator,
   ListeningHistoryItem,
   Playlist,
   PlaylistDetail,
-  FollowedAuthor,
-  FollowedNarrator,
+  PlaylistItemDetail,
   Story,
-  Chapter,
 } from '@/types';
-import { CultivationSpinner } from '@/components/cultivation-spinner';
+import {
+  AlertCircle,
+  Bookmark,
+  BookOpen,
+  CheckCircle2,
+  FolderPlus,
+  Headphones,
+  Heart,
+  History,
+  ListMusic,
+  Mic,
+  Play,
+  Plus,
+  Trash2,
+  User,
+  X
+} from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import React, { useEffect, useState } from 'react';
 
 export default function LibraryPage() {
   const router = useRouter();
@@ -46,27 +50,23 @@ export default function LibraryPage() {
   const [activeTab, setActiveTab] = useState<'favorites' | 'history' | 'playlists' | 'following'>('favorites');
 
   // Favorites state
-  const [favorites, setFavorites] = useState<FavoriteStoryItem[]>([]);
-  const [favoritesLoading, setFavoritesLoading] = useState(false);
+  const { data: favorites, setData: setFavorites, loading: favoritesLoading } = useAsyncResource<FavoriteStoryItem[]>(isAuthenticated && activeTab === 'favorites' ? `library-favorites:${user?.id}` : null, () => api.getUserFavorites(), []);
 
   // History state
-  const [history, setHistory] = useState<ListeningHistoryItem[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
+  const { data: history, loading: historyLoading } = useAsyncResource<ListeningHistoryItem[]>(isAuthenticated && activeTab === 'history' ? `library-history:${user?.id}` : null, () => api.getUserHistory(), []);
 
   // Playlists state
-  const [playlists, setPlaylists] = useState<Playlist[]>([]);
-  const [playlistsLoading, setPlaylistsLoading] = useState(false);
+  const { data: playlists, setData: setPlaylists, loading: playlistsLoading } = useAsyncResource<Playlist[]>(isAuthenticated && activeTab === 'playlists' ? `library-playlists:${user?.id}` : null, () => api.getUserPlaylists(), []);
   const [selectedPlaylist, setSelectedPlaylist] = useState<PlaylistDetail | null>(null);
-  const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [, setIsDetailLoading] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [isPublic, setIsPublic] = useState(false);
   const [creatingPlaylist, setCreatingPlaylist] = useState(false);
 
   // Following state
-  const [followedAuthors, setFollowedAuthors] = useState<FollowedAuthor[]>([]);
-  const [followedNarrators, setFollowedNarrators] = useState<FollowedNarrator[]>([]);
-  const [followingLoading, setFollowingLoading] = useState(false);
+  const { data: following, setData: setFollowing, loading: followingLoading } = useAsyncResource(isAuthenticated && activeTab === 'following' ? `library-following:${user?.id}` : null, async () => { const [authors, narrators] = await Promise.all([api.getFollowedAuthors(), api.getFollowedNarrators()]); return { authors, narrators }; }, { authors: [] as FollowedAuthor[], narrators: [] as FollowedNarrator[] });
+  const { authors: followedAuthors, narrators: followedNarrators } = following;
 
   const [toastMsg, setToastMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -75,105 +75,35 @@ export default function LibraryPage() {
     setTimeout(() => setToastMsg(null), 3000);
   };
 
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push('/login?redirect=/library');
-    }
-  }, [isAuthenticated, isLoading, router]);
 
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    if (activeTab === 'favorites') {
-      loadFavorites();
-    } else if (activeTab === 'history') {
-      loadHistory();
-    } else if (activeTab === 'playlists') {
-      loadPlaylists();
-    } else if (activeTab === 'following') {
-      loadFollowing();
-    }
-  }, [activeTab, isAuthenticated]);
-
-  const loadFavorites = async () => {
-    setFavoritesLoading(true);
-    try {
-      const data = await api.getUserFavorites();
-      setFavorites(data || []);
-    } catch {
-      // Fallback
-    } finally {
-      setFavoritesLoading(false);
-    }
-  };
-
-  const loadHistory = async () => {
-    setHistoryLoading(true);
-    try {
-      const data = await api.getUserHistory();
-      setHistory(data || []);
-    } catch {
-      // Fallback
-    } finally {
-      setHistoryLoading(false);
-    }
-  };
-
-  const loadPlaylists = async () => {
-    setPlaylistsLoading(true);
-    try {
-      const data = await api.getUserPlaylists();
-      setPlaylists(data || []);
-    } catch {
-      // Fallback
-    } finally {
-      setPlaylistsLoading(false);
-    }
-  };
-
-  const loadFollowing = async () => {
-    setFollowingLoading(true);
-    try {
-      const [authors, narrators] = await Promise.all([
-        api.getFollowedAuthors(),
-        api.getFollowedNarrators(),
-      ]);
-      setFollowedAuthors(authors || []);
-      setFollowedNarrators(narrators || []);
-    } catch {
-      // Fallback
-    } finally {
-      setFollowingLoading(false);
-    }
-  };
 
   const handleRemoveFavorite = async (storyId: string) => {
     try {
       await api.toggleFavorite(storyId);
       setFavorites((prev) => prev.filter((f) => f.id !== storyId));
       showToast('Đã gỡ truyện khỏi Tủ Yêu Thích');
-    } catch (err: any) {
-      showToast(err.message || 'Lỗi thao tác', 'error');
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err) || 'Lỗi thao tác', 'error');
     }
   };
 
   const handleUnfollowAuthor = async (authorId: string, authorName: string) => {
     try {
       await api.toggleFollowAuthor(authorId);
-      setFollowedAuthors((prev) => prev.filter((a) => a.id !== authorId));
+      setFollowing((prev) => ({ ...prev, authors: prev.authors.filter((a) => a.id !== authorId) }));
       showToast(`Đã hủy theo dõi tác giả ${authorName}`);
-    } catch (err: any) {
-      showToast(err.message || 'Lỗi thao tác', 'error');
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err) || 'Lỗi thao tác', 'error');
     }
   };
 
   const handleUnfollowNarrator = async (narratorId: string, narratorName: string) => {
     try {
       await api.toggleFollowNarrator(narratorId);
-      setFollowedNarrators((prev) => prev.filter((n) => n.id !== narratorId));
+      setFollowing((prev) => ({ ...prev, narrators: prev.narrators.filter((n) => n.id !== narratorId) }));
       showToast(`Đã hủy theo dõi giọng đọc ${narratorName}`);
-    } catch (err: any) {
-      showToast(err.message || 'Lỗi thao tác', 'error');
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err) || 'Lỗi thao tác', 'error');
     }
   };
 
@@ -191,8 +121,8 @@ export default function LibraryPage() {
       setNewPlaylistName('');
       setCreateModalOpen(false);
       showToast('Tạo danh sách phát thành công!');
-    } catch (err: any) {
-      showToast(err.message || 'Lỗi tạo playlist', 'error');
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err) || 'Lỗi tạo playlist', 'error');
     } finally {
       setCreatingPlaylist(false);
     }
@@ -203,8 +133,8 @@ export default function LibraryPage() {
     try {
       const detail = await api.getPlaylistDetail(playlistId);
       setSelectedPlaylist(detail);
-    } catch (err: any) {
-      showToast(err.message || 'Lỗi tải playlist', 'error');
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err) || 'Lỗi tải playlist', 'error');
     } finally {
       setIsDetailLoading(false);
     }
@@ -219,8 +149,8 @@ export default function LibraryPage() {
         setSelectedPlaylist(null);
       }
       showToast('Đã xóa danh sách phát');
-    } catch (err: any) {
-      showToast(err.message || 'Lỗi xóa playlist', 'error');
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err) || 'Lỗi xóa playlist', 'error');
     }
   };
 
@@ -234,8 +164,8 @@ export default function LibraryPage() {
         });
       }
       showToast('Đã gỡ tập khỏi danh sách phát');
-    } catch (err: any) {
-      showToast(err.message || 'Lỗi thao tác', 'error');
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err) || 'Lỗi thao tác', 'error');
     }
   };
 
@@ -267,11 +197,11 @@ export default function LibraryPage() {
       is_premium: false,
       created_at: item.updated_at,
     };
-    playChapter(s, c);
+    playChapter(s, c, undefined, undefined, item.last_position_seconds);
     showToast(`Đang phát: ${item.chapter_title}`);
   };
 
-  const playPlaylistItem = (item: any) => {
+  const playPlaylistItem = (item: PlaylistItemDetail) => {
     const s: Story = {
       id: item.story_id,
       title: item.story_title,
@@ -308,6 +238,14 @@ export default function LibraryPage() {
     playPlaylistItem(selectedPlaylist.items[0]);
   };
 
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push('/login?redirect=/library');
+    }
+  }, [isAuthenticated, isLoading, router]);
+
+
+
   if (!isAuthenticated && !isLoading) return null;
 
   return (
@@ -315,11 +253,10 @@ export default function LibraryPage() {
       {/* Toast Alert */}
       {toastMsg && (
         <div
-          className={`fixed top-20 right-5 z-50 rounded-2xl px-4 py-3 text-xs font-bold shadow-2xl flex items-center gap-2 border animate-in fade-in slide-in-from-top-2 ${
-            toastMsg.type === 'success'
+          className={`fixed top-20 right-5 z-50 rounded-2xl px-4 py-3 text-xs font-bold shadow-2xl flex items-center gap-2 border animate-in fade-in slide-in-from-top-2 ${toastMsg.type === 'success'
               ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40'
               : 'bg-rose-950/90 text-rose-300 border-rose-500/40'
-          }`}
+            }`}
         >
           {toastMsg.type === 'success' ? (
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -331,7 +268,7 @@ export default function LibraryPage() {
       )}
 
       {/* Header Tủ Truyện Tiên Phủ */}
-      <div className="relative overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-r from-[#141b2b] via-[#0f172a] to-[#1c162e] p-8 shadow-2xl shadow-amber-500/10">
+      <div className="motion-card relative overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-r from-[#141b2b] via-[#0f172a] to-[#1c162e] p-8 shadow-2xl shadow-amber-500/10">
         <div className="absolute -right-16 -bottom-16 h-72 w-72 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
         <div className="relative z-10 max-w-2xl space-y-3">
           <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-3.5 py-1 text-xs font-bold text-amber-400">
@@ -351,16 +288,15 @@ export default function LibraryPage() {
       <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-white/10">
         <button
           onClick={() => setActiveTab('favorites')}
-          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
-            activeTab === 'favorites'
+          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${activeTab === 'favorites'
               ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
-          }`}
+            }`}
         >
           <Heart className="w-4 h-4" />
           <span>Yêu Thích</span>
           {favorites.length > 0 && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/20 font-mono">
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-black/20 font-mono">
               {favorites.length}
             </span>
           )}
@@ -368,16 +304,15 @@ export default function LibraryPage() {
 
         <button
           onClick={() => setActiveTab('history')}
-          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
-            activeTab === 'history'
+          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${activeTab === 'history'
               ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
-          }`}
+            }`}
         >
           <History className="w-4 h-4" />
           <span>Lịch Sử Nghe</span>
           {history.length > 0 && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/20 font-mono">
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-black/20 font-mono">
               {history.length}
             </span>
           )}
@@ -385,16 +320,15 @@ export default function LibraryPage() {
 
         <button
           onClick={() => setActiveTab('playlists')}
-          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
-            activeTab === 'playlists'
+          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${activeTab === 'playlists'
               ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
-          }`}
+            }`}
         >
           <ListMusic className="w-4 h-4" />
           <span>Danh Sách Phát</span>
           {playlists.length > 0 && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/20 font-mono">
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-black/20 font-mono">
               {playlists.length}
             </span>
           )}
@@ -402,11 +336,10 @@ export default function LibraryPage() {
 
         <button
           onClick={() => setActiveTab('following')}
-          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
-            activeTab === 'following'
+          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${activeTab === 'following'
               ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
-          }`}
+            }`}
         >
           <User className="w-4 h-4" />
           <span>Đang Theo Dõi</span>
@@ -442,7 +375,7 @@ export default function LibraryPage() {
                   className="group relative rounded-2xl overflow-hidden border border-white/10 bg-slate-900/80 hover:border-amber-500/40 transition-all flex flex-col"
                 >
                   <Link href={`/stories/${fav.slug}`} className="aspect-[3/4] overflow-hidden bg-slate-800 relative block">
-                    <img
+                    <MediaImage
                       src={fav.cover_image_url || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600&auto=format&fit=crop&q=80'}
                       alt={fav.title}
                       className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -516,7 +449,7 @@ export default function LibraryPage() {
                     <div className="flex items-center gap-3.5 min-w-0">
                       <div className="h-12 w-9 rounded-lg overflow-hidden bg-slate-800 flex-shrink-0">
                         {item.cover_image_url ? (
-                          <img
+                          <MediaImage
                             src={item.cover_image_url}
                             alt={item.story_title}
                             className="h-full w-full object-cover"
@@ -538,7 +471,7 @@ export default function LibraryPage() {
                         <p className="text-[11px] text-amber-400 font-medium truncate mt-0.5">
                           Tập {item.chapter_number}: {item.chapter_title}
                         </p>
-                        <div className="flex items-center gap-3 text-[10px] text-slate-400 font-mono mt-1">
+                        <div className="flex items-center gap-3 text-[11px] text-slate-400 font-mono mt-1">
                           <span>Đã nghe: {percent}%</span>
                           <span>•</span>
                           <span>
@@ -607,7 +540,7 @@ export default function LibraryPage() {
               {playlists.map((pl) => (
                 <div
                   key={pl.id}
-                  className="rounded-3xl border border-white/10 bg-slate-900/80 p-5 space-y-4 hover:border-amber-500/40 transition-all flex flex-col justify-between"
+                  className="motion-card rounded-3xl border border-white/10 bg-slate-900/80 p-5 space-y-4 hover:border-amber-500/40 transition-all flex flex-col justify-between"
                 >
                   <div className="space-y-2">
                     <div className="flex items-start justify-between gap-2">
@@ -660,7 +593,7 @@ export default function LibraryPage() {
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="h-10 w-10 rounded-full overflow-hidden bg-slate-800 flex-shrink-0 flex items-center justify-center text-amber-400 font-bold text-sm">
                         {author.avatar_url ? (
-                          <img src={getFullAvatarUrl(author.avatar_url)} alt={author.name} className="h-full w-full object-cover" />
+                          <MediaImage src={getFullAvatarUrl(author.avatar_url)} alt={author.name} className="h-full w-full object-cover" />
                         ) : (
                           author.name.charAt(0).toUpperCase()
                         )}
@@ -702,7 +635,7 @@ export default function LibraryPage() {
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="h-10 w-10 rounded-full overflow-hidden bg-slate-800 flex-shrink-0 flex items-center justify-center text-amber-400 font-bold text-sm">
                         {narrator.avatar_url ? (
-                          <img src={getFullAvatarUrl(narrator.avatar_url)} alt={narrator.name} className="h-full w-full object-cover" />
+                          <MediaImage src={getFullAvatarUrl(narrator.avatar_url)} alt={narrator.name} className="h-full w-full object-cover" />
                         ) : (
                           narrator.name.charAt(0).toUpperCase()
                         )}

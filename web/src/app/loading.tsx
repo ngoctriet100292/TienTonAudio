@@ -1,4 +1,3 @@
-import React from 'react';
 import { CultivationSpinner } from '@/components/cultivation-spinner';
 
 export default function Loading() {

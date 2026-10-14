@@ -1,14 +1,16 @@
-import type { Metadata } from "next";
-import "./globals.css";
-import { AuthProvider } from "@/context/auth-context";
-import { AudioProvider } from "@/context/audio-context";
-import { AmbientAudioProvider } from "@/context/ambient-audio-context";
-import { Navbar } from "@/components/navbar";
-import { Footer } from "@/components/footer";
+
+import { serializeJsonLd } from '@/lib/json-ld';
+import { AmbientSoundModal } from "@/components/ambient-sound-modal";
 import { StickyAudioPlayer } from "@/components/audio-player";
 import { BottomTabBar } from "@/components/bottom-tab-bar";
-import { AmbientSoundModal } from "@/components/ambient-sound-modal";
+import { Footer } from "@/components/footer";
+import { Navbar } from "@/components/navbar";
 import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
+import { AmbientAudioProvider } from "@/context/ambient-audio-context";
+import { AudioProvider } from "@/context/audio-context";
+import { AuthProvider } from "@/context/auth-context";
+import type { Metadata } from "next";
+import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://tientonaudio.com"),
@@ -100,15 +102,16 @@ export default function RootLayout({
       <head>
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
         />
       </head>
-      <body className="min-h-screen bg-[#070a11] text-slate-100 antialiased flex flex-col selection:bg-amber-500 selection:text-black">
+      <body className="min-h-screen text-slate-100 antialiased flex flex-col selection:bg-amber-500 selection:text-black">
+        <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-xl focus:bg-amber-400 focus:px-4 focus:py-2 focus:text-slate-950">Đi đến nội dung chính</a>
         <AuthProvider>
           <AudioProvider>
             <AmbientAudioProvider>
               <Navbar />
-              <main className="flex-1 pb-32 md:pb-24">{children}</main>
+              <main id="main-content" className="page-shell flex-1 pb-32 md:pb-24">{children}</main>
               <StickyAudioPlayer />
               <BottomTabBar />
               <Footer />

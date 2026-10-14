@@ -13,13 +13,13 @@ import (
 
 	"github.com/IREAKING/tientonaudio/backend/config"
 	"github.com/IREAKING/tientonaudio/backend/db"
-	dbSqlc "github.com/IREAKING/tientonaudio/backend/db/sqlc"
 	"github.com/IREAKING/tientonaudio/backend/internal/handler"
 	"github.com/IREAKING/tientonaudio/backend/internal/repository"
 	"github.com/IREAKING/tientonaudio/backend/internal/router"
 	"github.com/IREAKING/tientonaudio/backend/internal/service"
 	"github.com/IREAKING/tientonaudio/backend/pkg/ai"
 	"github.com/IREAKING/tientonaudio/backend/pkg/auth"
+	"github.com/IREAKING/tientonaudio/backend/pkg/cache"
 	"github.com/IREAKING/tientonaudio/backend/pkg/email"
 	"github.com/IREAKING/tientonaudio/backend/pkg/storage"
 )
@@ -53,32 +53,33 @@ func main() {
 	}
 	slog.Info("configuration loaded", "env", cfg.Environment, "addr", cfg.ServerAddress)
 
-	// 2. Initialize Database Pool
+	// 2. Initialize Database Pool (Fail-fast if database connection cannot be established)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	dbService, err := db.NewService(ctx, cfg.DatabaseURL)
+	dbService, err := db.NewService(ctx, cfg.DatabaseURL, cfg.DBMaxConns, cfg.DBMinConns)
 	if err != nil {
-		slog.Warn("could not connect to PostgreSQL database pool", "error", err, "url", cfg.DatabaseURL)
-	} else {
-		defer dbService.Close()
-		slog.Info("successfully connected to PostgreSQL database")
-
-		// Tự động kiểm tra và chạy migration schema lên database nếu chưa có bảng
-		migrateCtx, migrateCancel := context.WithTimeout(context.Background(), 30*time.Second)
-		if err := dbService.AutoMigrate(migrateCtx); err != nil {
-			slog.Error("failed to auto-migrate database schema", "error", err)
-		}
-		migrateCancel()
+		slog.Error("fatal: could not connect to PostgreSQL database pool", "error", err, "url", cfg.DatabaseURL)
+		os.Exit(1)
 	}
+	defer dbService.Close()
+	slog.Info("successfully connected to PostgreSQL database")
 
-	var querier dbSqlc.Querier
-	if dbService != nil {
-		querier = dbService.Repo()
+	// Tự động kiểm tra và chạy migration schema lên database nếu chưa có bảng
+	migrateCtx, migrateCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	if err := dbService.AutoMigrate(migrateCtx); err != nil {
+		slog.Error("failed to auto-migrate database schema", "error", err)
 	}
+	migrateCancel()
+
+	querier := dbService.Repo()
+
+	// 2.1 Initialize Smart Cache (Redis with in-memory fallback)
+	cacheSvc := cache.NewSmartCache(context.Background(), cfg.RedisURL)
+	defer cacheSvc.Close()
 
 	// 3. Initialize Auth, Email & AI Clients
-	jwtService := auth.NewJWTService(cfg.JWTSecretKey, "tientonaudio")
+	jwtService := auth.NewJWTService(cfg.JWTSecretKey, "tientonaudio", cfg.AccessTokenDuration, cfg.RefreshTokenDuration)
 	aiClient := ai.NewAIClient(cfg.AIProvider, cfg.AIAPIKey, cfg.AIModelName)
 	emailService := email.NewEmailService(email.Config{
 		Host:       cfg.SMTPHost,
@@ -90,41 +91,18 @@ func main() {
 	})
 
 	// 4. Initialize Repositories
-	var userRepo repository.UserRepository
-	var storyRepo repository.StoryRepository
-	var chapterRepo repository.ChapterRepository
-	var paymentRepo repository.PaymentRepository
-	var adminRepo repository.AdminRepository
-	var playlistRepo repository.PlaylistRepository
-	var notificationRepo repository.NotificationRepository
-	var reportRepo repository.ReportRepository
-
-	if querier != nil {
-		userRepo = repository.NewUserRepository(querier)
-		storyRepo = repository.NewStoryRepository(querier)
-		chapterRepo = repository.NewChapterRepository(querier)
-		paymentRepo = repository.NewPaymentRepository(querier)
-		adminRepo = repository.NewAdminRepository(querier)
-		playlistRepo = repository.NewPlaylistRepository(querier)
-		notificationRepo = repository.NewNotificationRepository(querier)
-		reportRepo = repository.NewReportRepository(querier)
-	}
+	userRepo := repository.NewUserRepository(querier)
+	storyRepo := repository.NewStoryRepository(querier)
+	chapterRepo := repository.NewChapterRepository(querier)
+	paymentRepo := repository.NewPaymentRepository(querier, dbService.Pool())
+	adminRepo := repository.NewAdminRepository(querier)
+	playlistRepo := repository.NewPlaylistRepository(querier)
+	notificationRepo := repository.NewNotificationRepository(querier)
+	reportRepo := repository.NewReportRepository(querier)
 
 	streamSigner := auth.NewStreamSigner(cfg.JWTSecretKey)
 
 	// 5. Initialize Services
-	var authSvc service.AuthService
-	var storySvc service.StoryService
-	var chapterSvc service.ChapterService
-	var commentSvc service.CommentService
-	var paymentSvc service.PaymentService
-	var adminSvc service.AdminService
-	var aiSvc service.AIService
-	var playlistSvc service.PlaylistService
-	var notificationSvc service.NotificationService
-	var reportSvc service.ReportService
-
-	// 5.1 Initialize Storage Service (Cloudflare R2)
 	storageSvc, err := storage.NewR2Storage(
 		cfg.R2AccountID,
 		cfg.R2AccessKeyID,
@@ -136,32 +114,16 @@ func main() {
 		slog.Warn("could not initialize Cloudflare R2 storage, fallback to local uploads", "error", err)
 	}
 
-	if userRepo != nil {
-		authSvc = service.NewAuthService(userRepo, jwtService, emailService)
-	}
-	if notificationRepo != nil {
-		notificationSvc = service.NewNotificationService(notificationRepo)
-	}
-	if reportRepo != nil {
-		reportSvc = service.NewReportService(reportRepo)
-	}
-	if storyRepo != nil {
-		storySvc = service.NewStoryService(storyRepo, userRepo, paymentRepo)
-		commentSvc = service.NewCommentService(storyRepo, notificationRepo)
-		aiSvc = service.NewAIService(aiClient, storyRepo)
-	}
-	if chapterRepo != nil {
-		chapterSvc = service.NewChapterService(chapterRepo, paymentRepo, streamSigner, storageSvc)
-	}
-	if paymentRepo != nil {
-		paymentSvc = service.NewPaymentService(paymentRepo, userRepo, notificationRepo)
-	}
-	if adminRepo != nil {
-		adminSvc = service.NewAdminService(adminRepo)
-	}
-	if playlistRepo != nil {
-		playlistSvc = service.NewPlaylistService(playlistRepo)
-	}
+	authSvc := service.NewAuthService(userRepo, jwtService, emailService)
+	notificationSvc := service.NewNotificationService(notificationRepo)
+	reportSvc := service.NewReportService(reportRepo)
+	storySvc := service.NewStoryService(storyRepo, userRepo, paymentRepo, cacheSvc)
+	commentSvc := service.NewCommentService(storyRepo, notificationRepo)
+	aiSvc := service.NewAIService(aiClient, storyRepo, cacheSvc)
+	chapterSvc := service.NewChapterService(chapterRepo, paymentRepo, streamSigner, storageSvc)
+	paymentSvc := service.NewPaymentService(paymentRepo, userRepo, notificationRepo)
+	adminSvc := service.NewAdminService(adminRepo)
+	playlistSvc := service.NewPlaylistService(playlistRepo)
 
 	// 6. Initialize Handlers
 	authHandler := handler.NewAuthHandler(authSvc)
@@ -169,7 +131,7 @@ func main() {
 	storyHandler := handler.NewStoryHandler(storySvc)
 	chapterHandler := handler.NewChapterHandler(chapterSvc)
 	commentHandler := handler.NewCommentHandler(commentSvc)
-	paymentHandler := handler.NewPaymentHandler(paymentSvc)
+	paymentHandler := handler.NewPaymentHandler(paymentSvc, cfg.PaymentWebhookSecret)
 	adminHandler := handler.NewAdminHandler(adminSvc)
 	aiHandler := handler.NewAIHandler(aiSvc)
 	playlistHandler := handler.NewPlaylistHandler(playlistSvc)
@@ -188,6 +150,8 @@ func main() {
 	r := router.NewRouter(router.RouterOptions{
 		Config:              cfg,
 		JWTService:          jwtService,
+		DBService:           dbService,
+		CacheService:        cacheSvc,
 		AuthHandler:         authHandler,
 		UserHandler:         userHandler,
 		StoryHandler:        storyHandler,
@@ -203,13 +167,14 @@ func main() {
 		CommunityHandler:    communityHandler,
 	})
 
-	// 8. Start HTTP Server with Graceful Shutdown
+	// 8. Start HTTP Server with Graceful Shutdown (Hỗ trợ upload file audio lớn)
 	server := &http.Server{
-		Addr:         cfg.ServerAddress,
-		Handler:      r,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Addr:              cfg.ServerAddress,
+		Handler:           r,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       10 * time.Minute,
+		WriteTimeout:      10 * time.Minute,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())

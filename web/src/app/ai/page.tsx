@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Sparkles, Send, Bot, User, BookOpen } from 'lucide-react';
 import { api } from '@/lib/api';
+import { Bot, Send, Sparkles, User } from 'lucide-react';
+import React, { useState } from 'react';
 
 export default function AIAssistantPage() {
   const [prompt, setPrompt] = useState('');
@@ -53,10 +53,11 @@ export default function AIAssistantPage() {
       </div>
 
       {/* Chat Messages */}
-      <div className="h-[520px] rounded-3xl border border-white/10 bg-slate-900/60 p-6 overflow-y-auto space-y-4">
+      <div className="motion-card h-[520px] rounded-3xl border border-white/10 bg-slate-900/60 p-6 overflow-y-auto space-y-4">
         {messages.map((m, idx) => (
           <div
             key={idx}
+            data-motion-item
             className={`flex items-start gap-3 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             {m.role === 'assistant' && (
@@ -66,11 +67,10 @@ export default function AIAssistantPage() {
             )}
 
             <div
-              className={`p-4 rounded-2xl text-xs sm:text-sm leading-relaxed max-w-[80%] whitespace-pre-wrap ${
-                m.role === 'user'
+              className={`p-4 rounded-2xl text-xs sm:text-sm leading-relaxed max-w-[80%] whitespace-pre-wrap ${m.role === 'user'
                   ? 'bg-gradient-to-r from-[#ffd166] to-[#ffb703] text-black font-medium'
                   : 'bg-slate-800 text-slate-200 border border-white/5'
-              }`}
+                }`}
             >
               {m.text}
             </div>

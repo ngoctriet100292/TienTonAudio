@@ -16,7 +16,7 @@ export interface Story {
   rating_count: number;
   favorite_count: number;
   is_favorite?: boolean;
-  categories: any[];
+  categories: (string | Category)[];
 }
 
 export interface AudioTimelineMarker {
@@ -360,4 +360,42 @@ export interface FollowedNarrator {
   created_at: string;
 }
 
-
+export type ReactionType = 'like' | 'love' | 'haha' | 'wow' | 'sad' | 'angry';
+export interface ChapterComment {
+  id: string;
+  user_id?: string;
+  username: string;
+  avatar_url?: string;
+  chapter_id?: string;
+  parent_id?: string;
+  content: string;
+  audio_timestamp_seconds?: number;
+  cultivation_realm?: string;
+  reply_count: number;
+  total_reactions: number;
+  reactions: Record<string, number>;
+  user_reaction?: ReactionType | null;
+  created_at: string;
+}
+export interface CommentReactionResponse {
+  action: string;
+  reaction_type?: ReactionType;
+  total_reactions: number;
+  reactions: Record<string, number>;
+}
+export interface PlaybackSpeed { value: number; label: string; description: string }
+export interface PlaybackSpeedsResponse { default_speed: number; speeds: PlaybackSpeed[] }
+export interface SignedStreamResponse {
+  chapter_id: string;
+  quality: string;
+  stream_url: string;
+  expires_at: string;
+  playback_speed: number;
+  available_speeds: PlaybackSpeed[];
+}
+export interface ChapterAudioFile { id: string; chapter_id: string; quality: string; audio_url?: string }
+export interface StoryRealmsResponse { story_id: string; story_name: string; realms: string }
+export interface TwoFactorSetupResponse { secret: string; qr_code_url: string }
+export interface TokenResponse { access_token: string; refresh_token: string; expires_at: string; token_type: string }
+export interface AuthenticatedResponse { user: User; tokens: TokenResponse }
+export type LoginResponse = (AuthenticatedResponse & { mfa_required: false }) | { mfa_required: true; mfa_token: string };

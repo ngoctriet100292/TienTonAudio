@@ -52,6 +52,10 @@ migrate:
 	@echo "==> Running Go Auto-Migration..."
 	@go run ./cmd/migrate/main.go
 
+upload-r2:
+	@echo "==> Running Cloudflare R2 Upload Tool..."
+	@go run ./cmd/upload_to_r2/main.go -mode=all
+
 migrate-up:
 	@echo "==> Running migrations UP..."
 	@migrate -path db/migrations -database "$(DATABASE_URL)" -verbose up

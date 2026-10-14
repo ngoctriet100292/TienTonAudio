@@ -2,12 +2,15 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	db "github.com/IREAKING/tientonaudio/backend/db/sqlc"
 	"github.com/IREAKING/tientonaudio/backend/internal/domain"
 	"github.com/IREAKING/tientonaudio/backend/internal/repository"
+	"github.com/IREAKING/tientonaudio/backend/pkg/cache"
 	"github.com/IREAKING/tientonaudio/backend/pkg/utils"
 )
 
@@ -40,13 +43,19 @@ type storyService struct {
 	repo        repository.StoryRepository
 	userRepo    repository.UserRepository
 	paymentRepo repository.PaymentRepository
+	cache       cache.CacheService
 }
 
-func NewStoryService(repo repository.StoryRepository, userRepo repository.UserRepository, paymentRepo repository.PaymentRepository) StoryService {
+func NewStoryService(repo repository.StoryRepository, userRepo repository.UserRepository, paymentRepo repository.PaymentRepository, cacheSvc ...cache.CacheService) StoryService {
+	var c cache.CacheService
+	if len(cacheSvc) > 0 {
+		c = cacheSvc[0]
+	}
 	return &storyService{
 		repo:        repo,
 		userRepo:    userRepo,
 		paymentRepo: paymentRepo,
+		cache:       c,
 	}
 }
 
@@ -91,6 +100,16 @@ func (s *storyService) ListStories(ctx context.Context, pagination utils.Paginat
 }
 
 func (s *storyService) ListTopViewedStories(ctx context.Context, pagination utils.PaginationParams) ([]domain.StoryResp, error) {
+	cacheKey := fmt.Sprintf("story:top_views:%d:%d", pagination.Page, pagination.Limit)
+	if s.cache != nil {
+		if val, err := s.cache.Get(ctx, cacheKey); err == nil && val != "" {
+			var cached []domain.StoryResp
+			if json.Unmarshal([]byte(val), &cached) == nil {
+				return cached, nil
+			}
+		}
+	}
+
 	rows, err := s.repo.ListTopViewedStories(ctx, db.ListTopViewedStoriesParams{
 		Limit:  pagination.Limit,
 		Offset: pagination.Offset(),
@@ -121,6 +140,11 @@ func (s *storyService) ListTopViewedStories(ctx context.Context, pagination util
 			UpdatedAt:     r.UpdatedAt.Time,
 		}
 	}
+
+	if s.cache != nil {
+		_ = s.cache.Set(ctx, cacheKey, result, 3*time.Minute)
+	}
+
 	return result, nil
 }
 
@@ -379,6 +403,16 @@ func (s *storyService) DeleteStory(ctx context.Context, id uuid.UUID) error {
 }
 
 func (s *storyService) ListCategories(ctx context.Context) ([]domain.Category, error) {
+	cacheKey := "story:categories"
+	if s.cache != nil {
+		if val, err := s.cache.Get(ctx, cacheKey); err == nil && val != "" {
+			var cached []domain.Category
+			if json.Unmarshal([]byte(val), &cached) == nil {
+				return cached, nil
+			}
+		}
+	}
+
 	rows, err := s.repo.ListCategories(ctx)
 	if err != nil {
 		return nil, err
@@ -392,6 +426,11 @@ func (s *storyService) ListCategories(ctx context.Context) ([]domain.Category, e
 			Description: r.Description,
 		}
 	}
+
+	if s.cache != nil {
+		_ = s.cache.Set(ctx, cacheKey, res, 15*time.Minute)
+	}
+
 	return res, nil
 }
 
@@ -402,10 +441,18 @@ func (s *storyService) SaveListeningProgress(ctx context.Context, userID uuid.UU
 		speed = *req.PlaybackSpeed
 	}
 
+	storyID := req.StoryID
+	if storyID == uuid.Nil {
+		resolvedStoryID, err := s.repo.GetStoryIDByChapterID(ctx, req.ChapterID)
+		if err == nil && resolvedStoryID != uuid.Nil {
+			storyID = resolvedStoryID
+		}
+	}
+
 	err := s.repo.UpsertListeningProgress(ctx, db.UpsertListeningProgressParams{
 		UserID:              userID,
 		ChapterID:           req.ChapterID,
-		StoryID:             req.StoryID,
+		StoryID:             storyID,
 		LastPositionSeconds: req.LastPositionSeconds,
 		PlaybackSpeed:       utils.Float64ToNumeric(speed),
 		IsCompleted:         &isCompleted,

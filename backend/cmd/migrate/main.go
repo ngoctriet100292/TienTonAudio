@@ -20,7 +20,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	dbService, err := db.NewService(ctx, cfg.DatabaseURL)
+	dbService, err := db.NewService(ctx, cfg.DatabaseURL, cfg.DBMaxConns, cfg.DBMinConns)
 	if err != nil {
 		log.Fatalf("❌ Không thể kết nối tới Database: %v\n(Vui lòng kiểm tra DATABASE_URL và password trong file app.env)", err)
 	}

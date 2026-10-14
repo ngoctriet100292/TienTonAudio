@@ -9,7 +9,7 @@ import (
 
 func TestJWTService_GenerateAndParseToken(t *testing.T) {
 	secret := "test-secret-key-must-be-long-enough-32-bytes"
-	svc := NewJWTService(secret, "test-issuer")
+	svc := NewJWTService(secret, "test-issuer", 0, 0)
 
 	userID := uuid.New()
 	email := "test@example.com"
@@ -60,7 +60,7 @@ func TestPasswordHashing(t *testing.T) {
 
 func TestMFAPendingToken(t *testing.T) {
 	secret := "test-secret-key-must-be-long-enough-32-bytes"
-	svc := NewJWTService(secret, "test-issuer")
+	svc := NewJWTService(secret, "test-issuer", 0, 0)
 
 	userID := uuid.New()
 	email := "mfa-test@example.com"

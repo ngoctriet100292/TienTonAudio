@@ -1,26 +1,34 @@
 package router
 
 import (
+	"context"
+	"encoding/json"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
+
 	"github.com/IREAKING/tientonaudio/backend/config"
+	"github.com/IREAKING/tientonaudio/backend/db"
+	"github.com/IREAKING/tientonaudio/backend/docs"
 	"github.com/IREAKING/tientonaudio/backend/internal/handler"
 	"github.com/IREAKING/tientonaudio/backend/internal/middleware"
 	"github.com/IREAKING/tientonaudio/backend/pkg/auth"
-	"github.com/IREAKING/tientonaudio/backend/pkg/utils"
+	"github.com/IREAKING/tientonaudio/backend/pkg/cache"
 )
 
 type RouterOptions struct {
-	Config         *config.Config
-	JWTService     *auth.JWTService
-	AuthHandler    *handler.AuthHandler
-	UserHandler    *handler.UserHandler
-	StoryHandler   *handler.StoryHandler
-	ChapterHandler *handler.ChapterHandler
+	Config              *config.Config
+	JWTService          *auth.JWTService
+	DBService           *db.Service
+	CacheService        cache.CacheService
+	AuthHandler         *handler.AuthHandler
+	UserHandler         *handler.UserHandler
+	StoryHandler        *handler.StoryHandler
+	ChapterHandler      *handler.ChapterHandler
 	CommentHandler      *handler.CommentHandler
 	PaymentHandler      *handler.PaymentHandler
 	AdminHandler        *handler.AdminHandler
@@ -70,30 +78,76 @@ const swaggerUIHTML = `<!DOCTYPE html>
 </body>
 </html>`
 
+// noDirFileSystem bọc http.FileSystem để ngăn chặn directory listing (chống lộ cấu trúc thư mục)
+type noDirFileSystem struct {
+	fs http.FileSystem
+}
+
+func (ndfs noDirFileSystem) Open(name string) (http.File, error) {
+	f, err := ndfs.fs.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	stat, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return nil, err
+	}
+	if stat.IsDir() {
+		_ = f.Close()
+		return nil, os.ErrNotExist
+	}
+	return f, nil
+}
+
+type publicStorageFileSystem struct{ fs http.FileSystem }
+
+func (fs publicStorageFileSystem) Open(name string) (http.File, error) {
+	key := strings.TrimPrefix(name, "/")
+	if !strings.HasPrefix(key, "stories/covers/") && !strings.HasPrefix(key, "covers/") && !strings.HasPrefix(key, "avatars/") {
+		return nil, os.ErrNotExist
+	}
+	return (noDirFileSystem{fs: fs.fs}).Open(name)
+}
+
 func NewRouter(opts RouterOptions) http.Handler {
 	r := chi.NewRouter()
 
+	// 1. Phục hồi panic, lấy Real IP client và ghi log
+	r.Use(middleware.TrustedProxyMiddleware(opts.Config.TrustedProxyCIDRs))
 	r.Use(chiMiddleware.Recoverer)
 	r.Use(middleware.LoggerMiddleware)
 
+	// 2. CORS Middleware chuẩn hóa (Vary: Origin, chỉ cho phép origin hợp lệ, từ chối preflight lạ)
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Vary", "Origin")
 			origin := r.Header.Get("Origin")
+			allowed := false
+
 			if origin != "" {
-				allowed := false
 				for _, o := range opts.Config.CORSAllowedOrigins {
 					if o == "*" || strings.EqualFold(o, origin) {
 						allowed = true
 						break
 					}
 				}
+				// Tự động cho phép localhost & 127.0.0.1 trên mọi cổng
+				if opts.Config.Environment != "production" && !allowed && (strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") || origin == "http://localhost" || origin == "http://127.0.0.1") {
+					allowed = true
+				}
+
 				if allowed {
 					w.Header().Set("Access-Control-Allow-Origin", origin)
+					w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
+					w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Webhook-Secret, X-Signature, Accept, X-Requested-With, Origin")
+					w.Header().Set("Access-Control-Allow-Credentials", "true")
+					w.Header().Set("Access-Control-Max-Age", "86400")
+				} else if r.Method == http.MethodOptions {
+					w.WriteHeader(http.StatusForbidden)
+					return
 				}
 			}
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-			w.Header().Set("Access-Control-Allow-Credentials", "true")
 
 			if r.Method == http.MethodOptions {
 				w.WriteHeader(http.StatusOK)
@@ -104,25 +158,65 @@ func NewRouter(opts RouterOptions) http.Handler {
 		})
 	})
 
-	rateLimiter := middleware.NewRateLimiter(opts.Config.RateLimitRequestsPerMinute)
-	r.Use(rateLimiter.Middleware)
+	// 3. Phân tầng Rate Limiters (Global, Auth, AI)
+	globalLimiter := middleware.NewRateLimiter(opts.Config.RateLimitRequestsPerMinute, opts.CacheService, "global")
+	authLimiter := middleware.NewRateLimiter(10, opts.CacheService, "auth")
+	aiLimiter := middleware.NewRateLimiter(15, opts.CacheService, "ai")
 
+	r.Use(globalLimiter.Middleware)
+
+	// 4. Liveness Probe (/health)
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		utils.JSON(w, http.StatusOK, map[string]string{"status": "ok", "env": opts.Config.Environment})
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"status": "ok",
+			"env":    opts.Config.Environment,
+		})
 	})
 
-	// Swagger UI Routes
+	// 5. Readiness Probe (/readyz): Ping trực tiếp Database Pool và Redis
+	r.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		defer cancel()
+
+		status := map[string]any{
+			"status":   "ready",
+			"database": "connected",
+			"cache":    "active",
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if opts.DBService != nil {
+			if err := opts.DBService.Ping(ctx); err != nil {
+				status["status"] = "degraded"
+				status["database"] = "disconnected: " + err.Error()
+				w.WriteHeader(http.StatusServiceUnavailable)
+				_ = json.NewEncoder(w).Encode(status)
+				return
+			}
+		} else {
+			status["status"] = "degraded"
+			status["database"] = "uninitialized"
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_ = json.NewEncoder(w).Encode(status)
+			return
+		}
+
+		if opts.CacheService != nil {
+			if err := opts.CacheService.Ping(ctx); err != nil {
+				status["cache"] = "disconnected: " + err.Error()
+			}
+		}
+
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(status)
+	})
+
+	// 6. Swagger UI Routes (Nhúng trực tiếp từ go:embed, không phụ thuộc filesystem)
 	r.Get("/swagger/doc.json", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		if data, err := os.ReadFile("docs/swagger.json"); err == nil {
-			w.Write(data)
-			return
-		}
-		if data, err := os.ReadFile("backend/docs/swagger.json"); err == nil {
-			w.Write(data)
-			return
-		}
-		utils.ErrorResponse(w, http.StatusNotFound, "Swagger doc not found")
+		w.Write(docs.SwaggerJSON)
 	})
 
 	r.Get("/swagger", func(w http.ResponseWriter, r *http.Request) {
@@ -134,21 +228,22 @@ func NewRouter(opts RouterOptions) http.Handler {
 		w.Write([]byte(swaggerUIHTML))
 	})
 
-	// Phục vụ file tĩnh tải lên (avatar, media)
-	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir("./uploads"))))
+	// 7. Phục vụ file tĩnh có bảo mật (chặn directory listing)
+	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(publicStorageFileSystem{fs: http.Dir("./uploads")})))
 
+	// 8. REST API v1
 	r.Route("/api/v1", func(r chi.Router) {
-		// Auth
+		// Auth (Được áp dụng Auth Rate Limiter cho các endpoint nhạy cảm)
 		r.Route("/auth", func(r chi.Router) {
-			r.Post("/register", opts.AuthHandler.Register)
+			r.With(authLimiter.Middleware).Post("/register", opts.AuthHandler.Register)
 			r.Get("/verify-email", opts.AuthHandler.VerifyEmail)
 			r.Post("/verify-email", opts.AuthHandler.VerifyEmail)
-			r.Post("/resend-verification", opts.AuthHandler.ResendVerification)
-			r.Post("/login", opts.AuthHandler.Login)
-			r.Post("/social", opts.AuthHandler.SocialLogin)
-			r.Post("/2fa/verify", opts.AuthHandler.VerifyTwoFactorLogin)
-			r.Post("/forgot-password", opts.AuthHandler.ForgotPassword)
-			r.Post("/reset-password", opts.AuthHandler.ResetPassword)
+			r.With(authLimiter.Middleware).Post("/resend-verification", opts.AuthHandler.ResendVerification)
+			r.With(authLimiter.Middleware).Post("/login", opts.AuthHandler.Login)
+			r.With(authLimiter.Middleware).Post("/social", opts.AuthHandler.SocialLogin)
+			r.With(authLimiter.Middleware).Post("/2fa/verify", opts.AuthHandler.VerifyTwoFactorLogin)
+			r.With(authLimiter.Middleware).Post("/forgot-password", opts.AuthHandler.ForgotPassword)
+			r.With(authLimiter.Middleware).Post("/reset-password", opts.AuthHandler.ResetPassword)
 			r.Post("/refresh", opts.AuthHandler.RefreshToken)
 			r.Post("/logout", opts.AuthHandler.Logout)
 
@@ -193,9 +288,9 @@ func NewRouter(opts RouterOptions) http.Handler {
 
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.AuthMiddleware(opts.JWTService))
-				r.Post("/", opts.StoryHandler.CreateStory)
-				r.Put("/{id}", opts.StoryHandler.UpdateStory)
-				r.Delete("/{id}", opts.StoryHandler.DeleteStory)
+				r.With(middleware.RequireAdmin).Post("/", opts.StoryHandler.CreateStory)
+				r.With(middleware.RequireAdmin).Put("/{id}", opts.StoryHandler.UpdateStory)
+				r.With(middleware.RequireAdmin).Delete("/{id}", opts.StoryHandler.DeleteStory)
 				r.Post("/{id}/favorite", opts.StoryHandler.ToggleFavorite)
 				r.Get("/{id}/favorite", opts.StoryHandler.CheckFavoriteStatus)
 			})
@@ -218,7 +313,7 @@ func NewRouter(opts RouterOptions) http.Handler {
 
 		// Playlists
 		r.Route("/playlists", func(r chi.Router) {
-			r.Get("/{id}", opts.PlaylistHandler.GetPlaylistDetail)
+			r.With(middleware.OptionalAuthMiddleware(opts.JWTService)).Get("/{id}", opts.PlaylistHandler.GetPlaylistDetail)
 
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.AuthMiddleware(opts.JWTService))
@@ -234,15 +329,16 @@ func NewRouter(opts RouterOptions) http.Handler {
 		// Chapters & Audio Streaming
 		r.Route("/chapters", func(r chi.Router) {
 			r.Get("/playback-speeds", opts.ChapterHandler.GetPlaybackSpeeds)
-			r.Get("/{id}", opts.ChapterHandler.GetChapterByID)
+			r.With(middleware.OptionalAuthMiddleware(opts.JWTService)).Get("/{id}", opts.ChapterHandler.GetChapterByID)
+			r.Get("/{id}/media", opts.ChapterHandler.ServeMedia)
 			r.With(middleware.OptionalAuthMiddleware(opts.JWTService)).Get("/{id}/stream", opts.ChapterHandler.GetSignedStreamURL)
 			r.With(middleware.OptionalAuthMiddleware(opts.JWTService)).Get("/{id}/comments", opts.CommentHandler.GetChapterComments)
 
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.AuthMiddleware(opts.JWTService))
-				r.Post("/", opts.ChapterHandler.CreateChapter)
-				r.Post("/bulk", opts.ChapterHandler.BulkCreateChapters)
-				r.Post("/{id}/audio", opts.ChapterHandler.AddAudioFile)
+				r.With(middleware.RequireAdmin).Post("/", opts.ChapterHandler.CreateChapter)
+				r.With(middleware.RequireAdmin).Post("/bulk", opts.ChapterHandler.BulkCreateChapters)
+				r.With(middleware.RequireAdmin).Post("/{id}/audio", opts.ChapterHandler.AddAudioFile)
 				r.Post("/{id}/comments", opts.CommentHandler.CreateComment)
 				r.Post("/progress", opts.StoryHandler.SaveListeningProgress)
 			})
@@ -281,7 +377,7 @@ func NewRouter(opts RouterOptions) http.Handler {
 		r.Route("/payments", func(r chi.Router) {
 			r.Get("/plans", opts.PaymentHandler.ListSubscriptionPlans)
 			r.Post("/webhook", opts.PaymentHandler.WebhookCallback)
-			r.Get("/{id}/status", opts.PaymentHandler.GetPaymentStatus)
+			r.With(middleware.AuthMiddleware(opts.JWTService)).Get("/{id}/status", opts.PaymentHandler.GetPaymentStatus)
 			r.Post("/{id}/confirm-auto", opts.PaymentHandler.AutoConfirmPayment)
 
 			r.Group(func(r chi.Router) {
@@ -294,9 +390,15 @@ func NewRouter(opts RouterOptions) http.Handler {
 
 		// AI Đạo Hữu Assistant
 		r.Route("/ai", func(r chi.Router) {
-			r.Post("/chat", opts.AIHandler.Chat)
 			r.Get("/stories/{id}/realms", opts.AIHandler.GetStoryRealms)
 			r.Get("/stories/{id}/summary", opts.AIHandler.GetStorySummary)
+
+			// Vấn đáp AI yêu cầu đăng nhập và có hạn ngạch rate limit riêng
+			r.Group(func(r chi.Router) {
+				r.Use(aiLimiter.Middleware)
+				r.Use(middleware.AuthMiddleware(opts.JWTService))
+				r.Post("/chat", opts.AIHandler.Chat)
+			})
 		})
 
 		// Partner / Sáng Tác Studio (Protected: Auth + RequirePartnerOrAdmin)
@@ -317,6 +419,8 @@ func NewRouter(opts RouterOptions) http.Handler {
 				r.Delete("/stories/{id}", opts.PartnerHandler.DeletePartnerStory)
 				r.Get("/stories/{id}/chapters", opts.PartnerHandler.ListStoryChapters)
 				r.Post("/stories/{id}/chapters", opts.PartnerHandler.CreateStoryChapter)
+				r.Post("/chapters/{id}/audio", opts.PartnerHandler.AttachChapterAudio)
+				r.Delete("/chapters/{id}", opts.PartnerHandler.DeleteStoryChapter)
 				r.Post("/upload-cover", opts.PartnerHandler.UploadCoverImage)
 				r.Post("/upload-audio", opts.PartnerHandler.UploadAudio)
 			})
@@ -354,8 +458,8 @@ func NewRouter(opts RouterOptions) http.Handler {
 			r.Put("/reports/{id}/status", opts.ReportHandler.UpdateReportStatus)
 		})
 
-		// Static Storage File Server (cho local dev & media storage)
-		r.Handle("/storage/*", http.StripPrefix("/api/v1/storage", http.FileServer(http.Dir("./storage"))))
+		// Static Storage File Server (cho local dev & media storage, chặn directory listing)
+		r.Handle("/storage/*", http.StripPrefix("/api/v1/storage", http.FileServer(publicStorageFileSystem{fs: http.Dir("./storage")})))
 	})
 
 	return r

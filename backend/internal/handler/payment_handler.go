@@ -1,8 +1,12 @@
 package handler
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -17,10 +21,14 @@ import (
 
 type PaymentHandler struct {
 	paymentService service.PaymentService
+	webhookSecret  string
 }
 
-func NewPaymentHandler(paymentService service.PaymentService) *PaymentHandler {
-	return &PaymentHandler{paymentService: paymentService}
+func NewPaymentHandler(paymentService service.PaymentService, webhookSecret string) *PaymentHandler {
+	return &PaymentHandler{
+		paymentService: paymentService,
+		webhookSecret:  webhookSecret,
+	}
 }
 
 func (h *PaymentHandler) ListSubscriptionPlans(w http.ResponseWriter, r *http.Request) {
@@ -57,6 +65,7 @@ func (h *PaymentHandler) CreatePayment(w http.ResponseWriter, r *http.Request) {
 
 // GetPaymentStatus kiểm tra trạng thái đơn hàng (cho polling tự động từ web)
 func (h *PaymentHandler) GetPaymentStatus(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "private, no-store")
 	idStr := chi.URLParam(r, "id")
 	paymentID, err := uuid.Parse(idStr)
 	if err != nil {
@@ -75,29 +84,57 @@ func (h *PaymentHandler) GetPaymentStatus(w http.ResponseWriter, r *http.Request
 
 // AutoConfirmPayment xác nhận thanh toán tự động (mô phỏng hoặc kiểm tra giao dịch thành công)
 func (h *PaymentHandler) AutoConfirmPayment(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	paymentID, err := uuid.Parse(idStr)
-	if err != nil {
-		utils.ErrorResponse(w, http.StatusBadRequest, "Mã đơn hàng không hợp lệ")
-		return
-	}
-
-	status, err := h.paymentService.AutoConfirmPayment(r.Context(), paymentID)
-	if err != nil {
-		utils.ErrorResponse(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	utils.JSONWithMessage(w, http.StatusOK, "Xác nhận thanh toán tự động thành công!", status)
+	utils.ErrorResponse(w, http.StatusGone, "Thanh toán chỉ được xác nhận qua webhook đã đối soát")
 }
 
 func (h *PaymentHandler) WebhookCallback(w http.ResponseWriter, r *http.Request) {
+	if h.webhookSecret == "" {
+		utils.ErrorResponse(w, http.StatusServiceUnavailable, "Payment webhook is not configured")
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		utils.ErrorResponse(w, http.StatusBadRequest, "Invalid webhook payload")
 		return
 	}
 
+	// 1. Verify webhook secret / signature
+	if h.webhookSecret != "" {
+		authHeader := r.Header.Get("Authorization")
+		secretHeader := r.Header.Get("X-Webhook-Secret")
+		sigHeader := r.Header.Get("X-Signature")
+
+		isValid := false
+		if secretHeader != "" && hmac.Equal([]byte(secretHeader), []byte(h.webhookSecret)) {
+			isValid = true
+		} else if authHeader != "" {
+			token := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(authHeader, "Apikey"), "Bearer"))
+			if hmac.Equal([]byte(token), []byte(h.webhookSecret)) {
+				isValid = true
+			}
+		}
+
+		if !isValid && sigHeader != "" {
+			mac := hmac.New(sha256.New, []byte(h.webhookSecret))
+			mac.Write(bodyBytes)
+			expectedSig := hex.EncodeToString(mac.Sum(nil))
+			if hmac.Equal([]byte(sigHeader), []byte(expectedSig)) {
+				isValid = true
+			}
+		}
+
+		if !isValid {
+			slog.Warn("rejected unauthorized payment webhook",
+				"remote_addr", r.RemoteAddr,
+				"x_forwarded_for", r.Header.Get("X-Forwarded-For"),
+			)
+			utils.ErrorResponse(w, http.StatusUnauthorized, "Invalid webhook secret or signature")
+			return
+		}
+	}
+
+	// 2. Process system webhook request
 	var req domain.WebhookCallbackReq
 	if err := json.Unmarshal(bodyBytes, &req); err == nil && req.PaymentID != uuid.Nil {
 		if err := h.paymentService.HandleWebhookCallback(r.Context(), req); err != nil {
@@ -108,31 +145,7 @@ func (h *PaymentHandler) WebhookCallback(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Xử lý Bank Webhook (SePay / Casso / Ngân hàng biến động số dư)
-	var bankPayload struct {
-		Content     string `json:"content"`
-		Description string `json:"description"`
-		Code        string `json:"code"`
-	}
-	_ = json.Unmarshal(bodyBytes, &bankPayload)
-	content := bankPayload.Content
-	if content == "" {
-		content = bankPayload.Description
-	}
-	if content == "" {
-		content = bankPayload.Code
-	}
-
-	contentUpper := strings.ToUpper(content)
-	if idx := strings.Index(contentUpper, "TT"); idx != -1 {
-		parts := strings.Fields(contentUpper[idx:])
-		if len(parts) >= 2 {
-			orderCode := parts[1]
-			_ = orderCode
-		}
-	}
-
-	utils.JSONWithMessage(w, http.StatusOK, "Webhook received", nil)
+	utils.ErrorResponse(w, http.StatusUnprocessableEntity, "Unsupported webhook payload; use the verified payment adapter")
 }
 
 func (h *PaymentHandler) GetUserActiveSubscription(w http.ResponseWriter, r *http.Request) {

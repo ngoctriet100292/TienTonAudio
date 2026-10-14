@@ -2,15 +2,16 @@ package service
 
 import (
 	"context"
+	"github.com/IREAKING/tientonaudio/backend/pkg/storage"
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	db "github.com/IREAKING/tientonaudio/backend/db/sqlc"
 	"github.com/IREAKING/tientonaudio/backend/internal/domain"
 	"github.com/IREAKING/tientonaudio/backend/pkg/auth"
 	"github.com/IREAKING/tientonaudio/backend/pkg/utils"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type mockChapterRepo struct {
@@ -39,6 +40,8 @@ func (m *mockChapterRepo) GetChapterByID(ctx context.Context, id uuid.UUID) (db.
 		StoryID:         ch.StoryID,
 		ChapterNumber:   ch.ChapterNumber,
 		Title:           ch.Title,
+		Content:         ch.Content,
+		ContentUrl:      ch.ContentUrl,
 		DurationSeconds: ch.DurationSeconds,
 		IsPremium:       ch.IsPremium,
 	}, nil
@@ -129,7 +132,7 @@ func TestPlaybackSpeedsValidation(t *testing.T) {
 func TestGetPlaybackSpeeds(t *testing.T) {
 	repo := newMockChapterRepo()
 	signer := auth.NewStreamSigner("test-secret-key-at-least-32-chars-long")
-	svc := NewChapterService(repo, nil, signer)
+	svc := NewChapterService(repo, nil, signer, testAudioStorage{})
 
 	speeds := svc.GetPlaybackSpeeds()
 	if len(speeds) == 0 {
@@ -153,7 +156,7 @@ func TestGetPlaybackSpeeds(t *testing.T) {
 func TestGetSignedStreamURLWithSpeed(t *testing.T) {
 	repo := newMockChapterRepo()
 	signer := auth.NewStreamSigner("test-secret-key-at-least-32-chars-long")
-	svc := NewChapterService(repo, nil, signer)
+	svc := NewChapterService(repo, nil, signer, testAudioStorage{})
 
 	ctx := context.Background()
 	storyID := uuid.New()
@@ -187,4 +190,10 @@ func TestGetSignedStreamURLWithSpeed(t *testing.T) {
 	if len(resp.AvailableSpeeds) == 0 {
 		t.Errorf("Expected available speeds to be non-empty")
 	}
+}
+
+type testAudioStorage struct{ storage.StorageService }
+
+func (testAudioStorage) GetPresignedReadURL(ctx context.Context, key string, ttl time.Duration) (string, error) {
+	return "https://signed.example/audio", nil
 }

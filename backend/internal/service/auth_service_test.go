@@ -371,7 +371,7 @@ func (m *mockEmailService) SendPasswordResetEmail(toEmail, username, token strin
 func TestAuthService_EmailVerificationFlow(t *testing.T) {
 	repo := newMockUserRepo()
 	emailSvc := newMockEmailService()
-	jwtSvc := auth.NewJWTService("secret-key-32-bytes-minimum-length-req", "issuer")
+	jwtSvc := auth.NewJWTService("secret-key-32-bytes-minimum-length-req", "issuer", 0, 0)
 	svc := NewAuthService(repo, jwtSvc, emailSvc)
 	ctx := context.Background()
 
@@ -435,7 +435,7 @@ func TestAuthService_EmailVerificationFlow(t *testing.T) {
 func TestAuthService_TwoFactorWithBackupCodes(t *testing.T) {
 	repo := newMockUserRepo()
 	emailSvc := newMockEmailService()
-	jwtSvc := auth.NewJWTService("secret-key-32-bytes-minimum-length-req", "issuer")
+	jwtSvc := auth.NewJWTService("secret-key-32-bytes-minimum-length-req", "issuer", 0, 0)
 	svc := NewAuthService(repo, jwtSvc, emailSvc)
 	ctx := context.Background()
 
@@ -522,7 +522,7 @@ func TestAuthService_TwoFactorWithBackupCodes(t *testing.T) {
 func TestAuthService_PasswordResetFlow(t *testing.T) {
 	repo := newMockUserRepo()
 	emailSvc := newMockEmailService()
-	jwtSvc := auth.NewJWTService("secret-key-32-bytes-minimum-length-req", "issuer")
+	jwtSvc := auth.NewJWTService("secret-key-32-bytes-minimum-length-req", "issuer", 0, 0)
 	svc := NewAuthService(repo, jwtSvc, emailSvc)
 	ctx := context.Background()
 
@@ -594,7 +594,7 @@ func TestAuthService_PasswordResetFlow(t *testing.T) {
 func TestAuthService_RefreshTokenAndLogout(t *testing.T) {
 	repo := newMockUserRepo()
 	emailSvc := newMockEmailService()
-	jwtSvc := auth.NewJWTService("secret-key-32-bytes-minimum-length-req", "issuer")
+	jwtSvc := auth.NewJWTService("secret-key-32-bytes-minimum-length-req", "issuer", 0, 0)
 	svc := NewAuthService(repo, jwtSvc, emailSvc)
 	ctx := context.Background()
 
@@ -698,7 +698,7 @@ func TestCultivationRealmsAndProgression(t *testing.T) {
 
 	// 3. Test Service GetCultivation
 	userRepo := newMockUserRepo()
-	jwtSvc := auth.NewJWTService("secret-for-testing-purposes-only-123456", "issuer")
+	jwtSvc := auth.NewJWTService("secret-for-testing-purposes-only-123456", "issuer", 0, 0)
 	emailSvc := newMockEmailService()
 	svc := NewAuthService(userRepo, jwtSvc, emailSvc)
 	ctx := context.Background()

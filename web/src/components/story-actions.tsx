@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import { ShieldAlert, ListMusic, Share2, Check } from 'lucide-react';
+import { AddToPlaylistModal } from '@/components/add-to-playlist-modal';
 import { FavoriteButton } from '@/components/favorite-button';
 import { ReportModal } from '@/components/report-modal';
-import { AddToPlaylistModal } from '@/components/add-to-playlist-modal';
+import { Check, ListMusic, Share2, ShieldAlert } from 'lucide-react';
+import { useState } from 'react';
 
 interface StoryActionsProps {
   storyId: string;

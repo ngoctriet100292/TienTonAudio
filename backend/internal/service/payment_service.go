@@ -8,12 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	db "github.com/IREAKING/tientonaudio/backend/db/sqlc"
 	"github.com/IREAKING/tientonaudio/backend/internal/domain"
 	"github.com/IREAKING/tientonaudio/backend/internal/repository"
+	"github.com/IREAKING/tientonaudio/backend/pkg/auth"
 	"github.com/IREAKING/tientonaudio/backend/pkg/utils"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type PaymentService interface {
@@ -121,102 +122,17 @@ func (s *paymentService) CreatePayment(ctx context.Context, userID uuid.UUID, re
 }
 
 func (s *paymentService) AutoConfirmPayment(ctx context.Context, paymentID uuid.UUID) (*domain.PaymentStatusResp, error) {
-	payment, err := s.repo.GetPaymentByID(ctx, paymentID)
-	if err != nil {
-		return nil, errors.New("đơn thanh toán không tồn tại")
-	}
-
-	planName := "Gói VIP Tiên Tôn"
-	var planDuration int32 = 30
-	if payment.PlanID != nil {
-		if plan, err := s.repo.GetSubscriptionPlanByID(ctx, *payment.PlanID); err == nil {
-			planName = plan.Name
-			planDuration = plan.DurationDays
-		}
-	}
-
-	// Nếu đơn đã kích hoạt rồi
-	if getStr(payment.Status) == "completed" {
-		return &domain.PaymentStatusResp{
-			PaymentID:   payment.ID,
-			Status:      "completed",
-			PlanName:    planName,
-			Amount:      utils.NumericToFloat64(payment.Amount),
-			IsCompleted: true,
-			BonusExp:    int64(planDuration) * 50,
-		}, nil
-	}
-
-	// Cập nhật trạng thái thành completed
-	statusCompleted := "completed"
-	autoTxID := fmt.Sprintf("AUTO_%s", strings.ToUpper(strings.ReplaceAll(payment.ID.String(), "-", "")[:8]))
-	updatedPayment, err := s.repo.UpdatePaymentStatus(ctx, db.UpdatePaymentStatusParams{
-		ID:            payment.ID,
-		Status:        &statusCompleted,
-		TransactionID: &autoTxID,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("không thể cập nhật trạng thái đơn: %w", err)
-	}
-
-	// 1. Kích hoạt Subscription VIP
-	expiresAt := time.Now().AddDate(0, 0, int(planDuration))
-	var pgExpiresAt pgtype.Timestamptz
-	_ = pgExpiresAt.Scan(expiresAt)
-
-	_, err = s.repo.ActivateSubscription(ctx, db.ActivateSubscriptionParams{
-		UserID:    uuid.NullUUID{UUID: payment.UserID, Valid: true},
-		PlanID:    updatedPayment.PlanID,
-		ExpiresAt: pgExpiresAt,
-	})
-
-	// 2. Thưởng Đan Dược Đột Phá Tu Vi
-	bonusExp := int64(planDuration) * 50
-	newRealm := "Luyện Khí"
-	if s.userRepo != nil {
-		userCult, err := s.userRepo.GetUserCultivation(ctx, payment.UserID)
-		if err == nil {
-			currExp := int64(0)
-			if userCult.CultivationExp != nil {
-				currExp = *userCult.CultivationExp
-			}
-			newExp := currExp + bonusExp
-			calcRealm, _, _, _, _, _ := domain.CalculateCultivationRealm(newExp)
-			newRealm = calcRealm
-			_, _ = s.userRepo.AddUserCultivationExp(ctx, db.AddUserCultivationExpParams{
-				ID:               payment.UserID,
-				CultivationExp:   &bonusExp,
-				CultivationRealm: &newRealm,
-			})
-		}
-	}
-
-	// 3. Gửi Thông Báo Linh Thư
-	if s.notificationRepo != nil {
-		msg := fmt.Sprintf("Chúc mừng Đạo Hữu đã gia nhập %s! Đan dược đột phá +%d điểm Tu Vi đã được hấp thu vào kinh mạch. Cảnh giới hiện tại: %s.", planName, bonusExp, newRealm)
-		_, _ = s.notificationRepo.CreateNotification(ctx, db.CreateNotificationParams{
-			UserID:  payment.UserID,
-			Title:   "Khai Mở Tiên Mạch: Nâng Cấp VIP Thành Công!",
-			Message: msg,
-			Type:    "vip_expiring",
-		})
-	}
-
-	return &domain.PaymentStatusResp{
-		PaymentID:        payment.ID,
-		Status:           "completed",
-		PlanName:         planName,
-		Amount:           utils.NumericToFloat64(payment.Amount),
-		IsCompleted:      true,
-		BonusExp:         bonusExp,
-		CultivationRealm: newRealm,
-		ExpiresAt:        &expiresAt,
-	}, nil
+	return nil, errors.New("payment confirmation requires a verified webhook")
 }
 
 func (s *paymentService) GetPaymentStatus(ctx context.Context, paymentID uuid.UUID) (*domain.PaymentStatusResp, error) {
 	payment, err := s.repo.GetPaymentByID(ctx, paymentID)
 	if err != nil {
+		return nil, errors.New("đơn thanh toán không tồn tại")
+	}
+
+	claims, ok := auth.GetClaimsFromContext(ctx)
+	if !ok || claims.UserID != payment.UserID {
 		return nil, errors.New("đơn thanh toán không tồn tại")
 	}
 
@@ -242,59 +158,14 @@ func (s *paymentService) GetPaymentStatus(ctx context.Context, paymentID uuid.UU
 }
 
 func (s *paymentService) HandleWebhookCallback(ctx context.Context, req domain.WebhookCallbackReq) error {
-	payment, err := s.repo.GetPaymentByID(ctx, req.PaymentID)
-	if err != nil {
-		return errors.New("payment transaction not found")
+	if req.TransactionID == "" || len(req.TransactionID) > 100 || (req.Status != "completed" && req.Status != "failed") {
+		return errors.New("invalid payment webhook")
 	}
-
-	if getStr(payment.Status) == "completed" {
-		return nil // Already processed
+	atomicRepo, ok := s.repo.(repository.AtomicPaymentRepository)
+	if !ok {
+		return errors.New("atomic payment processing is unavailable")
 	}
-
-	status := req.Status
-	txID := req.TransactionID
-	updatedPayment, err := s.repo.UpdatePaymentStatus(ctx, db.UpdatePaymentStatusParams{
-		ID:            payment.ID,
-		Status:        &status,
-		TransactionID: &txID,
-	})
-	if err != nil {
-		return fmt.Errorf("update payment status error: %w", err)
-	}
-
-	// If completed, activate VIP subscription for the user
-	if status == "completed" && updatedPayment.PlanID != nil {
-		plan, err := s.repo.GetSubscriptionPlanByID(ctx, *updatedPayment.PlanID)
-		if err == nil {
-			expiresAt := timeNowAddDays(int(plan.DurationDays))
-			_, _ = s.repo.ActivateSubscription(ctx, db.ActivateSubscriptionParams{
-				UserID:    uuid.NullUUID{UUID: payment.UserID, Valid: true},
-				PlanID:    updatedPayment.PlanID,
-				ExpiresAt: expiresAt,
-			})
-
-			// Thưởng Đan Dược Đột Phá Tu Vi (Cultivation EXP theo số ngày nạp VIP)
-			if s.userRepo != nil {
-				bonusExp := int64(plan.DurationDays) * 50
-				userCult, err := s.userRepo.GetUserCultivation(ctx, payment.UserID)
-				if err == nil {
-					currExp := int64(0)
-					if userCult.CultivationExp != nil {
-						currExp = *userCult.CultivationExp
-					}
-					newExp := currExp + bonusExp
-					newRealm, _, _, _, _, _ := domain.CalculateCultivationRealm(newExp)
-					_, _ = s.userRepo.AddUserCultivationExp(ctx, db.AddUserCultivationExpParams{
-						ID:               payment.UserID,
-						CultivationExp:   &bonusExp,
-						CultivationRealm: &newRealm,
-					})
-				}
-			}
-		}
-	}
-
-	return nil
+	return atomicRepo.ProcessWebhook(ctx, req)
 }
 
 func (s *paymentService) GetUserActiveSubscription(ctx context.Context, userID uuid.UUID) (*domain.UserSubscriptionResp, error) {

@@ -1,8 +1,7 @@
-import React from 'react';
+import { api } from '@/lib/api';
+import { BookOpen } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { BookOpen, Sparkles, Flame, Shield, Compass, Swords, Building2, Zap } from 'lucide-react';
-import { api } from '@/lib/api';
 
 export const metadata: Metadata = {
   title: 'Thể Loại Truyện Audio Tiên Hiệp, Huyền Huyễn, Kiếm Hiệp',

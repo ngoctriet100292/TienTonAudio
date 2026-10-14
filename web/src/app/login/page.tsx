@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import { getErrorMessage } from '@/lib/errors';
+
+import { SocialLoginButtons } from '@/components/social-login-buttons';
+import { useAuth } from '@/context/auth-context';
+import { api } from '@/lib/api';
+import { Headphones, KeyRound, Lock, Mail } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Headphones, Lock, Mail, KeyRound, ShieldAlert } from 'lucide-react';
-import { useAuth } from '@/context/auth-context';
-import { SocialLoginButtons } from '@/components/social-login-buttons';
-import { api } from '@/lib/api';
+import React, { useState } from 'react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,54 +20,6 @@ export default function LoginPage() {
   const [otpCode, setOtpCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const handleSocialLogin = async (provider: 'google' | 'facebook' | 'apple') => {
-    setError('');
-    setLoading(true);
-
-    try {
-      const mockProfiles = {
-        google: {
-          email: 'daohuu.google@gmail.com',
-          name: 'Tiên Tôn Google',
-          provider_user_id: 'gg_1029384756',
-          avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
-        },
-        facebook: {
-          email: 'daohuu.facebook@fb.com',
-          name: 'Chân Nhân Facebook',
-          provider_user_id: 'fb_9876543210',
-          avatar_url: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150',
-        },
-        apple: {
-          email: 'daohuu.apple@privaterelay.appleid.com',
-          name: 'Thiên Tôn Apple',
-          provider_user_id: 'apple_88371920',
-          avatar_url: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150',
-        },
-      };
-
-      const p = mockProfiles[provider];
-      const payload = await api.socialLogin({
-        provider,
-        email: p.email,
-        name: p.name,
-        provider_user_id: p.provider_user_id,
-        avatar_url: p.avatar_url,
-      });
-
-      const accessToken = payload.tokens?.access_token || payload.access_token;
-      const refreshToken = payload.tokens?.refresh_token || payload.refresh_token;
-      const user = payload.user;
-
-      login(accessToken, refreshToken, user);
-      router.push('/');
-    } catch (err: any) {
-      setError(err.message || `Đăng nhập ${provider} thất bại.`);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,14 +36,14 @@ export default function LoginPage() {
         return;
       }
 
-      const accessToken = payload.tokens?.access_token || payload.access_token;
-      const refreshToken = payload.tokens?.refresh_token || payload.refresh_token;
+      const accessToken = payload.tokens.access_token;
+      const refreshToken = payload.tokens.refresh_token;
       const user = payload.user;
 
       login(accessToken, refreshToken, user);
       router.push('/');
-    } catch (err: any) {
-      setError(err.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err) || 'Đăng nhập thất bại. Vui lòng kiểm tra lại.');
     } finally {
       setLoading(false);
     }
@@ -103,14 +57,14 @@ export default function LoginPage() {
     try {
       const payload = await api.verifyTwoFactorLogin(mfaToken || '', otpCode);
 
-      const accessToken = payload.tokens?.access_token || payload.access_token;
-      const refreshToken = payload.tokens?.refresh_token || payload.refresh_token;
+      const accessToken = payload.tokens.access_token;
+      const refreshToken = payload.tokens.refresh_token;
       const user = payload.user;
 
       login(accessToken, refreshToken, user);
       router.push('/');
-    } catch (err: any) {
-      setError(err.message || 'Mã xác thực 2FA không chính xác.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err) || 'Mã xác thực 2FA không chính xác.');
     } finally {
       setLoading(false);
     }
@@ -118,7 +72,7 @@ export default function LoginPage() {
 
   return (
     <div className="mx-auto max-w-md px-4 pt-16 sm:pt-24">
-      <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-8 shadow-2xl backdrop-blur-xl">
+      <div className="motion-card rounded-3xl border border-white/10 bg-slate-900/80 p-8 shadow-2xl backdrop-blur-xl">
         <div className="text-center mb-8">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#ffd166] to-[#ffb703] text-black shadow-lg shadow-amber-500/20">
             <Headphones className="h-6 w-6" />
@@ -185,7 +139,7 @@ export default function LoginPage() {
               {loading ? 'Đang Đăng Nhập...' : 'ĐĂNG NHẬP'}
             </button>
 
-            <SocialLoginButtons onSocialLogin={handleSocialLogin} loading={loading} />
+            <SocialLoginButtons loading={loading} />
           </form>
         ) : (
           <form onSubmit={handleVerify2FA} className="space-y-4">

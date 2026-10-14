@@ -39,12 +39,19 @@ func AuthMiddleware(jwtService *auth.JWTService) func(http.Handler) http.Handler
 func OptionalAuthMiddleware(jwtService *auth.JWTService) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			tokenStr := ""
 			authHeader := r.Header.Get("Authorization")
 			if authHeader != "" {
-				if tokenStr, err := auth.ExtractBearerToken(authHeader); err == nil {
-					if claims, err := jwtService.ParseAccessToken(tokenStr); err == nil {
-						r = r.WithContext(auth.SetClaimsToContext(r.Context(), claims))
-					}
+				if t, err := auth.ExtractBearerToken(authHeader); err == nil {
+					tokenStr = t
+				}
+			}
+			if tokenStr == "" {
+				tokenStr = r.URL.Query().Get("token")
+			}
+			if tokenStr != "" {
+				if claims, err := jwtService.ParseAccessToken(tokenStr); err == nil {
+					r = r.WithContext(auth.SetClaimsToContext(r.Context(), claims))
 				}
 			}
 			next.ServeHTTP(w, r)

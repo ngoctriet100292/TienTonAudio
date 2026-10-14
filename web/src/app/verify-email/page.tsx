@@ -1,14 +1,16 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
-import Link from 'next/link';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { MailCheck, CheckCircle2, AlertCircle, Send, ArrowRight, ShieldCheck, Mail } from 'lucide-react';
-import { api } from '@/lib/api';
+import { getErrorMessage } from '@/lib/errors';
+
 import { CultivationSpinner } from '@/components/cultivation-spinner';
+import { api } from '@/lib/api';
+import { AlertCircle, ArrowRight, CheckCircle2, Mail, MailCheck, Send } from 'lucide-react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import React, { Suspense, useEffect, useState } from 'react';
 
 function VerifyEmailContent() {
-  const router = useRouter();
+
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
 
@@ -20,31 +22,6 @@ function VerifyEmailContent() {
   const [email, setEmail] = useState('');
   const [resending, setResending] = useState(false);
   const [resendStatus, setResendStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  useEffect(() => {
-    if (!token) return;
-
-    let isMounted = true;
-    api.verifyEmail(token)
-      .then(() => {
-        if (isMounted) {
-          setSuccess(true);
-          setErrorMsg(null);
-        }
-      })
-      .catch((err: any) => {
-        if (isMounted) {
-          setErrorMsg(err.message || 'Mã ấn chú xác thực không hợp lệ hoặc đã quá hạn.');
-        }
-      })
-      .finally(() => {
-        if (isMounted) setVerifying(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [token]);
 
   const handleResend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,15 +37,40 @@ function VerifyEmailContent() {
         text: 'Thần thư xác thực mới đã được gửi tới hòm thư của Đạo Hữu. Vui lòng kiểm tra hộp thư!',
       });
       setEmail('');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setResendStatus({
         type: 'error',
-        text: err.message || 'Gửi lại thư thất bại. Vui lòng kiểm tra lại địa chỉ email.',
+        text: getErrorMessage(err) || 'Gửi lại thư thất bại. Vui lòng kiểm tra lại địa chỉ email.',
       });
     } finally {
       setResending(false);
     }
   };
+
+  useEffect(() => {
+    if (!token) return;
+
+    let isMounted = true;
+    api.verifyEmail(token)
+      .then(() => {
+        if (isMounted) {
+          setSuccess(true);
+          setErrorMsg(null);
+        }
+      })
+      .catch((err: unknown) => {
+        if (isMounted) {
+          setErrorMsg(getErrorMessage(err) || 'Mã ấn chú xác thực không hợp lệ hoặc đã quá hạn.');
+        }
+      })
+      .finally(() => {
+        if (isMounted) setVerifying(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [token]);
 
   return (
     <div className="w-full max-w-md space-y-6">
@@ -86,7 +88,7 @@ function VerifyEmailContent() {
       </div>
 
       {/* Card nội dung */}
-      <div className="rounded-3xl border border-white/10 bg-[#0f172a]/90 p-6 sm:p-8 backdrop-blur-xl shadow-2xl space-y-5">
+      <div className="motion-card rounded-3xl border border-white/10 bg-[#0f172a]/90 p-6 sm:p-8 backdrop-blur-xl shadow-2xl space-y-5">
         {verifying ? (
           <div className="py-8 text-center space-y-4">
             <CultivationSpinner size="md" showText={false} variant="gold" />
@@ -124,11 +126,10 @@ function VerifyEmailContent() {
 
             {resendStatus && (
               <div
-                className={`p-4 rounded-2xl text-xs font-bold flex items-start gap-2.5 border ${
-                  resendStatus.type === 'success'
+                className={`p-4 rounded-2xl text-xs font-bold flex items-start gap-2.5 border ${resendStatus.type === 'success'
                     ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/30'
                     : 'bg-rose-950/80 text-rose-300 border-rose-500/30'
-                }`}
+                  }`}
               >
                 {resendStatus.type === 'success' ? (
                   <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />

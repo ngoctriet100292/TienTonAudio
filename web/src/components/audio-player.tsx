@@ -1,27 +1,27 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
-import { useAudio, PLAYBACK_SPEEDS } from '@/context/audio-context';
+import { MediaImage } from '@/components/media-image';
+
+import { AMBIENT_SOUNDS, useAmbient } from '@/context/ambient-audio-context';
+import { PLAYBACK_SPEEDS, useAudio } from '@/context/audio-context';
+import { formatAudioTime, getCurrentMarker } from '@/lib/timeline';
+import { AudioTimelineMarker } from '@/types';
 import {
-  Play,
+  Clock,
+  Gauge,
+  ListMusic,
+  Lock,
+  Moon,
   Pause,
+  Play,
   RotateCcw,
   RotateCw,
   SkipBack,
   SkipForward,
   Volume2,
-  Gauge,
-  ListMusic,
-  Lock,
-  X,
-  Moon,
-  Clock,
-  Milestone,
-  Check,
+  X
 } from 'lucide-react';
-import { formatAudioTime, getCurrentMarker } from '@/lib/timeline';
-import { AudioTimelineMarker } from '@/types';
-import { useAmbient, AMBIENT_SOUNDS } from '@/context/ambient-audio-context';
+import { useEffect, useRef, useState } from 'react';
 
 export function StickyAudioPlayer() {
   const {
@@ -111,7 +111,7 @@ export function StickyAudioPlayer() {
                 <span className="text-xs font-black uppercase tracking-wider text-white">
                   Mục Lục Mốc Thời Gian • {currentChapter.title}
                 </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
                   {timelineMarkers.length} phân đoạn
                 </span>
               </div>
@@ -134,11 +134,10 @@ export function StickyAudioPlayer() {
                     onClick={() => {
                       seek(marker.start_seconds);
                     }}
-                    className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-all ${
-                      isActive
+                    className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-all ${isActive
                         ? 'bg-amber-500/15 border border-amber-500/40 text-amber-300'
                         : 'hover:bg-slate-800/60 text-slate-300 hover:text-white'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-black/40 text-amber-400 font-bold flex-shrink-0 border border-amber-500/20">
@@ -176,7 +175,7 @@ export function StickyAudioPlayer() {
                 <span className="text-xs font-black uppercase tracking-wider text-white">
                   Danh Sách Tập • {currentStory.title}
                 </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
                   {playlist.length} tập
                 </span>
               </div>
@@ -199,11 +198,10 @@ export function StickyAudioPlayer() {
                     onClick={() => {
                       playChapter(currentStory, ch, undefined, playlist);
                     }}
-                    className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-all ${
-                      isActive
+                    className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-all ${isActive
                         ? 'bg-amber-500/15 border border-amber-500/40 text-amber-300'
                         : 'hover:bg-slate-800/60 text-slate-300 hover:text-white'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       {isActive ? (
@@ -222,7 +220,7 @@ export function StickyAudioPlayer() {
                         <p className={`text-xs font-bold truncate ${isActive ? 'text-amber-300' : 'text-slate-200'}`}>
                           {ch.title}
                         </p>
-                        <p className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
+                        <p className="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
                           <span>{ch.duration_seconds > 0 ? formatAudioTime(ch.duration_seconds) : 'Đang cập nhật'}</span>
                           {ch.timeline_markers && ch.timeline_markers.length > 0 && (
                             <span className="text-amber-400/80">• {ch.timeline_markers.length} mốc timeline</span>
@@ -234,12 +232,12 @@ export function StickyAudioPlayer() {
 
                     <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                       {ch.is_premium && (
-                        <span className="flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-[#ffd166] border border-amber-500/30">
+                        <span className="flex items-center gap-1 text-[11px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-[#ffd166] border border-amber-500/30">
                           <Lock className="w-2.5 h-2.5" /> VIP
                         </span>
                       )}
                       {isActive && (
-                        <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                        <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">
                           Đang phát
                         </span>
                       )}
@@ -293,7 +291,7 @@ export function StickyAudioPlayer() {
         <div className="flex items-center gap-2.5 sm:gap-4 flex-1 min-w-0 mr-2">
           <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 overflow-hidden rounded-xl border border-amber-500/30 bg-slate-800 shadow-md">
             {currentStory.cover_image_url ? (
-              <img
+              <MediaImage
                 src={currentStory.cover_image_url}
                 alt={currentStory.title}
                 className="h-full w-full object-cover"
@@ -307,14 +305,14 @@ export function StickyAudioPlayer() {
           <div className="truncate">
             <h4 className="text-xs sm:text-sm font-bold text-white truncate">{currentChapter.title}</h4>
             {activeMarker ? (
-              <div className="flex items-center gap-1.5 text-[10px] text-amber-400 font-medium truncate mt-0.5">
-                <span className="px-1.5 py-0.2 rounded bg-amber-500/20 font-mono text-[9px] border border-amber-500/30">
+              <div className="flex items-center gap-1.5 text-[11px] text-amber-400 font-medium truncate mt-0.5">
+                <span className="px-1.5 py-0.2 rounded bg-amber-500/20 font-mono text-[11px] border border-amber-500/30">
                   {formatAudioTime(activeMarker.start_seconds)}
                 </span>
                 <span className="truncate">{activeMarker.title}</span>
               </div>
             ) : (
-              <p className="text-[10px] sm:text-xs text-slate-400 truncate">{currentStory.title}</p>
+              <p className="text-[11px] sm:text-xs text-slate-400 truncate">{currentStory.title}</p>
             )}
           </div>
         </div>
@@ -370,7 +368,7 @@ export function StickyAudioPlayer() {
             )}
           </div>
 
-          <div className="flex items-center gap-1 text-[10px] sm:text-[11px] text-slate-400 font-mono">
+          <div className="flex items-center gap-1 text-[11px] sm:text-[11px] text-slate-400 font-mono">
             <span>{formatAudioTime(currentTime)}</span>
             <span>/</span>
             <span>{formatAudioTime(duration)}</span>
@@ -382,11 +380,10 @@ export function StickyAudioPlayer() {
           {/* Nút Âm Thanh Môi Trường Tiên Hiệp (Ambient Soundscapes) */}
           <button
             onClick={() => setAmbientModalOpen(true)}
-            className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all shadow-sm ${
-              isAmbientPlaying
+            className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all shadow-sm ${isAmbientPlaying
                 ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-cyan-500/20'
                 : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-white/10'
-            }`}
+              }`}
             title="Âm thanh nền thiên nhiên (mưa rơi, gió rừng trúc, suối reo, lửa trại...)"
           >
             <span className="text-xs">{currentAmbientConfig?.icon || '🌧️'}</span>
@@ -410,16 +407,15 @@ export function StickyAudioPlayer() {
                 setTimelineOpen(!timelineOpen);
                 if (playlistOpen) setPlaylistOpen(false);
               }}
-              className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all shadow-sm ${
-                timelineOpen
+              className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all shadow-sm ${timelineOpen
                   ? 'bg-amber-500 text-black border-amber-500 shadow-amber-500/20'
                   : 'bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-white border-amber-500/30'
-              }`}
+                }`}
               title="Mục lục mốc thời gian / Timeline Chapters"
             >
               <Clock className="w-3.5 h-3.5 text-amber-400" />
               <span className="hidden sm:inline">Mốc giờ</span>
-              <span className="text-[10px] font-mono opacity-80">({timelineMarkers.length})</span>
+              <span className="text-[11px] font-mono opacity-80">({timelineMarkers.length})</span>
             </button>
           )}
 
@@ -431,16 +427,15 @@ export function StickyAudioPlayer() {
                 setPlaylistOpen(!playlistOpen);
                 if (timelineOpen) setTimelineOpen(false);
               }}
-              className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all shadow-sm ${
-                playlistOpen
+              className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all shadow-sm ${playlistOpen
                   ? 'bg-amber-500 text-black border-amber-500 shadow-amber-500/20'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-white/10'
-              }`}
+                }`}
               title="Danh sách các tập trong hàng đợi phát"
             >
               <ListMusic className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Danh sách</span>
-              <span className="text-[10px] font-mono opacity-80">({playlist.length})</span>
+              <span className="text-[11px] font-mono opacity-80">({playlist.length})</span>
             </button>
           )}
 
@@ -448,20 +443,18 @@ export function StickyAudioPlayer() {
           <div className="relative" ref={sleepMenuRef}>
             <button
               onClick={() => setSleepMenuOpen(!sleepMenuOpen)}
-              className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all shadow-sm ${
-                sleepTimer?.isActive
+              className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all shadow-sm ${sleepTimer?.isActive
                   ? 'bg-indigo-500/25 text-indigo-300 border-indigo-500/50 shadow-indigo-500/20'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-white/10'
-              }`}
+                }`}
               title="Hẹn giờ tắt audio tự động"
             >
               <Moon
-                className={`w-3 h-3 ${
-                  sleepTimer?.isActive ? 'text-indigo-400 fill-indigo-400/40 animate-pulse' : 'text-slate-400'
-                }`}
+                className={`w-3 h-3 ${sleepTimer?.isActive ? 'text-indigo-400 fill-indigo-400/40 animate-pulse' : 'text-slate-400'
+                  }`}
               />
               {sleepTimer?.isActive ? (
-                <span className="font-mono text-[10px] text-indigo-300">
+                <span className="font-mono text-[11px] text-indigo-300">
                   {sleepTimer.mode === 'end_of_chapter'
                     ? 'Hết tập'
                     : formatAudioTime(sleepTimer.remainingSeconds)}
@@ -473,12 +466,12 @@ export function StickyAudioPlayer() {
 
             {sleepMenuOpen && (
               <div className="absolute bottom-full right-0 mb-2 w-44 rounded-xl border border-white/10 bg-[#0f172a]/95 p-1.5 shadow-2xl backdrop-blur-xl z-50 animate-in fade-in-0 zoom-in-95">
-                <div className="flex items-center justify-between text-[10px] uppercase font-bold text-slate-400 px-2 py-1 border-b border-white/10 mb-1">
+                <div className="flex items-center justify-between text-[11px] uppercase font-bold text-slate-400 px-2 py-1 border-b border-white/10 mb-1">
                   <span className="flex items-center gap-1">
                     <Moon className="w-3 h-3 text-indigo-400" /> Hẹn giờ tắt
                   </span>
                   {sleepTimer?.isActive && (
-                    <span className="text-[9px] text-emerald-400 font-mono">Bật</span>
+                    <span className="text-[11px] text-emerald-400 font-mono">Bật</span>
                   )}
                 </div>
                 <div className="space-y-0.5 text-xs">
@@ -494,7 +487,7 @@ export function StickyAudioPlayer() {
                       <span>{mins} phút</span>
                       {sleepTimer?.mode === 'duration' &&
                         Math.round(sleepTimer.remainingSeconds / 60) === mins && (
-                          <span className="text-emerald-400 font-bold text-[10px]">✓</span>
+                          <span className="text-emerald-400 font-bold text-[11px]">✓</span>
                         )}
                     </button>
                   ))}
@@ -507,7 +500,7 @@ export function StickyAudioPlayer() {
                   >
                     <span>Khi hết tập này</span>
                     {sleepTimer?.mode === 'end_of_chapter' && (
-                      <span className="text-emerald-400 font-bold text-[10px]">✓</span>
+                      <span className="text-emerald-400 font-bold text-[11px]">✓</span>
                     )}
                   </button>
                   {sleepTimer?.isActive && (
@@ -541,7 +534,7 @@ export function StickyAudioPlayer() {
 
             {speedMenuOpen && (
               <div className="absolute bottom-full right-0 mb-2 w-32 rounded-xl border border-white/10 bg-[#0f172a]/95 p-1.5 shadow-2xl backdrop-blur-xl z-50 animate-in fade-in-0 zoom-in-95">
-                <div className="text-[10px] uppercase font-bold text-slate-400 px-2 py-1 border-b border-white/10 mb-1">
+                <div className="text-[11px] uppercase font-bold text-slate-400 px-2 py-1 border-b border-white/10 mb-1">
                   Tốc độ phát
                 </div>
                 <div className="space-y-0.5">
@@ -552,15 +545,14 @@ export function StickyAudioPlayer() {
                         setPlaybackSpeed(speed);
                         setSpeedMenuOpen(false);
                       }}
-                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-colors ${
-                        playbackSpeed === speed
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-colors ${playbackSpeed === speed
                           ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                           : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                      }`}
+                        }`}
                     >
                       <span>{speed}x</span>
-                      {speed === 1.0 && <span className="text-[9px] text-slate-500 font-sans">Chuẩn</span>}
-                      {speed === 1.5 && <span className="text-[9px] text-amber-400 font-sans">Hot</span>}
+                      {speed === 1.0 && <span className="text-[11px] text-slate-500 font-sans">Chuẩn</span>}
+                      {speed === 1.5 && <span className="text-[11px] text-amber-400 font-sans">Hot</span>}
                     </button>
                   ))}
                 </div>
@@ -568,7 +560,7 @@ export function StickyAudioPlayer() {
             )}
           </div>
 
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/10 text-[#ffd166] border border-amber-500/30 uppercase tracking-wider hidden sm:inline-block">
+          <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-amber-500/10 text-[#ffd166] border border-amber-500/30 uppercase tracking-wider hidden sm:inline-block">
             320kbps
           </span>
           <Volume2 className="w-4 h-4 text-slate-400" />

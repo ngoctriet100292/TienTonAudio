@@ -2,9 +2,10 @@ package repository
 
 import (
 	"context"
+	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/google/uuid"
 	db "github.com/IREAKING/tientonaudio/backend/db/sqlc"
+	"github.com/google/uuid"
 )
 
 type PaymentRepository interface {
@@ -19,11 +20,16 @@ type PaymentRepository interface {
 }
 
 type paymentRepo struct {
-	q db.Querier
+	q    db.Querier
+	pool *pgxpool.Pool
 }
 
-func NewPaymentRepository(q db.Querier) PaymentRepository {
-	return &paymentRepo{q: q}
+func NewPaymentRepository(q db.Querier, pools ...*pgxpool.Pool) PaymentRepository {
+	r := &paymentRepo{q: q}
+	if len(pools) > 0 {
+		r.pool = pools[0]
+	}
+	return r
 }
 
 func (r *paymentRepo) ListSubscriptionPlans(ctx context.Context) ([]db.SubscriptionPlan, error) {

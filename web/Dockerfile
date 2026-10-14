@@ -15,6 +15,10 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
+ARG NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ARG API_INTERNAL_ORIGIN=http://backend:8080
+ENV API_INTERNAL_ORIGIN=$API_INTERNAL_ORIGIN
 RUN npm run build
 
 # Production image, copy all the files and run next

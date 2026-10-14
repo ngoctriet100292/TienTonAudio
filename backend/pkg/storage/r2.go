@@ -2,9 +2,10 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
-	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,6 +24,8 @@ type StorageService interface {
 	DeleteFile(ctx context.Context, key string) error
 	GetPresignedUploadURL(ctx context.Context, key string, contentType string, ttl time.Duration) (string, error)
 	GetPublicURL(key string) string
+	GetPresignedReadURL(ctx context.Context, keyOrURL string, ttl time.Duration) (string, error)
+	OpenLocalFile(keyOrURL string) (*os.File, error)
 }
 
 type r2Storage struct {
@@ -73,21 +76,26 @@ func NewR2Storage(accountID, accessKeyID, accessKeySecret, bucket, publicURL str
 }
 
 func (s *r2Storage) UploadFile(ctx context.Context, key string, body io.Reader, contentType string) (string, error) {
-	cleanKey := strings.TrimPrefix(key, "/")
-
-	// If R2 client is not initialized, save to local disk
+	cleanKey, err := s.objectKey(key)
+	if err != nil {
+		return "", err
+	}
 	if s.client == nil {
-		targetPath := filepath.Join(s.localDir, cleanKey)
-		if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
-			return "", fmt.Errorf("failed to create local storage dir: %w", err)
-		}
-		f, err := os.Create(targetPath)
+		root, err := os.OpenRoot(s.localDir)
 		if err != nil {
-			return "", fmt.Errorf("failed to create local file: %w", err)
+			return "", err
+		}
+		defer root.Close()
+		if err := root.MkdirAll(filepath.Dir(cleanKey), 0755); err != nil {
+			return "", err
+		}
+		f, err := root.OpenFile(cleanKey, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+		if err != nil {
+			return "", err
 		}
 		defer f.Close()
 		if _, err := io.Copy(f, body); err != nil {
-			return "", fmt.Errorf("failed to write local file: %w", err)
+			return "", err
 		}
 		return s.GetPublicURL(cleanKey), nil
 	}
@@ -97,11 +105,16 @@ func (s *r2Storage) UploadFile(ctx context.Context, key string, body io.Reader, 
 		Key:    aws.String(cleanKey),
 		Body:   body,
 	}
+	if f, ok := body.(*os.File); ok {
+		if stat, err := f.Stat(); err == nil {
+			putInput.ContentLength = aws.Int64(stat.Size())
+		}
+	}
 	if contentType != "" {
 		putInput.ContentType = aws.String(contentType)
 	}
 
-	_, err := s.client.PutObject(ctx, putInput)
+	_, err = s.client.PutObject(ctx, putInput)
 	if err != nil {
 		return "", fmt.Errorf("failed to upload to Cloudflare R2: %w", err)
 	}
@@ -113,72 +126,113 @@ func (s *r2Storage) UploadText(ctx context.Context, key string, text string) (st
 	return s.UploadFile(ctx, key, strings.NewReader(text), "text/plain; charset=utf-8")
 }
 
+// Resolve only keys and URLs belonging to this storage; never fetch arbitrary URLs.
+func (s *r2Storage) objectKey(keyOrURL string) (string, error) {
+	key := keyOrURL
+	if strings.Contains(key, "://") {
+		u, err := url.Parse(key)
+		base, baseErr := url.Parse(s.publicURL)
+		if err != nil || baseErr != nil || base.Host == "" || u.Scheme != base.Scheme || u.Host != base.Host || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+			return "", errors.New("URL is outside configured storage")
+		}
+		prefix := strings.TrimRight(base.Path, "/") + "/"
+		if !strings.HasPrefix(u.Path, prefix) {
+			return "", errors.New("URL is outside configured storage")
+		}
+		key = strings.TrimPrefix(u.Path, prefix)
+	} else if strings.HasPrefix(key, "/api/v1/storage/") {
+		key = strings.TrimPrefix(key, "/api/v1/storage/")
+	} else if strings.HasPrefix(key, "/") {
+		return "", errors.New("absolute storage path is forbidden")
+	}
+	if key == "" || strings.ContainsAny(key, "\\\x00?#") {
+		return "", errors.New("invalid storage key")
+	}
+	for _, part := range strings.Split(key, "/") {
+		if part == ".." || part == "." || part == "" {
+			return "", errors.New("invalid storage key")
+		}
+	}
+	return key, nil
+}
+
+func (s *r2Storage) OpenLocalFile(keyOrURL string) (*os.File, error) {
+	key, err := s.objectKey(keyOrURL)
+	if err != nil {
+		return nil, err
+	}
+	root, err := os.OpenRoot(s.localDir)
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	return root.Open(key)
+}
+
+func readText(body io.Reader) (string, error) {
+	const maxTextBytes = 4 << 20
+	data, err := io.ReadAll(io.LimitReader(body, maxTextBytes+1))
+	if err != nil {
+		return "", err
+	}
+	if len(data) > maxTextBytes {
+		return "", errors.New("chapter text exceeds storage limit")
+	}
+	return string(data), nil
+}
+
 func (s *r2Storage) GetFileContent(ctx context.Context, keyOrURL string) (string, error) {
-	cleanKey := strings.TrimPrefix(keyOrURL, "/")
-	if strings.HasPrefix(cleanKey, s.publicURL) {
-		cleanKey = strings.TrimPrefix(cleanKey, s.publicURL)
-		cleanKey = strings.TrimPrefix(cleanKey, "/")
+	key, err := s.objectKey(keyOrURL)
+	if err != nil {
+		return "", err
 	}
-	if strings.HasPrefix(cleanKey, "/api/v1/storage/") {
-		cleanKey = strings.TrimPrefix(cleanKey, "/api/v1/storage/")
-	}
-
-	// 1. Check local disk first
-	localPath := filepath.Join(s.localDir, cleanKey)
-	if data, err := os.ReadFile(localPath); err == nil {
-		return string(data), nil
-	}
-
-	// 2. Fetch from Cloudflare R2 if client exists
-	if s.client != nil {
-		out, err := s.client.GetObject(ctx, &s3.GetObjectInput{
-			Bucket: aws.String(s.bucket),
-			Key:    aws.String(cleanKey),
-		})
-		if err == nil && out.Body != nil {
-			defer out.Body.Close()
-			data, err := io.ReadAll(out.Body)
-			if err == nil {
-				return string(data), nil
-			}
+	if s.client == nil {
+		f, err := s.OpenLocalFile(key)
+		if err != nil {
+			return "", err
 		}
+		defer f.Close()
+		return readText(f)
 	}
-
-	// 3. Fallback via HTTP public URL
-	publicURL := keyOrURL
-	if !strings.HasPrefix(publicURL, "http://") && !strings.HasPrefix(publicURL, "https://") {
-		publicURL = s.GetPublicURL(cleanKey)
+	out, err := s.client.GetObject(ctx, &s3.GetObjectInput{Bucket: aws.String(s.bucket), Key: aws.String(key)})
+	if err != nil {
+		return "", err
 	}
+	defer out.Body.Close()
+	return readText(out.Body)
+}
 
-	if strings.HasPrefix(publicURL, "http://") || strings.HasPrefix(publicURL, "https://") {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, publicURL, nil)
-		if err == nil {
-			client := &http.Client{Timeout: 10 * time.Second}
-			resp, err := client.Do(req)
-			if err == nil && resp.StatusCode == http.StatusOK {
-				defer resp.Body.Close()
-				data, err := io.ReadAll(resp.Body)
-				if err == nil {
-					return string(data), nil
-				}
-			}
-		}
+// Empty URL indicates local storage, served only through the signed chapter endpoint.
+func (s *r2Storage) GetPresignedReadURL(ctx context.Context, keyOrURL string, ttl time.Duration) (string, error) {
+	key, err := s.objectKey(keyOrURL)
+	if err != nil {
+		return "", err
 	}
-
-	return "", fmt.Errorf("file not found in storage: %s", keyOrURL)
+	if s.client == nil {
+		return "", nil
+	}
+	result, err := s3.NewPresignClient(s.client).PresignGetObject(ctx, &s3.GetObjectInput{Bucket: aws.String(s.bucket), Key: aws.String(key)}, s3.WithPresignExpires(ttl))
+	if err != nil {
+		return "", err
+	}
+	return result.URL, nil
 }
 
 func (s *r2Storage) DeleteFile(ctx context.Context, key string) error {
-	cleanKey := strings.TrimPrefix(key, "/")
-
-	// Local file
-	localPath := filepath.Join(s.localDir, cleanKey)
-	_ = os.Remove(localPath)
-
-	if s.client == nil {
-		return nil
+	cleanKey, err := s.objectKey(key)
+	if err != nil {
+		return err
 	}
-	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+	if s.client == nil {
+		root, err := os.OpenRoot(s.localDir)
+		if err != nil {
+			return err
+		}
+		defer root.Close()
+		return root.Remove(cleanKey)
+	}
+
+	_, err = s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(cleanKey),
 	})
@@ -186,7 +240,10 @@ func (s *r2Storage) DeleteFile(ctx context.Context, key string) error {
 }
 
 func (s *r2Storage) GetPresignedUploadURL(ctx context.Context, key string, contentType string, ttl time.Duration) (string, error) {
-	cleanKey := strings.TrimPrefix(key, "/")
+	cleanKey, err := s.objectKey(key)
+	if err != nil {
+		return "", err
+	}
 	if s.client != nil {
 		presignClient := s3.NewPresignClient(s.client)
 		presignedReq, err := presignClient.PresignPutObject(ctx, &s3.PutObjectInput{

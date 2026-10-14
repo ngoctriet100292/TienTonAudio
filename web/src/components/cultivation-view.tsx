@@ -1,24 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import {
-  Flame,
-  Zap,
-  Sparkles,
-  Headphones,
-  Crown,
-  MessageSquare,
-  ShieldCheck,
-  ChevronRight,
-  Calculator,
-  Compass,
-  ArrowUpRight,
-  Layers,
-  Award,
-} from 'lucide-react';
+import { ArrowUpRight, Check, Flame, Layers, Plus, Sparkles } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
+import { EditorialHeading } from './editorial';
+import { Reveal } from './reveal';
 
 export interface RealmItem {
   level: number;
@@ -241,399 +228,42 @@ export const ALL_REALMS: RealmItem[] = [
 ];
 
 export function CultivationInteractiveView() {
-  const router = useRouter();
   const { user, isAuthenticated } = useAuth();
+  const [tier, setTier] = useState<'all' | 'pham' | 'tien' | 'chiton'>('all');
+  const [selected, setSelected] = useState(1);
+  const [hours, setHours] = useState(2);
+  const [vip, setVip] = useState(false);
+  const realm = ALL_REALMS.find(item => item.level === selected)!;
+  const filtered = ALL_REALMS.filter(item => tier === 'all' || item.tier === tier);
+  const exp = user?.cultivation_exp || 0;
+  const daily = hours * (vip ? 120 : 60);
+  const format = (value: number) => value.toLocaleString('vi-VN');
+  const chooseTier = (value: typeof tier) => { setTier(value); if (value !== 'all' && realm.tier !== value) setSelected(ALL_REALMS.find(item => item.tier === value)!.level); };
 
-  const [selectedTier, setSelectedTier] = useState<'all' | 'pham' | 'tien' | 'chiton'>('all');
-  const [hoursPerDay, setHoursPerDay] = useState(2);
-  const [hasVip, setHasVip] = useState(true);
+  return <div className="space-y-14">
+    <Reveal><section className="editorial-card flex flex-col justify-between gap-6 p-6 sm:p-8 md:flex-row md:items-center">
+      <div className="flex items-center gap-4"><span className="editorial-icon shrink-0"><Flame size={24} /></span><div><p className="editorial-kicker mb-1">TIÊN LỘ CỦA BẠN</p><h2 className="text-xl font-semibold text-white">{isAuthenticated ? user?.cultivation_realm || 'Luyện Khí' : 'Mọi hành trình đều có một khởi đầu.'}</h2><p className="mt-2 text-sm text-slate-400">{isAuthenticated ? `${format(exp)} tu vi · Tiếp tục khám phá thế giới truyện của bạn.` : 'Đăng nhập để theo dõi tu vi và cảnh giới của mình.'}</p></div></div>
+      <Link href={isAuthenticated ? '/settings' : '/login'} className="editorial-button shrink-0">{isAuthenticated ? 'Xem hồ sơ của bạn' : 'Bắt đầu hành trình'}<ArrowUpRight size={17} /></Link>
+    </section></Reveal>
 
-  const filteredRealms = ALL_REALMS.filter(
-    (r) => selectedTier === 'all' || r.tier === selectedTier
-  );
-
-  // Tính toán dự báo tu luyện
-  // 1 giờ nghe = 12 lần ping (mỗi 5 phút) * 5 EXP = 60 EXP/giờ. Nếu có VIP: 120 EXP/giờ.
-  const expPerHour = hasVip ? 120 : 60;
-  const expPerDay = hoursPerDay * expPerHour;
-  const daysToNguyenAnh = Math.ceil(300 / expPerDay);
-  const daysToDaiThua = Math.ceil(15000 / expPerDay);
-  const daysToTienVuong = Math.ceil(700000 / expPerDay);
-
-  return (
-    <div className="space-y-16">
-      {/* 1. Thẻ Trạng Thái Của Đạo Hữu Hiện Tại */}
-      <div className="relative overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-br from-[#121929] via-[#0d1322] to-[#070a12] p-6 sm:p-10 shadow-2xl">
-        <div className="absolute top-0 right-0 -mr-24 -mt-24 h-80 w-80 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
-          <div className="flex items-center gap-5">
-            <div className="relative flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#ffd166] via-[#ffb703] to-amber-600 text-black shadow-xl shadow-amber-500/30">
-              <Flame className="w-10 h-10" />
-              {isAuthenticated && user && (
-                <span className="absolute -bottom-2 -right-2 px-2 py-0.5 rounded-full bg-slate-900 border border-amber-400 text-[10px] font-black text-amber-300">
-                  Cấp {user.cultivation_level || 1}
-                </span>
-              )}
-            </div>
-
-            <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30 mb-2">
-                <Sparkles className="w-3.5 h-3.5" />
-                {isAuthenticated && user ? `Đạo Hữu: ${user.username}` : 'Chưa Khai Mở Linh Căn'}
-              </div>
-
-              <h2 className="text-2xl sm:text-3xl font-black text-white">
-                {isAuthenticated && user
-                  ? `${user.cultivation_realm || 'Luyện Khí'} Cảnh`
-                  : 'Sơ Nhập Tiên Lộ'}
-              </h2>
-
-              <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-xl">
-                {isAuthenticated && user
-                  ? `Điểm tu vi hiện tại: ${user.cultivation_exp || 0} EXP. Hãy tiếp tục nghe audio truyện để ngưng tụ linh lực, đột phá cảnh giới cao hơn!`
-                  : 'Đăng nhập ngay để kích hoạt kinh mạch, tích lũy tu vi tự động khi nghe bất kỳ tập truyện nào trên hệ thống.'}
-              </p>
-            </div>
-          </div>
-
-          {/* Action Button */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
-            {isAuthenticated ? (
-              <>
-                <button
-                  onClick={() => router.push('/settings')}
-                  className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-[#ffd166] to-[#ffb703] text-black font-black text-xs sm:text-sm shadow-lg shadow-amber-500/25 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2"
-                >
-                  <Flame className="w-4 h-4" /> Động Phủ Của Ta
-                </button>
-                <button
-                  onClick={() => router.push('/vip')}
-                  className="px-5 py-3.5 rounded-2xl bg-slate-800/90 hover:bg-slate-750 text-amber-300 border border-amber-500/30 font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2"
-                >
-                  <Crown className="w-4 h-4 text-amber-400" /> Nạp VIP (x2 Tu Vi)
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={() => router.push('/login')}
-                className="px-8 py-4 rounded-2xl bg-gradient-to-r from-[#ffd166] to-[#ffb703] text-black font-black text-sm shadow-xl shadow-amber-500/30 hover:scale-105 transition-all flex items-center justify-center gap-2"
-              >
-                Đăng Nhập Khai Mở Linh Căn <ArrowUpRight className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        </div>
+    <section id="realm-map" className="scroll-mt-28"><Reveal><EditorialHeading eyebrow="BẢN ĐỒ TIÊN LỘ" title="Từ phàm nhân đến Tiên Đế." description="Chọn một cảnh giới để khám phá. Mỗi mốc tu vi là một chặng đường mới trong hành trình của bạn." /></Reveal>
+      <div aria-label="Lọc cảnh giới" className="mb-7 flex flex-wrap gap-2">{([{ key: 'all', label: 'Tất cả · 17' }, { key: 'pham', label: 'Phàm giới · 7' }, { key: 'tien', label: 'Tiên giới · 6' }, { key: 'chiton', label: 'Chí tôn · 4' }] as const).map(item => <button key={item.key} type="button" aria-pressed={tier === item.key} onClick={() => chooseTier(item.key)} className={`rounded-full border px-5 py-2.5 text-xs font-medium transition-colors ${tier === item.key ? 'border-[#ffb703] bg-[#ffb703] text-black' : 'border-white/10 bg-white/[.03] text-slate-400 hover:border-[#ffb703]/50 hover:text-white'}`}>{item.label}</button>)}</div>
+      <div className="grid items-start gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{filtered.map(item => <button key={item.level} type="button" aria-pressed={selected === item.level} onClick={() => setSelected(item.level)} className={`group flex items-center gap-3 rounded-2xl border p-4 text-left transition-all ${selected === item.level ? 'border-[#ffb703]/60 bg-[#ffb703]/10' : 'border-white/10 bg-slate-900/50 hover:border-white/25 hover:bg-slate-800/60'}`}>
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-sm font-semibold" style={{ color: item.color, background: `${item.color}15` }}>{String(item.level).padStart(2, '0')}</span><span className="min-w-0 flex-1"><span className="block text-sm font-medium text-white">{item.name}</span><span className="mt-1 block text-xs text-slate-400">{format(item.min_exp)} tu vi</span></span>{selected === item.level ? <Check size={16} className="shrink-0 text-[#ffb703]" /> : <ArrowUpRight size={16} className="shrink-0 text-slate-500 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />}
+        </button>)}</div>
+        <aside className="editorial-card sticky top-28 overflow-hidden p-8 sm:p-10" aria-label="Chi tiết cảnh giới">
+          <div key={realm.level} className="realm-detail"><div className="mb-8 flex items-center justify-between"><span className="editorial-kicker">{realm.tierName}</span><span className="font-serif text-5xl text-white/10">{String(realm.level).padStart(2, '0')}</span></div><div className="mb-6 grid h-20 w-20 place-items-center rounded-3xl border" style={{ background: `${realm.color}12`, color: realm.color, borderColor: `${realm.color}40` }}><Sparkles size={36} strokeWidth={1.2} /></div><h3 className="font-serif text-4xl text-white">{realm.name}</h3><p className="mt-5 text-sm leading-[1.9] text-slate-300">{realm.description}</p><div className="my-7 h-px bg-white/10" /><p className="mb-2 text-xs text-slate-400">Mốc tu vi</p><p className="text-xl font-semibold text-[#ffd166]">{format(realm.min_exp)} {realm.max_exp === -1 ? '+' : `— ${format(realm.max_exp)}`} <span className="text-sm font-normal text-slate-400">EXP</span></p><div className="mt-7 flex items-start gap-2 rounded-xl bg-white/[.03] p-4 text-xs leading-relaxed text-slate-400"><Layers size={16} className="mt-0.5 shrink-0 text-[#ffb703]" />Cảnh giới thể hiện tiến trình tu luyện. Quyền truy cập chương VIP được xác định theo gói hội viên của bạn.</div></div>
+        </aside>
       </div>
+    </section>
 
-      {/* 2. Tam Đại Pháp Môn Tăng Trưởng Tu Vi */}
-      <div>
-        <div className="text-center max-w-2xl mx-auto mb-10">
-          <div className="inline-flex items-center gap-2 text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">
-            <Zap className="w-4 h-4" />
-            Bí Kíp Tu Chân
-          </div>
-          <h2 className="text-3xl font-black text-white">Tam Đại Pháp Môn Tăng Trưởng Tu Vi</h2>
-          <p className="text-sm text-slate-400 mt-2">
-            Ba phương thức chính giúp Đạo Hữu thăng hoa cảnh giới từ Luyện Khí phàm nhân tới Tiên Đế chí tôn.
-          </p>
-        </div>
+    <Reveal><section className="editorial-card grid gap-8 p-6 sm:p-10 lg:grid-cols-2 lg:gap-14"><div><EditorialHeading eyebrow="TỪNG NGÀY MỘT CHÚT" title="Thử nhịp tu luyện của bạn." description="Ước tính tham khảo với 60 EXP mỗi giờ, hoặc 120 EXP khi bật giả định VIP. Tu vi thực tế được hệ thống ghi nhận theo hoạt động hợp lệ." /><label htmlFor="listening-hours" className="mb-4 flex justify-between gap-3 text-sm text-slate-300"><span>Thời gian nghe mỗi ngày</span><span className="font-semibold text-[#ffb703]">{hours} giờ</span></label><input id="listening-hours" type="range" min="0.5" max="8" step="0.5" value={hours} onChange={event => setHours(Number(event.target.value))} className="w-full accent-[#ffb703]" /><div className="mt-2 flex justify-between text-xs text-slate-500"><span>30 phút</span><span>8 giờ</span></div><label className="mt-6 flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-white/10 p-4"><span className="text-sm text-slate-300">Giả định hội viên VIP · x2 tu vi</span><input type="checkbox" checked={vip} onChange={event => setVip(event.target.checked)} className="h-5 w-5 accent-[#ffb703]" /></label></div><div className="flex flex-col justify-center"><p className="text-xs text-slate-400">Tu vi dự kiến mỗi ngày</p><p className="my-3 font-serif text-6xl text-[#ffd166]">{format(daily)}<span className="ml-3 font-sans text-sm text-slate-400">EXP</span></p><div className="mt-4 space-y-3">{[ALL_REALMS[2], ALL_REALMS[6], ALL_REALMS[14]].map(item => <div key={item.level} className="flex justify-between gap-4 rounded-xl bg-white/[.03] p-4 text-sm"><span className="text-slate-300">{item.name}</span><span className="font-medium text-white">{Math.ceil(Math.max(0, item.min_exp - exp) / daily) || 'Đã đạt'}{item.min_exp > exp ? ' ngày' : ''}</span></div>)}</div></div></section></Reveal>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Cách 1: Thính Âm Tụ Khí */}
-          <div className="relative rounded-3xl border border-white/10 bg-slate-900/60 p-7 space-y-4 hover:border-amber-500/40 transition-all group">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-400 border border-sky-500/30 group-hover:scale-110 transition-transform">
-              <Headphones className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-black text-white">1. Thính Âm Tụ Khí</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Mỗi phút nghe truyện audio, kinh mạch tự động hấp thu linh khí trong thanh âm. Hệ thống cộng điểm Tu Vi trực tiếp:
-            </p>
-            <ul className="space-y-2 text-xs text-slate-300 font-mono">
-              <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
-                <span>Mỗi ping tiến độ: <strong>+5 EXP</strong></span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                <span>Hoàn thành 1 tập: <strong>+15 EXP</strong></span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                <span>Nghe đều đặn mỗi ngày để duy trì khí vận</span>
-              </li>
-            </ul>
-          </div>
-
-          {/* Cách 2: Phục Dụng Linh Đan VIP */}
-          <div className="relative rounded-3xl border border-amber-500/40 bg-gradient-to-b from-amber-500/10 to-slate-900/80 p-7 space-y-4 shadow-xl shadow-amber-500/5 group">
-            <div className="absolute top-4 right-4 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-black border border-amber-500/40 uppercase">
-              Thần Tốc Nhất
-            </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-300 border border-amber-500/40 group-hover:scale-110 transition-transform">
-              <Crown className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-black text-white">2. Phục Dụng Linh Đan VIP</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Nâng cấp gói Hội Viên VIP nhận ngay Đan Dược Đột Phá cấp tốc và hưởng tốc độ tu luyện siêu việt:
-            </p>
-            <ul className="space-y-2 text-xs text-slate-300 font-mono">
-              <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                <span>Hội Viên Đồng Đan: <strong>+1.500 EXP</strong></span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                <span>Hội Viên Kim Đan: <strong>+4.500 EXP</strong></span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                <span>Tiên Vương (1 năm): <strong>+18.250 EXP</strong></span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                <span>Tốc độ hấp thu linh khí: <strong>x2 (200%)</strong></span>
-              </li>
-            </ul>
-          </div>
-
-          {/* Cách 3: Đàm Đạo Luận Pháp */}
-          <div className="relative rounded-3xl border border-white/10 bg-slate-900/60 p-7 space-y-4 hover:border-indigo-500/40 transition-all group">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 group-hover:scale-110 transition-transform">
-              <MessageSquare className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-black text-white">3. Đàm Đạo Luận Pháp</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Giao lưu cùng chư vị đạo hữu, khai phá ngộ tính tâm linh qua các hoạt động tương tác cộng đồng:
-            </p>
-            <ul className="space-y-2 text-xs text-slate-300 font-mono">
-              <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
-                <span>Bình luận đàm đạo: <strong>+5 EXP</strong></span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
-                <span>Hỏi đáp cùng AI Đạo Hữu: <strong>+10 EXP</strong></span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
-                <span>Đánh giá 5 sao cho tác phẩm: <strong>+10 EXP</strong></span>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Máy Tính Dự Báo Đột Phá Tu Vi (Interactive Cultivation Calculator) */}
-      <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-6 sm:p-8 backdrop-blur-xl">
-        <div className="flex items-center gap-3 pb-6 border-b border-white/10">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
-            <Calculator className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="text-lg font-black text-white">Linh Trận Dự Báo Đột Phá</h3>
-            <p className="text-xs text-slate-400">Ước tính thời gian cần thiết để phi thăng theo cường độ nghe truyện của Đạo Hữu.</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-6">
-          {/* Controls */}
-          <div className="space-y-6">
-            <div>
-              <div className="flex justify-between text-xs font-bold text-slate-300 mb-2">
-                <span>Thời gian nghe audio mỗi ngày:</span>
-                <span className="text-amber-400 font-mono text-sm">{hoursPerDay} Giờ / Ngày</span>
-              </div>
-              <input
-                type="range"
-                min="0.5"
-                max="8"
-                step="0.5"
-                value={hoursPerDay}
-                onChange={(e) => setHoursPerDay(parseFloat(e.target.value))}
-                className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-400"
-              />
-              <div className="flex justify-between text-[10px] text-slate-500 font-mono mt-1">
-                <span>30 phút</span>
-                <span>2 giờ</span>
-                <span>4 giờ</span>
-                <span>8 giờ (Đại Năng)</span>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-800/60 border border-white/5">
-              <div>
-                <p className="text-xs font-bold text-white">Sử Dụng Đan Dược Hội Viên VIP (x2 Tu Vi)</p>
-                <p className="text-[11px] text-slate-400">Tăng gấp đôi tốc độ hấp thu linh khí trong lúc nghe truyện</p>
-              </div>
-              <input
-                type="checkbox"
-                checked={hasVip}
-                onChange={(e) => setHasVip(e.target.checked)}
-                className="h-5 w-5 rounded accent-amber-400 cursor-pointer"
-              />
-            </div>
-          </div>
-
-          {/* Kết quả dự báo */}
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col justify-center">
-              <p className="text-[10px] uppercase font-bold text-emerald-400 mb-1">Trúc Cơ ➔ Nguyên Anh</p>
-              <p className="text-2xl font-black text-white font-mono">{daysToNguyenAnh} <span className="text-xs text-slate-400 font-normal">ngày</span></p>
-              <p className="text-[10px] text-slate-400 mt-1">300 Điểm Tu Vi</p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex flex-col justify-center">
-              <p className="text-[10px] uppercase font-bold text-amber-400 mb-1">Phi Thăng Đại Thừa</p>
-              <p className="text-2xl font-black text-white font-mono">{daysToDaiThua} <span className="text-xs text-slate-400 font-normal">ngày</span></p>
-              <p className="text-[10px] text-slate-400 mt-1">15.000 Điểm Tu Vi</p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex flex-col justify-center">
-              <p className="text-[10px] uppercase font-bold text-purple-400 mb-1">Chấn Nhiếp Tiên Vương</p>
-              <p className="text-2xl font-black text-white font-mono">{daysToTienVuong} <span className="text-xs text-slate-400 font-normal">ngày</span></p>
-              <p className="text-[10px] text-slate-400 mt-1">700.000 Điểm Tu Vi</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 4. Bản Đồ Chi Tiết 17 Cảnh Giới Tu Tiên */}
-      <div>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-          <div>
-            <div className="inline-flex items-center gap-2 text-xs font-bold text-amber-400 uppercase tracking-wider mb-1">
-              <Layers className="w-4 h-4" />
-              Lộ Trình Tu Tiên
-            </div>
-            <h2 className="text-3xl font-black text-white">Thập Thất Trọng Thiên (17 Cảnh Giới)</h2>
-          </div>
-
-          {/* Bộ lọc 3 tầng giới */}
-          <div className="flex gap-1.5 p-1 rounded-xl bg-slate-900 border border-white/10 text-xs">
-            <button
-              onClick={() => setSelectedTier('all')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
-                selectedTier === 'all' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Tất Cả (17)
-            </button>
-            <button
-              onClick={() => setSelectedTier('pham')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
-                selectedTier === 'pham' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Phàm Giới (7)
-            </button>
-            <button
-              onClick={() => setSelectedTier('tien')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
-                selectedTier === 'tien' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Tiên Giới (6)
-            </button>
-            <button
-              onClick={() => setSelectedTier('chiton')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
-                selectedTier === 'chiton' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Chí Tôn (4)
-            </button>
-          </div>
-        </div>
-
-        {/* Danh sách thẻ cảnh giới */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredRealms.map((realm) => (
-            <div
-              key={realm.level}
-              className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-900/60 p-5 hover:border-amber-500/40 transition-all group shadow-sm hover:shadow-xl"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <span
-                    className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl font-black text-sm shadow-md"
-                    style={{
-                      backgroundColor: `${realm.color}20`,
-                      color: realm.color,
-                      border: `1px solid ${realm.color}50`,
-                    }}
-                  >
-                    {realm.level}
-                  </span>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-base font-black text-white">{realm.name} Cảnh</h4>
-                      <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-white/5 text-slate-400 border border-white/10">
-                        {realm.tierName}
-                      </span>
-                    </div>
-                    <p className="text-xs text-amber-400 font-mono font-semibold mt-0.5">
-                      {realm.max_exp === -1
-                        ? '≥ 2.000.000 EXP'
-                        : `${realm.min_exp.toLocaleString()} - ${realm.max_exp.toLocaleString()} EXP`}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-xs text-slate-300 leading-relaxed mt-3.5 pb-3 border-b border-white/5">
-                {realm.description}
-              </p>
-
-              <div className="mt-3 space-y-1.5 text-[11px]">
-                <div className="flex items-start gap-1.5 text-slate-400">
-                  <strong className="text-emerald-400 font-semibold flex-shrink-0">Thần Thông:</strong>
-                  <span>{realm.ability}</span>
-                </div>
-                <div className="flex items-start gap-1.5 text-slate-400">
-                  <strong className="text-amber-400 font-semibold flex-shrink-0">Đặc Quyền:</strong>
-                  <span>{realm.privilege}</span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* 5. Câu Hỏi Thường Gặp (FAQ) */}
-      <div className="rounded-3xl border border-white/10 bg-slate-900/40 p-6 sm:p-10 space-y-6">
-        <h3 className="text-2xl font-black text-white">Vấn Đạo Chư Cung (Câu Hỏi Thường Gặp)</h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-slate-300">
-          <div className="space-y-2 p-4 rounded-2xl bg-slate-800/40 border border-white/5">
-            <h4 className="font-bold text-white text-sm">Tu vi có bị tụt khi tôi không nghe truyện không?</h4>
-            <p className="text-slate-400 leading-relaxed">
-              Hoàn toàn không. Một khi Đạo Hữu đã khổ tu đắc đạo, linh lực vĩnh viễn tồn lưu trong đan điền, cảnh giới không bao giờ bị thoái lui.
-            </p>
-          </div>
-
-          <div className="space-y-2 p-4 rounded-2xl bg-slate-800/40 border border-white/5">
-            <h4 className="font-bold text-white text-sm">Làm thế nào để hiển thị huy hiệu Cảnh Giới trong bình luận?</h4>
-            <p className="text-slate-400 leading-relaxed">
-              Hệ thống tự động đồng bộ huy hiệu cảnh giới ngay bên cạnh tên của bạn khi bạn để lại bình luận tại bất kỳ chương truyện nào.
-            </p>
-          </div>
-
-          <div className="space-y-2 p-4 rounded-2xl bg-slate-800/40 border border-white/5">
-            <h4 className="font-bold text-white text-sm">Cảnh giới Tiên Đế có giới hạn số lượng người không?</h4>
-            <p className="text-slate-400 leading-relaxed">
-              Bất kỳ Đạo Hữu nào đạt từ 2.000.000 điểm Tu Vi trở lên đều có thể đắc đạo Tiên Đế, cùng chư vị đại năng khác xưng bá cửu thiên thập địa.
-            </p>
-          </div>
-
-          <div className="space-y-2 p-4 rounded-2xl bg-slate-800/40 border border-white/5">
-            <h4 className="font-bold text-white text-sm">Nghe audio tăng tốc (1.5x, 2.0x) có được cộng đủ Tu Vi?</h4>
-            <p className="text-slate-400 leading-relaxed">
-              Có. Hệ thống tính điểm dựa trên số giây nội dung truyện Đạo Hữu đã tiếp thu, giúp việc vừa nghe nhanh vừa thăng cấp cảnh giới diễn ra mượt mà nhất.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+    <Reveal><section><EditorialHeading eyebrow="HỎI NHANH, ĐÁP GỌN" title="Trước khi bước lên tiên lộ." /><div className="editorial-faq divide-y divide-white/10 border-y border-white/10">{[
+      ['Xem tu vi hiện tại ở đâu?', 'Đăng nhập và mở trang Cài đặt để xem hồ sơ, tu vi cùng cảnh giới hiện tại của bạn.'],
+      ['Cảnh giới có thay thế gói VIP không?', 'Không. Cảnh giới thể hiện tiến trình tu luyện; quyền nghe và đọc chương premium phụ thuộc vào gói hội viên còn hiệu lực.'],
+      ['Các con số dự báo có chính xác tuyệt đối không?', 'Đây là ước tính theo thời gian nghe bạn chọn. Kết quả thực tế phụ thuộc vào hoạt động được hệ thống ghi nhận và những thay đổi của chính sách tu vi.'],
+    ].map(([question, answer]) => <details key={question}><summary>{question}<Plus size={18} /></summary><p className="faq-answer max-w-3xl pb-6 text-sm leading-relaxed text-slate-400">{answer}</p></details>)}</div></section></Reveal>
+  </div>;
 }

@@ -1087,6 +1087,149 @@
           "200": { "description": "Đã cập nhật trạng thái báo cáo" }
         }
       }
+    },
+    "/auth/social": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Đăng nhập mạng xã hội đang tạm dừng",
+        "deprecated": true,
+        "responses": {
+          "503": {
+            "description": "Chưa có xác minh OAuth phía server; dùng email và mật khẩu"
+          }
+        }
+      }
+    },
+    "/payments/{id}/status": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Trạng thái đơn thanh toán của người dùng hiện tại",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uuid"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trạng thái thanh toán"
+          },
+          "401": {
+            "description": "Chưa đăng nhập"
+          },
+          "404": {
+            "description": "Đơn không tồn tại hoặc không thuộc người dùng"
+          }
+        }
+      }
+    },
+    "/payments/{id}/confirm-auto": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Tự xác nhận thanh toán đã bị vô hiệu hóa",
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "410": {
+            "description": "Chỉ webhook đã đối soát được phép xác nhận thanh toán"
+          }
+        }
+      }
+    },
+    "/payments/webhook": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Webhook từ adapter thanh toán đã đối soát",
+        "description": "Cần X-Webhook-Secret hoặc X-Signature (HMAC-SHA256 của nguyên body). Ngân hàng phải được xác minh trong adapter trước khi gọi endpoint này.",
+        "parameters": [
+          {
+            "name": "X-Webhook-Secret",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "X-Signature",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "payment_id",
+                "transaction_id",
+                "status",
+                "amount"
+              ],
+              "properties": {
+                "payment_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "transaction_id": {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "completed",
+                    "failed"
+                  ]
+                },
+                "amount": {
+                  "type": "integer",
+                  "format": "int64",
+                  "description": "Số tiền đã đối soát, đơn vị VND"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Đã xử lý nguyên tử; sự kiện completed lặp lại không cấp thưởng lần nữa"
+          },
+          "400": {
+            "description": "Đơn hoặc số tiền không hợp lệ"
+          },
+          "401": {
+            "description": "Secret/chữ ký không hợp lệ"
+          },
+          "422": {
+            "description": "Payload chưa có adapter hỗ trợ"
+          },
+          "503": {
+            "description": "Chưa cấu hình secret"
+          }
+        }
+      }
     }
   }
 }

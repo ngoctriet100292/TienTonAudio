@@ -1,15 +1,19 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Play, Volume2, ArrowLeft, ArrowRight, BookOpen, Type, Palette, List, Clock } from 'lucide-react';
-import { useAudio } from '@/context/audio-context';
-import { Story, Chapter } from '@/types';
+import { useAsyncResource } from '@/lib/use-async-resource';
+
 import { ChapterComments } from '@/components/chapter-comments';
 import { CultivationSpinner } from '@/components/cultivation-spinner';
+import { AMBIENT_SOUNDS, useAmbient } from '@/context/ambient-audio-context';
+import { useAudio } from '@/context/audio-context';
+import { useAuth } from '@/context/auth-context';
+import { api } from '@/lib/api';
 import { formatAudioTime } from '@/lib/timeline';
-import { useAmbient, AMBIENT_SOUNDS } from '@/context/ambient-audio-context';
+import { Chapter, Story } from '@/types';
+import { ArrowLeft, ArrowRight, BookOpen, Clock, List, Palette, Play, Type, Volume2 } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 export default function ChapterReaderClient({
   story,
@@ -21,6 +25,7 @@ export default function ChapterReaderClient({
   chapters?: Chapter[];
 }) {
   const router = useRouter();
+  const { user } = useAuth();
   const { currentChapter, isPlaying, playChapter, seek, currentTime } = useAudio();
   const isThisPlaying = currentChapter?.id === chapter.id && isPlaying;
 
@@ -33,22 +38,7 @@ export default function ChapterReaderClient({
 
   const [fontSize, setFontSize] = useState<number>(18);
   const [bgMode, setBgMode] = useState<'dark' | 'sepia' | 'obsidian'>('dark');
-  const [fetchedContent, setFetchedContent] = useState<string>('');
-  const [contentLoading, setContentLoading] = useState<boolean>(false);
-
-  useEffect(() => {
-    if (!chapter.content && !chapter.content_text && chapter.content_url) {
-      setContentLoading(true);
-      fetch(chapter.content_url)
-        .then((res) => {
-          if (res.ok) return res.text();
-          throw new Error('Failed to load text from storage');
-        })
-        .then((text) => setFetchedContent(text))
-        .catch(() => {})
-        .finally(() => setContentLoading(false));
-    }
-  }, [chapter.id, chapter.content, chapter.content_text, chapter.content_url]);
+  const { data: fetchedContent, loading: contentLoading } = useAsyncResource<string>(!chapter.content && !chapter.content_text ? `chapter-text:${chapter.id}:${user?.id || 'guest'}` : null, () => api.getChapter(chapter.id).then((result) => result?.content || ''), '');
 
   const bgStyles = {
     dark: 'bg-[#0f172a] text-slate-200 border-white/10',
@@ -66,7 +56,9 @@ export default function ChapterReaderClient({
       ? chapters[currentIndex + 1]
       : null;
 
-  const rawContent = chapter.content || chapter.content_text || fetchedContent;
+  const rawContent = chapter.content || chapter.content_text || fetchedContent || (chapter.is_premium ? 'Chương này yêu cầu gói VIP. Vui lòng đăng nhập bằng tài khoản có gói VIP để đọc.' : 'Nội dung chương đang được cập nhật...');
+
+
 
   return (
     <div className="space-y-8">
@@ -78,7 +70,7 @@ export default function ChapterReaderClient({
               {isThisPlaying ? <Volume2 className="w-6 h-6 animate-pulse" /> : <Play className="w-6 h-6 fill-current ml-0.5" />}
             </div>
             <div>
-              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">
+              <span className="text-[11px] font-bold text-amber-400 uppercase tracking-widest">
                 Bản Thu Audio 320kbps • {chapter.narrator_name || 'MC Diễn Cảm'}
               </span>
               <h2 className="text-base font-bold text-white">{chapter.title}</h2>
@@ -104,7 +96,7 @@ export default function ChapterReaderClient({
                 Mục Lục Mốc Thời Gian Audio ({chapter.timeline_markers.length} phân đoạn)
               </h3>
             </div>
-            <span className="text-[10px] text-slate-400">Click mốc giờ để nghe trực tiếp</span>
+            <span className="text-[11px] text-slate-400">Click mốc giờ để nghe trực tiếp</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pt-1 max-h-60 overflow-y-auto pr-1 scrollbar-thin">
@@ -124,11 +116,10 @@ export default function ChapterReaderClient({
                     }
                     seek(m.start_seconds);
                   }}
-                  className={`flex items-center gap-2.5 p-2 rounded-xl text-left transition-all border ${
-                    isCurrent
+                  className={`flex items-center gap-2.5 p-2 rounded-xl text-left transition-all border ${isCurrent
                       ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 shadow-md shadow-amber-500/10'
                       : 'bg-slate-800/60 hover:bg-slate-800 border-white/5 hover:border-amber-500/30 text-slate-300 hover:text-white'
-                  }`}
+                    }`}
                 >
                   <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-black/40 text-amber-400 font-bold flex-shrink-0 border border-amber-500/20">
                     {formatAudioTime(m.start_seconds)}
@@ -166,11 +157,10 @@ export default function ChapterReaderClient({
           {/* Nút Âm Thanh Môi Trường Tiên Hiệp */}
           <button
             onClick={() => setAmbientModalOpen(true)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium transition-all ${
-              isAmbientPlaying
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium transition-all ${isAmbientPlaying
                 ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm'
                 : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border-white/5'
-            }`}
+              }`}
             title="Bật âm thanh thiên nhiên (tiếng mưa, tiếng gió, suối reo)"
           >
             <span className="text-xs">{currentAmbientConfig?.icon || '🌧️'}</span>
@@ -204,23 +194,20 @@ export default function ChapterReaderClient({
             <Palette className="w-3.5 h-3.5 text-slate-400 mr-1" />
             <button
               onClick={() => setBgMode('dark')}
-              className={`w-5 h-5 rounded-full bg-[#0f172a] border-2 transition-all ${
-                bgMode === 'dark' ? 'border-amber-400 scale-110' : 'border-slate-700'
-              }`}
+              className={`w-5 h-5 rounded-full bg-[#0f172a] border-2 transition-all ${bgMode === 'dark' ? 'border-amber-400 scale-110' : 'border-slate-700'
+                }`}
               title="Chế độ Tối"
             />
             <button
               onClick={() => setBgMode('sepia')}
-              className={`w-5 h-5 rounded-full bg-[#2b241a] border-2 transition-all ${
-                bgMode === 'sepia' ? 'border-amber-400 scale-110' : 'border-slate-700'
-              }`}
+              className={`w-5 h-5 rounded-full bg-[#2b241a] border-2 transition-all ${bgMode === 'sepia' ? 'border-amber-400 scale-110' : 'border-slate-700'
+                }`}
               title="Chế độ Giấy Cổ"
             />
             <button
               onClick={() => setBgMode('obsidian')}
-              className={`w-5 h-5 rounded-full bg-[#05070c] border-2 transition-all ${
-                bgMode === 'obsidian' ? 'border-amber-400 scale-110' : 'border-slate-700'
-              }`}
+              className={`w-5 h-5 rounded-full bg-[#05070c] border-2 transition-all ${bgMode === 'obsidian' ? 'border-amber-400 scale-110' : 'border-slate-700'
+                }`}
               title="Chế độ Huyền Vũ"
             />
           </div>
@@ -247,8 +234,8 @@ export default function ChapterReaderClient({
           </div>
         ) : rawContent ? (
           <div
-            className="leading-relaxed whitespace-pre-line tracking-wide font-serif select-text space-y-4"
-            style={{ fontSize: `${fontSize}px`, lineHeight: 1.85 }}
+            className="reader-prose mx-auto max-w-[68ch] whitespace-pre-line select-text space-y-4"
+            style={{ fontSize: `${fontSize}px`, lineHeight: 1.95 }}
           >
             {rawContent}
           </div>

@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -411,15 +413,122 @@ func (h *PartnerHandler) CreateStoryChapter(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Nếu có audio URL, thêm vào chapter_audio_files
+	// Nếu có audio URL, thêm vào chapter_audio_files với chất lượng chuẩn 320k
 	if req.AudioURL != nil && *req.AudioURL != "" {
-		_, _ = h.chapterService.AddChapterAudioFile(r.Context(), createdCh.ID, "320kbps", *req.AudioURL, nil, true)
+		af, err := h.chapterService.AddChapterAudioFile(r.Context(), createdCh.ID, "320k", *req.AudioURL, nil, true)
+		if err != nil {
+			slog.Error("failed to add chapter audio file", "error", err, "chapter_id", createdCh.ID, "audio_url", *req.AudioURL)
+		} else {
+			slog.Info("successfully saved chapter audio file", "chapter_id", createdCh.ID, "af_id", af.ID, "audio_url", af.AudioURL)
+		}
 	}
 
 	// Cập nhật lại tổng số tập trong bảng stories
 	_, _ = h.pool.Exec(r.Context(), "UPDATE stories SET total_chapters = (SELECT COUNT(*) FROM chapters WHERE story_id = $1), updated_at = CURRENT_TIMESTAMP WHERE id = $1", storyID)
 
 	utils.JSONWithMessage(w, http.StatusCreated, "Thêm tập mới thành công!", createdCh)
+}
+
+type AttachChapterAudioReq struct {
+	AudioURL        string `json:"audio_url" validate:"required"`
+	Quality         string `json:"quality"`
+	DurationSeconds int32  `json:"duration_seconds"`
+}
+
+// AttachChapterAudio gắn hoặc cập nhật file audio cho một chương đã tồn tại
+func (h *PartnerHandler) AttachChapterAudio(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.GetClaimsFromContext(r.Context())
+	if !ok {
+		utils.ErrorResponse(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	chapterIDStr := chi.URLParam(r, "id")
+	chapterID, err := uuid.Parse(chapterIDStr)
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusBadRequest, "Invalid chapter ID")
+		return
+	}
+
+	var req AttachChapterAudioReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.ErrorResponse(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if req.AudioURL == "" {
+		utils.ErrorResponse(w, http.StatusBadRequest, "Audio URL không được để trống")
+		return
+	}
+
+	// Kiểm tra quyền sở hữu chapter
+	if !claims.HasRole("admin") {
+		var ownerID *uuid.UUID
+		err := h.pool.QueryRow(r.Context(), "SELECT s.created_by FROM chapters c JOIN stories s ON c.story_id = s.id WHERE c.id = $1", chapterID).Scan(&ownerID)
+		if err != nil || ownerID == nil || *ownerID != claims.UserID {
+			utils.ErrorResponse(w, http.StatusForbidden, "Bạn không có quyền cập nhật chương này")
+			return
+		}
+	}
+
+	quality := req.Quality
+	if quality == "" {
+		quality = "320k"
+	}
+
+	af, err := h.chapterService.AddChapterAudioFile(r.Context(), chapterID, quality, req.AudioURL, nil, true)
+	if err != nil {
+		slog.Error("failed to attach audio file to chapter", "error", err, "chapter_id", chapterID)
+		utils.ErrorResponse(w, http.StatusInternalServerError, "Không thể gắn file audio: "+err.Error())
+		return
+	}
+
+	if req.DurationSeconds > 0 {
+		_, _ = h.pool.Exec(r.Context(), "UPDATE chapters SET duration_seconds = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2", req.DurationSeconds, chapterID)
+	}
+
+	slog.Info("successfully attached audio to chapter", "chapter_id", chapterID, "audio_url", req.AudioURL)
+	utils.JSONWithMessage(w, http.StatusOK, "Gắn file audio vào chương thành công!", af)
+}
+
+// DeleteStoryChapter xóa một chương
+func (h *PartnerHandler) DeleteStoryChapter(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.GetClaimsFromContext(r.Context())
+	if !ok {
+		utils.ErrorResponse(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	chapterIDStr := chi.URLParam(r, "id")
+	chapterID, err := uuid.Parse(chapterIDStr)
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusBadRequest, "Invalid chapter ID")
+		return
+	}
+
+	var storyID uuid.UUID
+	var ownerID *uuid.UUID
+	err = h.pool.QueryRow(r.Context(), "SELECT c.story_id, s.created_by FROM chapters c JOIN stories s ON c.story_id = s.id WHERE c.id = $1", chapterID).Scan(&storyID, &ownerID)
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusNotFound, "Chương không tồn tại")
+		return
+	}
+
+	if !claims.HasRole("admin") && (ownerID == nil || *ownerID != claims.UserID) {
+		utils.ErrorResponse(w, http.StatusForbidden, "Bạn không có quyền xóa chương này")
+		return
+	}
+
+	_, err = h.pool.Exec(r.Context(), "DELETE FROM chapters WHERE id = $1", chapterID)
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusInternalServerError, "Không thể xóa chương: "+err.Error())
+		return
+	}
+
+	// Cập nhật lại total_chapters
+	_, _ = h.pool.Exec(r.Context(), "UPDATE stories SET total_chapters = (SELECT COUNT(*) FROM chapters WHERE story_id = $1), updated_at = CURRENT_TIMESTAMP WHERE id = $1", storyID)
+
+	utils.JSONWithMessage(w, http.StatusOK, "Đã xóa chương thành công", nil)
 }
 
 // UploadCoverImage upload ảnh bìa truyện lên R2
@@ -466,45 +575,110 @@ func (h *PartnerHandler) UploadCoverImage(w http.ResponseWriter, r *http.Request
 	})
 }
 
-// UploadAudio upload file audio lên R2
+// UploadAudio upload file audio lên Cloudflare R2 (hỗ trợ file dung lượng lớn 1.5GB - 5GB qua Multipart stream)
 func (h *PartnerHandler) UploadAudio(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseMultipartForm(100 << 20) // 100MB
+	mr, err := r.MultipartReader()
 	if err != nil {
-		utils.ErrorResponse(w, http.StatusBadRequest, "File audio quá lớn (tối đa 100MB)")
+		slog.Error("failed to get multipart reader for audio upload", "error", err)
+		utils.ErrorResponse(w, http.StatusBadRequest, "Không thể đọc dữ liệu tải lên: "+err.Error())
 		return
 	}
 
-	file, header, err := r.FormFile("audio")
-	if err != nil {
+	var audioURL string
+	var uploadedKey string
+	foundAudio := false
+
+	for {
+		part, err := mr.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			slog.Error("error reading multipart part", "error", err)
+			utils.ErrorResponse(w, http.StatusBadRequest, "Lỗi đọc phần tải lên: "+err.Error())
+			return
+		}
+
+		if part.FormName() == "audio" {
+			foundAudio = true
+			filename := part.FileName()
+			ext := strings.ToLower(filepath.Ext(filename))
+			if ext != ".mp3" && ext != ".m4a" && ext != ".wav" && ext != ".aac" && ext != ".ogg" {
+				part.Close()
+				utils.ErrorResponse(w, http.StatusBadRequest, "Định dạng audio không hỗ trợ. Vui lòng chọn .mp3, .m4a, .aac hoặc .wav")
+				return
+			}
+
+			// Ghi stream ra file tạm để giải phóng RAM tối đa khi upload các tệp 1.5GB - 5GB
+			tempFile, err := os.CreateTemp("", "tienton-audio-*"+ext)
+			if err != nil {
+				part.Close()
+				slog.Error("failed to create temp file for audio upload", "error", err)
+				utils.ErrorResponse(w, http.StatusInternalServerError, "Lỗi tạo file tạm lưu audio")
+				return
+			}
+			tempFilePath := tempFile.Name()
+			defer os.Remove(tempFilePath)
+			defer tempFile.Close()
+
+			// Stream trực tiếp từ socket mạng ra đĩa bằng buffer nhỏ
+			writtenBytes, err := io.Copy(tempFile, part)
+			part.Close()
+			if err != nil {
+				slog.Error("failed to stream audio to temp file", "error", err)
+				utils.ErrorResponse(w, http.StatusInternalServerError, "Lỗi đọc truyền tải file audio: "+err.Error())
+				return
+			}
+
+			slog.Info("successfully streamed large audio to temp file", "bytes", writtenBytes, "filename", filename)
+
+			// Đặt lại offset file về 0 trước khi tải lên storage
+			if _, err := tempFile.Seek(0, io.SeekStart); err != nil {
+				slog.Error("failed to seek temp file", "error", err)
+				utils.ErrorResponse(w, http.StatusInternalServerError, "Lỗi đọc file audio tạm")
+				return
+			}
+
+			key := fmt.Sprintf("stories/audio/%s_%d%s", uuid.New().String(), time.Now().Unix(), ext)
+			uploadedKey = key
+			contentType := part.Header.Get("Content-Type")
+			if contentType == "" || contentType == "application/octet-stream" {
+				switch ext {
+				case ".mp3":
+					contentType = "audio/mpeg"
+				case ".m4a":
+					contentType = "audio/mp4"
+				case ".wav":
+					contentType = "audio/wav"
+				case ".aac":
+					contentType = "audio/aac"
+				default:
+					contentType = "audio/mpeg"
+				}
+			}
+
+			audioURL, err = h.storageService.UploadFile(r.Context(), key, tempFile, contentType)
+			if err != nil || audioURL == "" {
+				slog.Error("failed to upload audio to Cloudflare R2", "error", err, "key", key)
+				msg := "Không thể tải audio lên Cloudflare R2"
+				if err != nil {
+					msg += ": " + err.Error()
+				}
+				utils.ErrorResponse(w, http.StatusInternalServerError, msg)
+				return
+			}
+
+			break
+		}
+		part.Close()
+	}
+
+	if !foundAudio {
 		utils.ErrorResponse(w, http.StatusBadRequest, "Thiếu trường file 'audio'")
 		return
 	}
-	defer file.Close()
 
-	ext := strings.ToLower(filepath.Ext(header.Filename))
-	if ext != ".mp3" && ext != ".m4a" && ext != ".wav" && ext != ".aac" {
-		utils.ErrorResponse(w, http.StatusBadRequest, "Định dạng audio không hỗ trợ. Vui lòng chọn .mp3, .m4a hoặc .wav")
-		return
-	}
-
-	fileBytes, err := io.ReadAll(file)
-	if err != nil {
-		utils.ErrorResponse(w, http.StatusInternalServerError, "Lỗi đọc file audio")
-		return
-	}
-
-	key := fmt.Sprintf("stories/audio/%s_%d%s", uuid.New().String(), time.Now().Unix(), ext)
-	contentType := header.Header.Get("Content-Type")
-	if contentType == "" {
-		contentType = "audio/mpeg"
-	}
-
-	audioURL, err := h.storageService.UploadFile(r.Context(), key, bytes.NewReader(fileBytes), contentType)
-	if err != nil || audioURL == "" {
-		utils.ErrorResponse(w, http.StatusInternalServerError, "Không thể tải audio lên Cloudflare R2")
-		return
-	}
-
+	slog.Info("successfully uploaded audio to storage", "key", uploadedKey, "url", audioURL)
 	utils.JSONWithMessage(w, http.StatusOK, "Tải file audio lên Cloudflare R2 thành công", map[string]string{
 		"url": audioURL,
 	})

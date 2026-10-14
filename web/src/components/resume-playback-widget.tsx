@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { Play, Pause, Headphones, RotateCcw, X, Sparkles, ChevronRight, Clock } from 'lucide-react';
+import { MediaImage } from '@/components/media-image';
+
 import { useAudio } from '@/context/audio-context';
 import { formatAudioTime } from '@/lib/timeline';
+import { Headphones, Pause, Play, X } from 'lucide-react';
+import Link from 'next/link';
+import { useState } from 'react';
 
 export function ResumePlaybackWidget() {
   const {
@@ -71,7 +73,7 @@ export function ResumePlaybackWidget() {
           className="relative h-14 w-14 sm:h-16 sm:w-16 flex-shrink-0 rounded-xl overflow-hidden border border-amber-500/30 group"
         >
           {story.cover_image_url ? (
-            <img
+            <MediaImage
               src={story.cover_image_url}
               alt={story.title}
               className="h-full w-full object-cover group-hover:scale-105 transition-transform"
@@ -103,7 +105,7 @@ export function ResumePlaybackWidget() {
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
-            <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+            <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
               <span>{formatAudioTime(displayTime)} / {formatAudioTime(displayDuration)}</span>
               <span className="font-bold text-amber-400">{Math.round(progressPercent)}%</span>
             </div>

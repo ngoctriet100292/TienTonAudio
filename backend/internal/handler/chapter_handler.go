@@ -2,15 +2,16 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"github.com/IREAKING/tientonaudio/backend/internal/domain"
 	"github.com/IREAKING/tientonaudio/backend/internal/service"
 	"github.com/IREAKING/tientonaudio/backend/pkg/auth"
 	"github.com/IREAKING/tientonaudio/backend/pkg/utils"
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 )
 
 type ChapterHandler struct {
@@ -39,6 +40,8 @@ func (h *ChapterHandler) ListChaptersByStory(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *ChapterHandler) GetChapterByID(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "private, no-store")
+	w.Header().Add("Vary", "Authorization")
 	idStr := chi.URLParam(r, "id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
@@ -48,7 +51,11 @@ func (h *ChapterHandler) GetChapterByID(w http.ResponseWriter, r *http.Request) 
 
 	chapter, err := h.chapterService.GetChapterByID(r.Context(), id)
 	if err != nil {
-		utils.ErrorResponse(w, http.StatusNotFound, err.Error())
+		status := http.StatusNotFound
+		if errors.Is(err, service.ErrPremiumRequired) {
+			status = http.StatusForbidden
+		}
+		utils.ErrorResponse(w, status, err.Error())
 		return
 	}
 
@@ -88,10 +95,10 @@ func (h *ChapterHandler) BulkCreateChapters(w http.ResponseWriter, r *http.Reque
 }
 
 type AddAudioFileReq struct {
-	Quality       string `json:"quality" validate:"required"`
-	AudioURL      string `json:"audio_url" validate:"required"`
+	Quality      string `json:"quality" validate:"required"`
+	AudioURL     string `json:"audio_url" validate:"required"`
 	FileSizeByes *int64 `json:"file_size_bytes,omitempty"`
-	IsPrimary     bool   `json:"is_primary"`
+	IsPrimary    bool   `json:"is_primary"`
 }
 
 func (h *ChapterHandler) AddAudioFile(w http.ResponseWriter, r *http.Request) {
@@ -128,6 +135,7 @@ func (h *ChapterHandler) GetPlaybackSpeeds(w http.ResponseWriter, r *http.Reques
 
 // GetSignedStreamURL cấp link phát audio có chữ ký và kiểm tra gói VIP kèm tốc độ phát
 func (h *ChapterHandler) GetSignedStreamURL(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "private, no-store")
 	idStr := chi.URLParam(r, "id")
 	chapterID, err := uuid.Parse(idStr)
 	if err != nil {
@@ -154,5 +162,40 @@ func (h *ChapterHandler) GetSignedStreamURL(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	utils.JSON(w, http.StatusOK, streamResp)
+	// Nếu client yêu cầu JSON rõ ràng qua query parameter ?format=json
+	if r.URL.Query().Get("format") == "json" {
+		utils.JSON(w, http.StatusOK, streamResp)
+		return
+	}
+
+	// MẶC ĐỊNH CHO THẺ <audio src="...">: Chuyển hướng trực tiếp 307 đến file audio!
+	// Giúp trình duyệt phát ngay lập tức và tránh lỗi NotSupportedError do nhận JSON
+	http.Redirect(w, r, streamResp.StreamURL, http.StatusTemporaryRedirect)
+}
+
+// ServeMedia validates the signed link before serving local audio, including range requests.
+func (h *ChapterHandler) ServeMedia(w http.ResponseWriter, r *http.Request) {
+	chapterID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusBadRequest, "Invalid chapter ID")
+		return
+	}
+	userID, err := uuid.Parse(r.URL.Query().Get("user_id"))
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusForbidden, "Invalid stream link")
+		return
+	}
+	file, err := h.chapterService.GetStreamFile(r.Context(), chapterID, userID, r.URL.Query().Get("quality"), r.URL.Query().Get("token"))
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusForbidden, "Invalid or expired stream link")
+		return
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() {
+		utils.ErrorResponse(w, http.StatusNotFound, "Audio file not found")
+		return
+	}
+	w.Header().Set("Cache-Control", "private, no-store")
+	http.ServeContent(w, r, info.Name(), info.ModTime(), file)
 }

@@ -1,8 +1,7 @@
 'use client';
 
-import React from 'react';
-import { X, Volume2, VolumeX, Sparkles, Sliders, Waves, Moon } from 'lucide-react';
-import { useAmbient, AMBIENT_SOUNDS, AmbientSoundType } from '@/context/ambient-audio-context';
+import { AMBIENT_SOUNDS, useAmbient } from '@/context/ambient-audio-context';
+import { Sliders, Volume2, VolumeX, X } from 'lucide-react';
 
 export function AmbientSoundModal() {
   const {
@@ -35,7 +34,7 @@ export function AmbientSoundModal() {
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-black text-white">Tiên Cảnh Tiêu Dao</h3>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase tracking-widest">
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase tracking-widest">
                   Âm Thanh Nền
                 </span>
               </div>
@@ -60,11 +59,10 @@ export function AmbientSoundModal() {
               <button
                 key={sound.id}
                 onClick={() => toggleSound(sound.id)}
-                className={`group relative flex flex-col items-start p-3.5 rounded-2xl text-left transition-all border ${
-                  isSelected
+                className={`group relative flex flex-col items-start p-3.5 rounded-2xl text-left transition-all border ${isSelected
                     ? `bg-gradient-to-br ${sound.color} shadow-lg ring-1 ring-amber-400/50 scale-[1.02]`
                     : 'bg-slate-900/80 hover:bg-slate-850 border-white/5 hover:border-white/20 text-slate-300 hover:text-white'
-                }`}
+                  }`}
               >
                 <div className="flex items-center justify-between w-full mb-2">
                   <span className="text-2xl filter drop-shadow-md group-hover:scale-110 transition-transform">
@@ -82,10 +80,10 @@ export function AmbientSoundModal() {
                 <h4 className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-slate-200'}`}>
                   {sound.name}
                 </h4>
-                <p className="text-[10px] text-amber-400/80 font-mono mt-0.5">
+                <p className="text-[11px] text-amber-400/80 font-mono mt-0.5">
                   {sound.subName}
                 </p>
-                <p className="text-[10px] text-slate-400 line-clamp-2 mt-1 leading-relaxed">
+                <p className="text-[11px] text-slate-400 line-clamp-2 mt-1 leading-relaxed">
                   {sound.desc}
                 </p>
               </button>
@@ -124,7 +122,7 @@ export function AmbientSoundModal() {
               className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-400"
             />
           </div>
-          <p className="text-[10px] text-slate-500 italic">
+          <p className="text-[11px] text-slate-500 italic">
             * Mẹo tu đạo: Nên giữ âm lượng nền từ 15% - 30% để không lấn át lời MC đọc truyện.
           </p>
         </div>

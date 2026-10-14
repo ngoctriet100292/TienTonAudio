@@ -1,70 +1,23 @@
 'use client';
 
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Headphones, Lock, Mail, User, CheckCircle2 } from 'lucide-react';
-import { useAuth } from '@/context/auth-context';
+import { getErrorMessage } from '@/lib/errors';
+
 import { SocialLoginButtons } from '@/components/social-login-buttons';
+import { useAuth } from '@/context/auth-context';
 import { api } from '@/lib/api';
+import { CheckCircle2, Headphones, Lock, Mail, User } from 'lucide-react';
+import Link from 'next/link';
+import React, { useState } from 'react';
 
 export default function RegisterPage() {
-  const router = useRouter();
-  const { login } = useAuth();
+
+  const { } = useAuth();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  const handleSocialLogin = async (provider: 'google' | 'facebook' | 'apple') => {
-    setError('');
-    setLoading(true);
-
-    try {
-      const mockProfiles = {
-        google: {
-          email: 'daohuu.google@gmail.com',
-          name: 'Tiên Tôn Google',
-          provider_user_id: 'gg_1029384756',
-          avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
-        },
-        facebook: {
-          email: 'daohuu.facebook@fb.com',
-          name: 'Chân Nhân Facebook',
-          provider_user_id: 'fb_9876543210',
-          avatar_url: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150',
-        },
-        apple: {
-          email: 'daohuu.apple@privaterelay.appleid.com',
-          name: 'Thiên Tôn Apple',
-          provider_user_id: 'apple_88371920',
-          avatar_url: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150',
-        },
-      };
-
-      const p = mockProfiles[provider];
-      const payload = await api.socialLogin({
-        provider,
-        email: p.email,
-        name: p.name,
-        provider_user_id: p.provider_user_id,
-        avatar_url: p.avatar_url,
-      });
-
-      const accessToken = payload.tokens?.access_token || payload.access_token;
-      const refreshToken = payload.tokens?.refresh_token || payload.refresh_token;
-      const user = payload.user;
-
-      login(accessToken, refreshToken, user);
-      router.push('/');
-    } catch (err: any) {
-      setError(err.message || `Đăng nhập ${provider} thất bại.`);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,8 +27,8 @@ export default function RegisterPage() {
     try {
       await api.register(username, email, password);
       setSuccess(true);
-    } catch (err: any) {
-      setError(err.message || 'Đăng ký không thành công.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err) || 'Đăng ký không thành công.');
     } finally {
       setLoading(false);
     }
@@ -83,7 +36,7 @@ export default function RegisterPage() {
 
   return (
     <div className="mx-auto max-w-md px-4 pt-16 sm:pt-24">
-      <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-8 shadow-2xl backdrop-blur-xl">
+      <div className="motion-card rounded-3xl border border-white/10 bg-slate-900/80 p-8 shadow-2xl backdrop-blur-xl">
         <div className="text-center mb-8">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#ffd166] to-[#ffb703] text-black shadow-lg shadow-amber-500/20">
             <Headphones className="h-6 w-6" />
@@ -167,7 +120,7 @@ export default function RegisterPage() {
               {loading ? 'Đang Đăng Ký...' : 'TẠO TÀI KHOẢN'}
             </button>
 
-            <SocialLoginButtons onSocialLogin={handleSocialLogin} loading={loading} />
+            <SocialLoginButtons loading={loading} />
           </form>
         )}
 

@@ -1,11 +1,12 @@
-import React from 'react';
-import type { Metadata } from 'next';
-import Link from 'next/link';
-import { Crown, Headphones, Star, BookOpen, Flame } from 'lucide-react';
+
+import { FavoriteButton } from '@/components/favorite-button';
+import { MediaImage } from '@/components/media-image';
+import { StoryStatusBadge } from '@/components/story-status-badge';
 import { api } from '@/lib/api';
 import { Story } from '@/types';
-import { StoryStatusBadge } from '@/components/story-status-badge';
-import { FavoriteButton } from '@/components/favorite-button';
+import { BookOpen, Crown, Headphones, Star } from 'lucide-react';
+import type { Metadata } from 'next';
+import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'Bảng Vàng Tu Tiên - Top Truyện Audio Hot Nhất',
@@ -106,9 +107,8 @@ export default async function RankingsPage() {
             <div className="flex items-center gap-4 sm:gap-6">
               {/* Thứ hạng */}
               <div
-                className={`flex h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 items-center justify-center rounded-xl text-sm sm:text-base shadow-md ${
-                  index < 3 ? rankBadges[index] : 'bg-slate-800 text-slate-300 font-bold'
-                }`}
+                className={`flex h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 items-center justify-center rounded-xl text-sm sm:text-base shadow-md ${index < 3 ? rankBadges[index] : 'bg-slate-800 text-slate-300 font-bold'
+                  }`}
               >
                 #{index + 1}
               </div>
@@ -116,7 +116,7 @@ export default async function RankingsPage() {
               {/* Bìa truyện */}
               <div className="h-16 w-12 sm:h-20 sm:w-16 flex-shrink-0 overflow-hidden rounded-xl bg-slate-800">
                 {story.cover_image_url && (
-                  <img src={story.cover_image_url} alt={story.title} className="h-full w-full object-cover group-hover:scale-105 transition-transform" />
+                  <MediaImage src={story.cover_image_url} alt={story.title} className="h-full w-full object-cover group-hover:scale-105 transition-transform" />
                 )}
               </div>
 
@@ -130,10 +130,10 @@ export default async function RankingsPage() {
                   <StoryStatusBadge status={story.status} size="sm" />
                 </div>
                 <div className="flex flex-wrap gap-1.5 mt-2">
-                  {(story.categories || []).map((c: any, i: number) => {
+                  {(story.categories || []).map((c, i: number) => {
                     const name = typeof c === 'string' ? c : c?.name || '';
                     return (
-                      <span key={i} className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+                      <span key={i} className="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300">
                         {name}
                       </span>
                     );
@@ -149,7 +149,7 @@ export default async function RankingsPage() {
                   <Headphones className="w-3.5 h-3.5 text-amber-400" />
                   {(story.view_count / 1000).toFixed(1)}k
                 </div>
-                <span className="text-[10px] text-slate-500">Lượt nghe</span>
+                <span className="text-[11px] text-slate-500">Lượt nghe</span>
               </div>
 
               <div className="hidden sm:block text-right">
@@ -157,7 +157,7 @@ export default async function RankingsPage() {
                   <Star className="w-3.5 h-3.5 fill-current" />
                   {story.rating_avg.toFixed(1)}
                 </div>
-                <span className="text-[10px] text-slate-500">({story.rating_count} vote)</span>
+                <span className="text-[11px] text-slate-500">({story.rating_count} vote)</span>
               </div>
 
               <div className="hidden sm:block text-right">
@@ -165,7 +165,7 @@ export default async function RankingsPage() {
                   <BookOpen className="w-3.5 h-3.5 text-slate-400" />
                   {story.total_chapters}
                 </div>
-                <span className="text-[10px] text-slate-500">Tập</span>
+                <span className="text-[11px] text-slate-500">Tập</span>
               </div>
 
               <div className="flex-shrink-0 z-10">

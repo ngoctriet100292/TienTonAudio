@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Sparkles, Flame } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 export interface CultivationSpinnerProps {
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'fullscreen';
@@ -28,14 +28,6 @@ export function CultivationSpinner({
   className = '',
 }: CultivationSpinnerProps) {
   const [quoteIndex, setQuoteIndex] = useState(0);
-
-  useEffect(() => {
-    if (size === 'xs' || size === 'sm') return;
-    const interval = setInterval(() => {
-      setQuoteIndex((prev) => (prev + 1) % CULTIVATION_QUOTES.length);
-    }, 2800);
-    return () => clearInterval(interval);
-  }, [size]);
 
   // Kích thước chuẩn
   const dimensions = {
@@ -171,6 +163,14 @@ export function CultivationSpinner({
     </div>
   );
 
+  useEffect(() => {
+    if (size === 'xs' || size === 'sm') return;
+    const interval = setInterval(() => {
+      setQuoteIndex((prev) => (prev + 1) % CULTIVATION_QUOTES.length);
+    }, 2800);
+    return () => clearInterval(interval);
+  }, [size]);
+
   // Trường hợp hiển thị Fullscreen toàn màn hình (Ví dụ: Chuyển trang, Tải chương lớn)
   if (size === 'fullscreen') {
     return (
@@ -190,7 +190,7 @@ export function CultivationSpinner({
             </p>
           </div>
 
-          <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-mono">
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-mono">
             <Sparkles className="w-3 h-3 text-amber-400" />
             <span>Trận pháp đang chuyển vận...</span>
           </div>
@@ -220,7 +220,7 @@ export function CultivationSpinner({
           <p className={`text-xs sm:text-sm font-bold bg-gradient-to-r ${colorSchemes.textGradient} bg-clip-text text-transparent`}>
             {text || CULTIVATION_QUOTES[quoteIndex]}
           </p>
-          <span className="block text-[10px] text-slate-500 font-mono">
+          <span className="block text-[11px] text-slate-500 font-mono">
             Khí tức lưu chuyển • Chư vị đạo hữu chớ vội
           </span>
         </div>

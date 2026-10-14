@@ -23,6 +23,7 @@ type StoryRepository interface {
 	AddStoryCategory(ctx context.Context, arg db.AddStoryCategoryParams) error
 	GetStoryCategories(ctx context.Context, storyID uuid.UUID) ([]db.Category, error)
 	UpsertListeningProgress(ctx context.Context, arg db.UpsertListeningProgressParams) error
+	GetStoryIDByChapterID(ctx context.Context, chapterID uuid.UUID) (uuid.UUID, error)
 	GetUserListeningHistory(ctx context.Context, arg db.GetUserListeningHistoryParams) ([]db.GetUserListeningHistoryRow, error)
 	AddFavorite(ctx context.Context, arg db.AddFavoriteParams) error
 	RemoveFavorite(ctx context.Context, arg db.RemoveFavoriteParams) error
@@ -117,6 +118,14 @@ func (r *storyRepo) GetStoryCategories(ctx context.Context, storyID uuid.UUID) (
 
 func (r *storyRepo) UpsertListeningProgress(ctx context.Context, arg db.UpsertListeningProgressParams) error {
 	return r.q.UpsertListeningProgress(ctx, arg)
+}
+
+func (r *storyRepo) GetStoryIDByChapterID(ctx context.Context, chapterID uuid.UUID) (uuid.UUID, error) {
+	ch, err := r.q.GetChapterByID(ctx, chapterID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return ch.StoryID, nil
 }
 
 func (r *storyRepo) GetUserListeningHistory(ctx context.Context, arg db.GetUserListeningHistoryParams) ([]db.GetUserListeningHistoryRow, error) {

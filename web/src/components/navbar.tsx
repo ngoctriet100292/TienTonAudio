@@ -1,35 +1,37 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import {
-  Search,
-  Sparkles,
-  Crown,
-  Headphones,
-  BookOpen,
-  Compass,
-  Bot,
-  User,
-  LogOut,
-  Settings,
-  ShieldCheck,
-  ShieldAlert,
-  Flame,
-  ChevronDown,
-  Info,
-  Menu,
-  X,
-  Mail,
-  PenTool,
-  MessageSquare,
-  Bookmark,
-  LayoutGrid,
-} from 'lucide-react';
+import { MediaImage } from '@/components/media-image';
+
+import { NotificationDropdown } from '@/components/notification-dropdown';
 import { useAuth } from '@/context/auth-context';
 import { getFullAvatarUrl } from '@/lib/api';
-import { NotificationDropdown } from '@/components/notification-dropdown';
+import { useHydrated } from '@/lib/use-hydrated';
+import {
+  Bookmark,
+  BookOpen,
+  Bot,
+  ChevronDown,
+  Compass,
+  Crown,
+  Flame,
+  Headphones,
+  Info,
+  LayoutGrid,
+  LogOut,
+  Mail,
+  Menu,
+  MessageSquare,
+  PenTool,
+  Search,
+  Settings,
+  ShieldAlert,
+  ShieldCheck,
+  Sparkles,
+  X
+} from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import React, { useEffect, useRef, useState } from 'react';
 
 export function Navbar() {
   const router = useRouter();
@@ -38,7 +40,7 @@ export function Navbar() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [introDropdownOpen, setIntroDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useHydrated();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const introRef = useRef<HTMLDivElement>(null);
   const introTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -54,8 +56,14 @@ export function Navbar() {
     }, 150);
   };
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
+
   useEffect(() => {
-    setMounted(true);
 
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -83,16 +91,9 @@ export function Navbar() {
     };
   }, [mobileMenuOpen]);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-    }
-  };
-
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-[#070a11]/90 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+    <header className="site-header sticky top-0 z-40 w-full border-b border-white/10 backdrop-blur-xl">
+      <div className="mx-auto flex h-[76px] max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo Tiên Tôn Audio */}
         <div className="flex items-center gap-4 xl:gap-8 flex-shrink-0">
           <Link href="/" className="flex items-center gap-2.5 sm:gap-3 group flex-shrink-0">
@@ -102,11 +103,11 @@ export function Navbar() {
               </div>
             </div>
             <div className="flex-shrink-0">
-              <span className="text-base sm:text-lg font-black tracking-wider text-white whitespace-nowrap">
+              <span className="text-base sm:text-lg font-semibold tracking-tight text-white whitespace-nowrap">
                 TIÊN TÔN <span className="text-[#ffb703]">AUDIO</span>
               </span>
-              <span className="hidden sm:block text-[9px] sm:text-[10px] font-semibold tracking-widest text-[#ffd166]/70 uppercase">
-                Studio 320kbps
+              <span className="hidden sm:block text-[11px] sm:text-[11px] font-semibold tracking-normal text-slate-400">
+                Truyện hay · Giọng đọc chất lượng
               </span>
             </div>
           </Link>
@@ -118,28 +119,28 @@ export function Navbar() {
               className="text-white hover:text-[#ffb703] transition-colors flex items-center gap-1.5 whitespace-nowrap"
             >
               <Compass className="w-4 h-4 flex-shrink-0 text-amber-400" />
-              <span>Khám Phá</span>
+              <span>Khám phá</span>
             </Link>
             <Link
               href="/categories"
               className="text-slate-300 hover:text-[#ffb703] transition-colors flex items-center gap-1.5 whitespace-nowrap"
             >
               <BookOpen className="w-4 h-4 flex-shrink-0 text-slate-400" />
-              <span>Thể Loại</span>
+              <span>Thể loại</span>
             </Link>
             <Link
               href="/rankings"
               className="text-slate-300 hover:text-[#ffb703] transition-colors flex items-center gap-1.5 whitespace-nowrap"
             >
               <Crown className="w-4 h-4 text-[#ffb703] flex-shrink-0" />
-              <span>Bảng Vàng</span>
+              <span>Xếp hạng</span>
             </Link>
             <Link
               href="/library"
               className="text-slate-300 hover:text-[#ffb703] transition-colors flex items-center gap-1.5 whitespace-nowrap"
             >
               <Bookmark className="w-4 h-4 text-amber-400 flex-shrink-0" />
-              <span>Tủ Truyện</span>
+              <span>Tủ truyện</span>
             </Link>
 
             {/* Dropdown Tiện Ích (Gom Luận Đạo, Cảnh Giới, AI Đạo Hữu, Giới Thiệu, Liên Hệ) */}
@@ -152,16 +153,14 @@ export function Navbar() {
               <button
                 type="button"
                 onClick={() => setIntroDropdownOpen(!introDropdownOpen)}
-                className={`flex items-center gap-1.5 transition-colors font-medium cursor-pointer py-2 whitespace-nowrap ${
-                  introDropdownOpen ? 'text-[#ffb703]' : 'text-slate-300 hover:text-[#ffb703]'
-                }`}
+                className={`flex items-center gap-1.5 transition-colors font-medium cursor-pointer py-2 whitespace-nowrap ${introDropdownOpen ? 'text-[#ffb703]' : 'text-slate-300 hover:text-[#ffb703]'
+                  }`}
               >
                 <LayoutGrid className="w-3.5 h-3.5 flex-shrink-0 text-slate-400" />
-                <span>Tiện Ích</span>
+                <span>Khám phá thêm</span>
                 <ChevronDown
-                  className={`w-3.5 h-3.5 flex-shrink-0 transition-transform duration-200 ${
-                    introDropdownOpen ? 'rotate-180 text-[#ffb703]' : ''
-                  }`}
+                  className={`w-3.5 h-3.5 flex-shrink-0 transition-transform duration-200 ${introDropdownOpen ? 'rotate-180 text-[#ffb703]' : ''
+                    }`}
                 />
               </button>
 
@@ -181,7 +180,7 @@ export function Navbar() {
                         <p className="text-xs font-bold text-white group-hover:text-emerald-300 transition-colors">
                           Luận Đạo Các
                         </p>
-                        <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 uppercase">
+                        <span className="text-[11px] px-1.5 py-0.5 rounded font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 uppercase">
                           Cộng Đồng
                         </span>
                       </div>
@@ -205,7 +204,7 @@ export function Navbar() {
                         <p className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">
                           Cảnh Giới Tu Tiên
                         </p>
-                        <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase">
+                        <span className="text-[11px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase">
                           17 Cảnh
                         </span>
                       </div>
@@ -312,7 +311,7 @@ export function Navbar() {
                 title="Tài khoản Đạo Hữu"
               >
                 {user.avatar_url ? (
-                  <img
+                  <MediaImage
                     src={getFullAvatarUrl(user.avatar_url)}
                     alt={user.username}
                     className="h-full w-full rounded-full object-cover"
@@ -334,7 +333,7 @@ export function Navbar() {
                     <div className="flex items-center gap-3">
                       <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full overflow-hidden bg-gradient-to-tr from-[#ffd166] to-[#ffb703] text-black font-black text-base shadow-md">
                         {user.avatar_url ? (
-                          <img
+                          <MediaImage
                             src={getFullAvatarUrl(user.avatar_url)}
                             alt={user.username}
                             className="h-full w-full object-cover"
@@ -346,7 +345,7 @@ export function Navbar() {
                       <div className="truncate">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-bold text-white truncate">{user.username}</p>
-                          <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-amber-500/20 text-[#ffd166] border border-amber-500/30">
+                          <span className="text-[11px] px-2 py-0.5 rounded font-bold bg-amber-500/20 text-[#ffd166] border border-amber-500/30">
                             {user.role === 'admin' ? 'ADMIN' : 'VIP KIM ĐAN'}
                           </span>
                         </div>
@@ -362,7 +361,7 @@ export function Navbar() {
                           Cảnh Giới:
                         </span>
                         <span
-                          className="font-black px-2 py-0.5 rounded-md text-[10px] tracking-wider uppercase shadow-sm"
+                          className="font-black px-2 py-0.5 rounded-md text-[11px] tracking-wider uppercase shadow-sm"
                           style={{
                             backgroundColor: `${user.cultivation_color || '#38BDF8'}20`,
                             color: user.cultivation_color || '#38BDF8',
@@ -373,7 +372,7 @@ export function Navbar() {
                           {user.cultivation_realm || 'Luyện Khí'} Cảnh
                         </span>
                       </div>
-                      <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mb-1">
+                      <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono mb-1">
                         <span>Tu Vi: {user.cultivation_exp || 0} điểm</span>
                         <span>Cấp {user.cultivation_level || 1}/17</span>
                       </div>
@@ -541,7 +540,7 @@ export function Navbar() {
 
             {/* Menu chính */}
             <div className="space-y-1">
-              <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-3 mb-2">
+              <p className="text-[11px] uppercase font-bold text-slate-500 tracking-wider px-3 mb-2">
                 Điều Hướng Chính
               </p>
               <Link
@@ -585,7 +584,7 @@ export function Navbar() {
                   <Sparkles className="w-5 h-5 text-amber-400" />
                   Hội Viên VIP Tiên Tôn
                 </span>
-                <span className="text-[10px] px-2 py-0.5 rounded font-mono font-black bg-amber-500/30 text-amber-300 uppercase">
+                <span className="text-[11px] px-2 py-0.5 rounded font-mono font-black bg-amber-500/30 text-amber-300 uppercase">
                   VIP
                 </span>
               </Link>
@@ -593,7 +592,7 @@ export function Navbar() {
 
             {/* Giới thiệu & Khám phá thế giới */}
             <div className="space-y-1 pt-3 border-t border-white/10">
-              <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-3 mb-2">
+              <p className="text-[11px] uppercase font-bold text-slate-500 tracking-wider px-3 mb-2">
                 Giới Thiệu & Tiên Đạo
               </p>
               <Link
@@ -605,7 +604,7 @@ export function Navbar() {
                   <MessageSquare className="w-5 h-5 text-amber-400" />
                   Luận Đạo Các (Cộng Đồng)
                 </span>
-                <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-amber-500/20 text-amber-300 uppercase">
+                <span className="text-[11px] px-2 py-0.5 rounded font-mono font-bold bg-amber-500/20 text-amber-300 uppercase">
                   Hot
                 </span>
               </Link>
@@ -618,7 +617,7 @@ export function Navbar() {
                   <Flame className="w-5 h-5 text-amber-400" />
                   17 Cảnh Giới Tu Tiên
                 </span>
-                <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-amber-500/20 text-amber-300 uppercase">
+                <span className="text-[11px] px-2 py-0.5 rounded font-mono font-bold bg-amber-500/20 text-amber-300 uppercase">
                   Mới
                 </span>
               </Link>
@@ -654,7 +653,7 @@ export function Navbar() {
                 <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-900 border border-white/10">
                   <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full overflow-hidden bg-gradient-to-tr from-[#ffd166] to-[#ffb703] text-black font-black">
                     {user.avatar_url ? (
-                      <img
+                      <MediaImage
                         src={getFullAvatarUrl(user.avatar_url)}
                         alt={user.username}
                         className="h-full w-full object-cover"

@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { Mail, ArrowLeft, Send, CheckCircle2, AlertCircle, KeyRound, Sparkles } from 'lucide-react';
+import { getErrorMessage } from '@/lib/errors';
+
 import { api } from '@/lib/api';
+import { AlertCircle, ArrowLeft, CheckCircle2, KeyRound, Mail, Send } from 'lucide-react';
+import Link from 'next/link';
+import React, { useState } from 'react';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -24,10 +26,10 @@ export default function ForgotPasswordPage() {
         text: 'Thư thần thức khôi phục mật khẩu đã được gửi đến hòm thư của Đạo Hữu. Vui lòng kiểm tra hộp thư đến (hoặc thư rác)!',
       });
       setEmail('');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setStatus({
         type: 'error',
-        text: err.message || 'Không tìm thấy tài khoản với email này hoặc lỗi hệ thống.',
+        text: getErrorMessage(err) || 'Không tìm thấy tài khoản với email này hoặc lỗi hệ thống.',
       });
     } finally {
       setLoading(false);
@@ -51,14 +53,13 @@ export default function ForgotPasswordPage() {
         </div>
 
         {/* Form Card */}
-        <div className="rounded-3xl border border-white/10 bg-[#0f172a]/90 p-6 sm:p-8 backdrop-blur-xl shadow-2xl space-y-5">
+        <div className="motion-card rounded-3xl border border-white/10 bg-[#0f172a]/90 p-6 sm:p-8 backdrop-blur-xl shadow-2xl space-y-5">
           {status && (
             <div
-              className={`p-4 rounded-2xl text-xs font-bold flex items-start gap-2.5 border animate-in fade-in-0 ${
-                status.type === 'success'
+              className={`p-4 rounded-2xl text-xs font-bold flex items-start gap-2.5 border animate-in fade-in-0 ${status.type === 'success'
                   ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/30'
                   : 'bg-rose-950/80 text-rose-300 border-rose-500/30'
-              }`}
+                }`}
             >
               {status.type === 'success' ? (
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />

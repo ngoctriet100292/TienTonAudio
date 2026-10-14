@@ -1,6 +1,7 @@
 'use client';
+import { useStoredState } from '@/lib/use-stored-state';
 
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 
 export type AmbientSoundType = 'rain' | 'wind' | 'fire' | 'stream' | 'bell' | 'night';
 
@@ -80,31 +81,19 @@ const AmbientAudioContext = createContext<AmbientAudioContextType | undefined>(u
 export function AmbientAudioProvider({ children }: { children: React.ReactNode }) {
   const [activeSound, setActiveSound] = useState<AmbientSoundType | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [volume, setVolumeState] = useState(0.25); // Mặc định 25% vừa phải dưới tiếng MC
+  const [volume, setVolumeState] = useStoredState('tienton_ambient_vol', 0.25, (raw) => { const volume = Number(raw); return Number.isFinite(volume) ? Math.max(0, Math.min(1, volume)) : 0.25; }); // Mặc định 25% vừa phải dưới tiếng MC
   const [modalOpen, setModalOpen] = useState(false);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const masterGainRef = useRef<GainNode | null>(null);
   const activeNodesRef = useRef<{ stop: () => void } | null>(null);
 
-  // Khởi tạo và khôi phục cấu hình từ localStorage
-  useEffect(() => {
-    try {
-      const savedVol = localStorage.getItem('tienton_ambient_vol');
-      if (savedVol) {
-        setVolumeState(parseFloat(savedVol));
-      }
-    } catch {
-      // Ignored
-    }
-  }, []);
-
   const setVolume = (v: number) => {
     const clamped = Math.max(0, Math.min(1, v));
     setVolumeState(clamped);
     try {
       localStorage.setItem('tienton_ambient_vol', clamped.toString());
-    } catch {}
+    } catch { }
 
     if (masterGainRef.current && audioCtxRef.current) {
       masterGainRef.current.gain.setTargetAtTime(
@@ -185,7 +174,7 @@ export function AmbientAudioProvider({ children }: { children: React.ReactNode }
         dropGain.connect(destination);
         drop.start();
         drop.stop(ctx.currentTime + 0.06);
-      } catch {}
+      } catch { }
     }, 80);
 
     return {
@@ -194,7 +183,7 @@ export function AmbientAudioProvider({ children }: { children: React.ReactNode }
         try {
           noiseSource.stop();
           noiseSource.disconnect();
-        } catch {}
+        } catch { }
       },
     };
   };
@@ -233,7 +222,7 @@ export function AmbientAudioProvider({ children }: { children: React.ReactNode }
           lfo.stop();
           noiseSource.disconnect();
           lfo.disconnect();
-        } catch {}
+        } catch { }
       },
     };
   };
@@ -278,7 +267,7 @@ export function AmbientAudioProvider({ children }: { children: React.ReactNode }
 
         pop.start();
         pop.stop(ctx.currentTime + 0.02);
-      } catch {}
+      } catch { }
     }, 120 + Math.random() * 200);
 
     return {
@@ -287,7 +276,7 @@ export function AmbientAudioProvider({ children }: { children: React.ReactNode }
         try {
           noiseSource.stop();
           noiseSource.disconnect();
-        } catch {}
+        } catch { }
       },
     };
   };
@@ -325,7 +314,7 @@ export function AmbientAudioProvider({ children }: { children: React.ReactNode }
         try {
           noiseSource.stop();
           noiseSource.disconnect();
-        } catch {}
+        } catch { }
       },
     };
   };
@@ -353,7 +342,7 @@ export function AmbientAudioProvider({ children }: { children: React.ReactNode }
 
         osc.start();
         osc.stop(ctx.currentTime + 3.3);
-      } catch {}
+      } catch { }
     }, 2800);
 
     return {
@@ -382,7 +371,7 @@ export function AmbientAudioProvider({ children }: { children: React.ReactNode }
 
         osc.start();
         osc.stop(ctx.currentTime + 0.16);
-      } catch {}
+      } catch { }
     }, 250);
 
     return {
@@ -439,6 +428,8 @@ export function AmbientAudioProvider({ children }: { children: React.ReactNode }
     setIsPlaying(false);
   };
 
+  // Khởi tạo và khôi phục cấu hình từ localStorage
+
   // Cleanup khi component unmount
   useEffect(() => {
     return () => {
@@ -446,7 +437,7 @@ export function AmbientAudioProvider({ children }: { children: React.ReactNode }
         activeNodesRef.current.stop();
       }
       if (audioCtxRef.current) {
-        audioCtxRef.current.close().catch(() => {});
+        audioCtxRef.current.close().catch(() => { });
       }
     };
   }, []);

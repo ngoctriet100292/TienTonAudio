@@ -1,6 +1,5 @@
-import React from 'react';
 import { StoryStatus } from '@/types';
-import { CheckCircle2, PauseCircle, Clock } from 'lucide-react';
+import { CheckCircle2, Clock, PauseCircle } from 'lucide-react';
 
 interface Props {
   status: StoryStatus | string;
@@ -34,7 +33,7 @@ export function StoryStatusBadge({ status, size = 'sm', className = '' }: Props)
   }
 
   const sizeClasses = {
-    sm: 'text-[10px] px-2 py-0.5 gap-1',
+    sm: 'text-[11px] px-2 py-0.5 gap-1',
     md: 'text-xs px-2.5 py-1 gap-1.5',
     lg: 'text-sm px-3.5 py-1.5 gap-2',
   }[size];

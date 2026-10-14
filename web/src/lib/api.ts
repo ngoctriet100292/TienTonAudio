@@ -1,8 +1,16 @@
-import { Story, Chapter, Category, User, UserCultivation, CultivationRealmInfo, PaymentHistoryItem, FavoriteStoryItem, ListeningHistoryItem, NotificationItem, PartnerStats, PartnerStoryItem, CreatePartnerStoryReq, CreatePartnerChapterReq, SubscriptionPlan, CreatePaymentResp, PaymentStatusResp, UserSubscription, AdminStats, AdminUser, AdminReport, CommunityPost, CreateCommunityPostReq, CommunityComment, Playlist, PlaylistDetail, PlaylistItemDetail, CreatePlaylistReq, CreateReportReq, FollowedAuthor, FollowedNarrator } from '@/types';
+import type { AuthenticatedResponse, ChapterAudioFile, ChapterComment, CommentReactionResponse, LoginResponse, PlaybackSpeedsResponse, SignedStreamResponse, StoryRealmsResponse, TwoFactorSetupResponse } from '@/types';
+import { AdminReport, AdminStats, AdminUser, Category, Chapter, CommunityComment, CommunityPost, CreateCommunityPostReq, CreatePartnerChapterReq, CreatePartnerStoryReq, CreatePaymentResp, CreatePlaylistReq, CreateReportReq, CultivationRealmInfo, FavoriteStoryItem, FollowedAuthor, FollowedNarrator, ListeningHistoryItem, NotificationItem, PartnerStats, PartnerStoryItem, PaymentHistoryItem, PaymentStatusResp, Playlist, PlaylistDetail, Story, SubscriptionPlan, User, UserCultivation, UserSubscription } from '@/types';
+import { ApiError, getErrorMessage } from './errors';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+const API_BASE_URL = (typeof window === 'undefined' ? process.env.API_INTERNAL_ORIGIN && `${process.env.API_INTERNAL_ORIGIN}/api/v1` : undefined) || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
 
-class ApiClient {
+type ListResponse<T> = T[] | { items?: T[]; data?: T[]; total?: number };
+function toList<T>(response: ListResponse<T>): T[] {
+  if (Array.isArray(response)) return response;
+  return response.items || response.data || [];
+}
+
+export class ApiClient {
   private baseUrl: string;
 
   constructor(baseUrl: string) {
@@ -16,38 +24,41 @@ class ApiClient {
     return null;
   }
 
-  private async refreshToken(): Promise<string | null> {
+  private refreshPromise: Promise<string | null> | null = null;
+
+  private refreshToken(): Promise<string | null> {
+    if (this.refreshPromise) return this.refreshPromise;
+    this.refreshPromise = this.rotateRefreshToken().finally(() => { this.refreshPromise = null; });
+    return this.refreshPromise;
+  }
+
+  private async rotateRefreshToken(): Promise<string | null> {
     if (typeof window === 'undefined') return null;
     const refreshToken = localStorage.getItem('refresh_token');
     if (!refreshToken) return null;
-
-    try {
-      const res = await fetch(`${this.baseUrl}/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: refreshToken }),
-      });
-
-      if (!res.ok) {
+    const res = await fetch(`${this.baseUrl}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!res.ok) {
+      if ((res.status === 401 || res.status === 403) && localStorage.getItem('refresh_token') === refreshToken) {
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         localStorage.removeItem('user_profile');
+        window.dispatchEvent(new Event('tienton-session-change'));
         return null;
       }
-
-      const json = await res.json();
-      const tokens = json.data || json;
-      if (tokens && tokens.access_token) {
-        localStorage.setItem('access_token', tokens.access_token);
-        if (tokens.refresh_token) {
-          localStorage.setItem('refresh_token', tokens.refresh_token);
-        }
-        return tokens.access_token;
-      }
-    } catch {
-      return null;
+      throw new ApiError('Không thể làm mới phiên đăng nhập. Vui lòng thử lại.', res.status);
     }
-    return null;
+    const json = await res.json();
+    const tokens = json.data || json;
+    if (!tokens?.access_token || !tokens?.refresh_token) throw new ApiError('Phản hồi làm mới phiên không hợp lệ', 502);
+    // A logout or new login while this request was pending must not resurrect the old session.
+    if (localStorage.getItem('refresh_token') !== refreshToken) return this.getToken();
+    localStorage.setItem('access_token', tokens.access_token);
+    localStorage.setItem('refresh_token', tokens.refresh_token);
+    return tokens.access_token;
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}, isRetry = false): Promise<T> {
@@ -66,8 +77,9 @@ class ApiClient {
       headers,
     });
 
-    if (res.status === 401 && !isRetry) {
-      const newToken = await this.refreshToken();
+    if (res.status === 401 && !isRetry && token && !endpoint.startsWith('/auth/')) {
+      const currentToken = this.getToken();
+      const newToken = currentToken && currentToken !== token ? currentToken : await this.refreshToken();
       if (newToken) {
         headers['Authorization'] = `Bearer ${newToken}`;
         return this.request<T>(endpoint, { ...options, headers }, true);
@@ -76,7 +88,7 @@ class ApiClient {
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error(errorData.error || errorData.message || `Lỗi yêu cầu: ${res.status}`);
+      throw new ApiError(errorData.error || errorData.message || `Lỗi yêu cầu: ${res.status}`, res.status);
     }
 
     const data = await res.json();
@@ -86,12 +98,10 @@ class ApiClient {
   // ---- STORIES ----
   async getStories(page = 1, limit = 20): Promise<Story[]> {
     try {
-      const res = await this.request<any>(`/stories?page=${page}&limit=${limit}`, {
+      const res = await this.request<ListResponse<Story>>(`/stories?page=${page}&limit=${limit}`, {
         next: { revalidate: 30 },
       });
-      if (Array.isArray(res)) return res;
-      if (res && Array.isArray(res.items)) return res.items;
-      return [];
+      return toList(res);
     } catch {
       return [];
     }
@@ -99,12 +109,10 @@ class ApiClient {
 
   async getTopViewStories(limit = 10): Promise<Story[]> {
     try {
-      const res = await this.request<any>(`/stories/top-views?limit=${limit}`, {
+      const res = await this.request<ListResponse<Story>>(`/stories/top-views?limit=${limit}`, {
         next: { revalidate: 30 },
       });
-      if (Array.isArray(res)) return res;
-      if (res && Array.isArray(res.items)) return res.items;
-      return [];
+      return toList(res);
     } catch {
       return [];
     }
@@ -122,12 +130,10 @@ class ApiClient {
 
   async getStoryChapters(storyId: string, page = 1, limit = 1000): Promise<Chapter[]> {
     try {
-      const res = await this.request<any>(`/stories/${storyId}/chapters?page=${page}&limit=${limit}`, {
+      const res = await this.request<ListResponse<Chapter>>(`/stories/${storyId}/chapters?page=${page}&limit=${limit}`, {
         next: { revalidate: 30 },
       });
-      if (Array.isArray(res)) return res;
-      if (res && Array.isArray(res.items)) return res.items;
-      return [];
+      return toList(res);
     } catch {
       return [];
     }
@@ -135,8 +141,8 @@ class ApiClient {
 
   async getRelatedStories(storyId: string, limit = 6): Promise<Story[]> {
     try {
-      const res = await this.request<any>(`/stories/${storyId}/related?limit=${limit}`);
-      return res.items || res;
+      const res = await this.request<ListResponse<Story>>(`/stories/${storyId}/related?limit=${limit}`);
+      return toList(res);
     } catch {
       return [];
     }
@@ -144,8 +150,8 @@ class ApiClient {
 
   async searchStories(query: string): Promise<Story[]> {
     try {
-      const res = await this.request<any>(`/stories/search?q=${encodeURIComponent(query)}`);
-      return res.items || res;
+      const res = await this.request<ListResponse<Story>>(`/stories/search?q=${encodeURIComponent(query)}`);
+      return toList(res);
     } catch {
       return [];
     }
@@ -166,8 +172,8 @@ class ApiClient {
       q.set('page', (params.page || 1).toString());
       q.set('limit', (params.limit || 20).toString());
 
-      const res = await this.request<any>(`/stories/filter?${q.toString()}`);
-      return res.items || res;
+      const res = await this.request<ListResponse<Story>>(`/stories/filter?${q.toString()}`);
+      return toList(res);
     } catch {
       return [];
     }
@@ -182,13 +188,17 @@ class ApiClient {
     }
   }
 
-  async getSignedStreamUrl(chapterId: string, quality = '128k', speed = 1.0): Promise<{ signed_url: string; expires_at: string; playback_speed: number; available_speeds: any[] }> {
-    return this.request<any>(`/chapters/${chapterId}/stream?quality=${quality}&speed=${speed}`);
+  async getSignedStreamUrl(
+    chapterId: string,
+    quality = '320kbps',
+    speed = 1.0
+  ): Promise<SignedStreamResponse> {
+    return this.request<SignedStreamResponse>(`/chapters/${chapterId}/stream?quality=${quality}&speed=${speed}&format=json`);
   }
 
   async getPlaybackSpeeds(): Promise<{ default_speed: number; speeds: Array<{ value: number; label: string; description: string }> }> {
     try {
-      return await this.request<any>('/chapters/playback-speeds');
+      return await this.request<PlaybackSpeedsResponse>('/chapters/playback-speeds');
     } catch {
       return {
         default_speed: 1.0,
@@ -205,12 +215,19 @@ class ApiClient {
     }
   }
 
-  async saveListeningProgress(chapterId: string, progressSeconds: number, isCompleted = false, speed = 1.0): Promise<void> {
+  async saveListeningProgress(
+    chapterId: string,
+    progressSeconds: number,
+    isCompleted = false,
+    speed = 1.0,
+    storyId?: string
+  ): Promise<void> {
     try {
       await this.request('/chapters/progress', {
         method: 'POST',
         body: JSON.stringify({
           chapter_id: chapterId,
+          story_id: storyId,
           last_position_seconds: progressSeconds,
           playback_speed: speed,
           is_completed: isCompleted,
@@ -222,59 +239,59 @@ class ApiClient {
   }
 
   // ---- COMMENTS ----
-  async getChapterComments(chapterId: string, page = 1, limit = 20): Promise<any[]> {
+  async getChapterComments(chapterId: string, page = 1, limit = 20): Promise<ChapterComment[]> {
     try {
-      const res = await this.request<any>(`/chapters/${chapterId}/comments?page=${page}&limit=${limit}`);
-      return res.items || res;
+      const res = await this.request<ListResponse<ChapterComment>>(`/chapters/${chapterId}/comments?page=${page}&limit=${limit}`);
+      return toList(res);
     } catch {
       return [];
     }
   }
 
-  async createComment(chapterId: string, content: string): Promise<any> {
+  async createComment(chapterId: string, content: string): Promise<ChapterComment> {
     return this.request(`/chapters/${chapterId}/comments`, {
       method: 'POST',
       body: JSON.stringify({ chapter_id: chapterId, content }),
     });
   }
 
-  async getCommentReplies(commentId: string, page = 1, limit = 20): Promise<any[]> {
+  async getCommentReplies(commentId: string, page = 1, limit = 20): Promise<ChapterComment[]> {
     try {
-      const res = await this.request<any>(`/comments/${commentId}/replies?page=${page}&limit=${limit}`);
-      return res.items || res.data || (Array.isArray(res) ? res : []);
+      const res = await this.request<ListResponse<ChapterComment>>(`/comments/${commentId}/replies?page=${page}&limit=${limit}`);
+      return toList(res);
     } catch {
       return [];
     }
   }
 
-  async replyComment(commentId: string, content: string): Promise<any> {
-    const res = await this.request<any>(`/comments/${commentId}/reply`, {
+  async replyComment(commentId: string, content: string): Promise<ChapterComment> {
+    const res = await this.request<ChapterComment>(`/comments/${commentId}/reply`, {
       method: 'POST',
       body: JSON.stringify({ content }),
     });
-    return res.data || res;
+    return res;
   }
 
-  async reactComment(commentId: string, reactionType = 'like'): Promise<any> {
-    const res = await this.request<any>(`/comments/${commentId}/reactions`, {
+  async reactComment(commentId: string, reactionType = 'like'): Promise<CommentReactionResponse> {
+    const res = await this.request<CommentReactionResponse>(`/comments/${commentId}/reactions`, {
       method: 'POST',
       body: JSON.stringify({ reaction_type: reactionType }),
     });
-    return res.data || res;
+    return res;
   }
 
   // ---- FAVORITES ----
   async toggleFavorite(storyId: string): Promise<{ is_favorite: boolean }> {
-    const res = await this.request<any>(`/stories/${storyId}/favorite`, {
+    const res = await this.request<{ is_favorite: boolean }>(`/stories/${storyId}/favorite`, {
       method: 'POST',
     });
-    return res.data || res;
+    return res;
   }
 
   async checkFavorite(storyId: string): Promise<{ is_favorite: boolean }> {
     try {
-      const res = await this.request<any>(`/stories/${storyId}/favorite`);
-      return res.data || res;
+      const res = await this.request<{ is_favorite: boolean }>(`/stories/${storyId}/favorite`);
+      return res;
     } catch {
       return { is_favorite: false };
     }
@@ -283,8 +300,8 @@ class ApiClient {
   // ---- CATEGORIES ----
   async getCategories(): Promise<Category[]> {
     try {
-      const res = await this.request<any>('/stories/categories');
-      return res.items || res;
+      const res = await this.request<ListResponse<Category>>('/stories/categories');
+      return toList(res);
     } catch {
       return [];
     }
@@ -298,17 +315,29 @@ class ApiClient {
     });
   }
 
-  async getStoryRealms(storyId: string): Promise<any> {
+  async getStoryRealms(storyId: string): Promise<StoryRealmsResponse> {
     return this.request(`/ai/stories/${storyId}/realms`);
   }
 
   // ---- USER PROFILE ----
   async getMe(): Promise<User | null> {
+    if (typeof window !== 'undefined' && !this.getToken()) return null;
     try {
-      return await this.request<User>('/users/me');
-    } catch {
-      return null;
+      return await this.request<User>('/users/me', { cache: 'no-store' });
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user_profile');
+        window.dispatchEvent(new Event('tienton-session-change'));
+        return null;
+      }
+      throw error;
     }
+  }
+
+  async logout(refreshToken: string): Promise<void> {
+    await this.request('/auth/logout', { method: 'POST', body: JSON.stringify({ refresh_token: refreshToken }) });
   }
 
   // ---- CULTIVATION (TU VI) ----
@@ -322,8 +351,8 @@ class ApiClient {
 
   async getCultivationRealms(): Promise<CultivationRealmInfo[]> {
     try {
-      const res = await this.request<any>('/cultivation/realms');
-      return res.items || res;
+      const res = await this.request<ListResponse<CultivationRealmInfo>>('/cultivation/realms');
+      return toList(res);
     } catch {
       return [];
     }
@@ -375,27 +404,27 @@ class ApiClient {
     });
   }
 
-  async getMySubscription(): Promise<any> {
+  async getMySubscription(): Promise<UserSubscription | null> {
     try {
-      return await this.request<any>('/payments/my-subscription');
+      return await this.request<UserSubscription | null>('/payments/my-subscription');
     } catch {
       return null;
     }
   }
 
   async setup2FA(): Promise<{ secret: string; qr_code_url: string }> {
-    const res = await this.request<any>('/auth/2fa/setup', {
+    const res = await this.request<TwoFactorSetupResponse>('/auth/2fa/setup', {
       method: 'POST',
     });
-    return res.data || res;
+    return res;
   }
 
-  async enable2FA(code: string): Promise<{ backup_codes: string[] }> {
-    const res = await this.request<any>('/auth/2fa/enable', {
+  async enable2FA(secret: string, code: string): Promise<{ backup_codes: string[] }> {
+    const res = await this.request<{ backup_codes: string[] }>('/auth/2fa/enable', {
       method: 'POST',
-      body: JSON.stringify({ code }),
+      body: JSON.stringify({ secret, code }),
     });
-    return res.data || res;
+    return res;
   }
 
   async disable2FA(code: string): Promise<void> {
@@ -407,11 +436,8 @@ class ApiClient {
 
   async getUserFavorites(): Promise<FavoriteStoryItem[]> {
     try {
-      const res = await this.request<any>('/users/favorites');
-      if (Array.isArray(res)) return res;
-      if (res && Array.isArray(res.items)) return res.items;
-      if (res && Array.isArray(res.data)) return res.data;
-      return [];
+      const res = await this.request<ListResponse<FavoriteStoryItem>>('/users/favorites');
+      return toList(res);
     } catch {
       return [];
     }
@@ -419,11 +445,8 @@ class ApiClient {
 
   async getUserHistory(): Promise<ListeningHistoryItem[]> {
     try {
-      const res = await this.request<any>('/users/history');
-      if (Array.isArray(res)) return res;
-      if (res && Array.isArray(res.items)) return res.items;
-      if (res && Array.isArray(res.data)) return res.data;
-      return [];
+      const res = await this.request<ListResponse<ListeningHistoryItem>>('/users/history');
+      return toList(res);
     } catch {
       return [];
     }
@@ -431,11 +454,8 @@ class ApiClient {
 
   async getUserPayments(): Promise<PaymentHistoryItem[]> {
     try {
-      const res = await this.request<any>('/payments/history');
-      if (Array.isArray(res)) return res;
-      if (res && Array.isArray(res.items)) return res.items;
-      if (res && Array.isArray(res.data)) return res.data;
-      return [];
+      const res = await this.request<ListResponse<PaymentHistoryItem>>('/payments/history');
+      return toList(res);
     } catch {
       return [];
     }
@@ -444,11 +464,8 @@ class ApiClient {
   // ---- NOTIFICATIONS ----
   async getNotifications(page = 1, limit = 20): Promise<NotificationItem[]> {
     try {
-      const res = await this.request<any>(`/notifications?page=${page}&limit=${limit}`);
-      if (Array.isArray(res)) return res;
-      if (res && Array.isArray(res.items)) return res.items;
-      if (res && Array.isArray(res.data)) return res.data;
-      return [];
+      const res = await this.request<ListResponse<NotificationItem>>(`/notifications?page=${page}&limit=${limit}`);
+      return toList(res);
     } catch {
       return [];
     }
@@ -456,7 +473,7 @@ class ApiClient {
 
   async getUnreadNotificationCount(): Promise<number> {
     try {
-      const res = await this.request<any>('/notifications/unread-count');
+      const res = await this.request<{ unread_count: number }>('/notifications/unread-count');
       if (res && typeof res.unread_count === 'number') return res.unread_count;
       return 0;
     } catch {
@@ -500,11 +517,8 @@ class ApiClient {
 
   async getPartnerStories(): Promise<PartnerStoryItem[]> {
     try {
-      const res = await this.request<any>('/partner/stories');
-      if (Array.isArray(res)) return res;
-      if (res && Array.isArray(res.items)) return res.items;
-      if (res && Array.isArray(res.data)) return res.data;
-      return [];
+      const res = await this.request<ListResponse<PartnerStoryItem>>('/partner/stories');
+      return toList(res);
     } catch {
       return [];
     }
@@ -542,11 +556,8 @@ class ApiClient {
 
   async getPartnerStoryChapters(storyId: string): Promise<Chapter[]> {
     try {
-      const res = await this.request<any>(`/partner/stories/${storyId}/chapters`);
-      if (Array.isArray(res)) return res;
-      if (res && Array.isArray(res.items)) return res.items;
-      if (res && Array.isArray(res.data)) return res.data;
-      return [];
+      const res = await this.request<ListResponse<Chapter>>(`/partner/stories/${storyId}/chapters`);
+      return toList(res);
     } catch {
       return [];
     }
@@ -559,58 +570,123 @@ class ApiClient {
     });
   }
 
+  async attachPartnerChapterAudio(chapterId: string, audioUrl: string, durationSeconds?: number): Promise<ChapterAudioFile> {
+    return await this.request<ChapterAudioFile>(`/partner/chapters/${chapterId}/audio`, {
+      method: 'POST',
+      body: JSON.stringify({ audio_url: audioUrl, duration_seconds: durationSeconds || 0 }),
+    });
+  }
+
+  async deletePartnerChapter(chapterId: string): Promise<unknown> {
+    return await this.request<unknown>(`/partner/chapters/${chapterId}`, {
+      method: 'DELETE',
+    });
+  }
+
   async uploadPartnerCover(file: File): Promise<string> {
     const token = this.getToken();
+    if (!token) {
+      throw new Error('Vui lòng đăng nhập lại tài khoản để tải ảnh bìa');
+    }
+
     const formData = new FormData();
     formData.append('cover', file);
 
-    const res = await fetch(`${this.baseUrl}/partner/upload-cover`, {
-      method: 'POST',
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: formData,
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${this.baseUrl}/partner/upload-cover`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+    } catch (networkErr: unknown) {
+      throw new Error(
+        getErrorMessage(networkErr) === 'Load failed' || getErrorMessage(networkErr) === 'Failed to fetch'
+          ? 'Không thể kết nối đến máy chủ backend (http://localhost:8080). Hãy đảm bảo backend đang chạy.'
+          : (getErrorMessage(networkErr) || 'Lỗi mạng khi tải ảnh bìa')
+      );
+    }
 
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.message || 'Không thể tải ảnh bìa lên');
+      throw new Error(errData.error || errData.message || `Lỗi tải ảnh bìa lên (mã lỗi: ${res.status})`);
     }
 
     const data = await res.json();
     return data.data?.url || data.url || '';
   }
 
-  async uploadPartnerAudio(file: File): Promise<string> {
+  async uploadPartnerAudio(
+    file: File,
+    onProgress?: (percent: number, loadedBytes: number, totalBytes: number) => void
+  ): Promise<string> {
     const token = this.getToken();
-    const formData = new FormData();
-    formData.append('audio', file);
-
-    const res = await fetch(`${this.baseUrl}/partner/upload-audio`, {
-      method: 'POST',
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: formData,
-    });
-
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.message || 'Không thể tải file audio lên Cloudflare R2');
+    if (!token) {
+      throw new Error('Vui lòng đăng nhập lại tài khoản để có quyền tải file audio');
     }
 
-    const data = await res.json();
-    return data.data?.url || data.url || '';
+    return new Promise<string>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${this.baseUrl}/partner/upload-audio`);
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+      if (xhr.upload && onProgress) {
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percent = Math.round((event.loaded / event.total) * 100);
+            onProgress(percent, event.loaded, event.total);
+          }
+        };
+      }
+
+      xhr.onload = () => {
+        try {
+          const resp = JSON.parse(xhr.responseText || '{}');
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve(resp.data?.url || resp.url || '');
+          } else {
+            reject(
+              new Error(
+                resp.error ||
+                resp.message ||
+                `Lỗi tải file audio lên Cloudflare R2 (mã lỗi: ${xhr.status})`
+              )
+            );
+          }
+        } catch {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve('');
+          } else {
+            reject(new Error(`Máy chủ phản hồi lỗi (mã lỗi: ${xhr.status})`));
+          }
+        }
+      };
+
+      xhr.onerror = () => {
+        reject(
+          new Error(
+            'Lỗi kết nối khi tải file audio lên máy chủ (Load failed). Vui lòng kiểm tra backend và đảm bảo đường truyền ổn định.'
+          )
+        );
+      };
+
+      xhr.ontimeout = () => {
+        reject(new Error('Hết thời gian chờ khi tải file audio. Vui lòng thử lại.'));
+      };
+
+      const formData = new FormData();
+      formData.append('audio', file);
+      xhr.send(formData);
+    });
   }
 
   // ---- THANH TOÁN & XÁC NHẬN TỰ ĐỘNG (PAYMENTS & AUTO VERIFICATION) ----
   async getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
     try {
-      const res = await this.request<any>('/payments/plans');
-      if (Array.isArray(res)) return res;
-      if (res && Array.isArray(res.items)) return res.items;
-      if (res && Array.isArray(res.data)) return res.data;
-      return [];
+      const res = await this.request<ListResponse<SubscriptionPlan>>('/payments/plans');
+      return toList(res);
     } catch {
       return [];
     }
@@ -627,12 +703,6 @@ class ApiClient {
     return await this.request<PaymentStatusResp>(`/payments/${paymentId}/status`);
   }
 
-  async autoConfirmPayment(paymentId: string): Promise<PaymentStatusResp> {
-    return await this.request<PaymentStatusResp>(`/payments/${paymentId}/confirm-auto`, {
-      method: 'POST',
-    });
-  }
-
   async getActiveSubscription(): Promise<UserSubscription | null> {
     try {
       return await this.request<UserSubscription>('/payments/my-subscription');
@@ -647,15 +717,12 @@ class ApiClient {
   }
 
   async getAdminUsers(page: number = 1, limit: number = 50): Promise<{ items: AdminUser[]; total?: number }> {
-    const res = await this.request<any>(`/admin/users?page=${page}&limit=${limit}`);
-    if (Array.isArray(res)) return { items: res };
-    if (res && Array.isArray(res.items)) return res;
-    if (res && Array.isArray(res.data)) return { items: res.data };
-    return { items: [] };
+    const res = await this.request<ListResponse<AdminUser>>(`/admin/users?page=${page}&limit=${limit}`);
+    return { items: toList(res), total: Array.isArray(res) ? undefined : res.total };
   }
 
-  async updateUserRole(userId: string, role: string): Promise<any> {
-    return await this.request<any>(`/admin/users/${userId}/role`, {
+  async updateUserRole(userId: string, role: string): Promise<AdminUser> {
+    return await this.request<AdminUser>(`/admin/users/${userId}/role`, {
       method: 'PUT',
       body: JSON.stringify({ role }),
     });
@@ -663,18 +730,15 @@ class ApiClient {
 
   async getAdminReports(): Promise<AdminReport[]> {
     try {
-      const res = await this.request<any>('/admin/reports');
-      if (Array.isArray(res)) return res;
-      if (res && Array.isArray(res.items)) return res.items;
-      if (res && Array.isArray(res.data)) return res.data;
-      return [];
+      const res = await this.request<ListResponse<AdminReport>>('/admin/reports');
+      return toList(res);
     } catch {
       return [];
     }
   }
 
-  async updateReportStatus(reportId: string, status: string, notes?: string): Promise<any> {
-    return await this.request<any>(`/admin/reports/${reportId}/status`, {
+  async updateReportStatus(reportId: string, status: string, notes?: string): Promise<AdminReport> {
+    return await this.request<AdminReport>(`/admin/reports/${reportId}/status`, {
       method: 'PUT',
       body: JSON.stringify({ status, admin_notes: notes }),
     });
@@ -688,30 +752,27 @@ class ApiClient {
       q.set('page', page.toString());
       q.set('limit', limit.toString());
 
-      const res = await this.request<any>(`/community/posts?${q.toString()}`);
-      if (Array.isArray(res)) return res;
-      if (res && Array.isArray(res.items)) return res.items;
-      if (res && Array.isArray(res.data)) return res.data;
-      return [];
+      const res = await this.request<ListResponse<CommunityPost>>(`/community/posts?${q.toString()}`);
+      return toList(res);
     } catch {
       return [];
     }
   }
 
   async createCommunityPost(data: CreateCommunityPostReq): Promise<CommunityPost> {
-    const res = await this.request<any>('/community/posts', {
+    const res = await this.request<CommunityPost>('/community/posts', {
       method: 'POST',
       body: JSON.stringify(data),
     });
-    return res.data || res;
+    return res;
   }
 
   async getCommunityPost(id: string): Promise<CommunityPost> {
     return await this.request<CommunityPost>(`/community/posts/${id}`);
   }
 
-  async deleteCommunityPost(id: string): Promise<any> {
-    return await this.request<any>(`/community/posts/${id}`, {
+  async deleteCommunityPost(id: string): Promise<unknown> {
+    return await this.request<unknown>(`/community/posts/${id}`, {
       method: 'DELETE',
     });
   }
@@ -724,43 +785,37 @@ class ApiClient {
 
   async getPostComments(postId: string): Promise<CommunityComment[]> {
     try {
-      const res = await this.request<any>(`/community/posts/${postId}/comments`);
-      if (Array.isArray(res)) return res;
-      if (res && Array.isArray(res.items)) return res.items;
-      if (res && Array.isArray(res.data)) return res.data;
-      return [];
+      const res = await this.request<ListResponse<CommunityComment>>(`/community/posts/${postId}/comments`);
+      return toList(res);
     } catch {
       return [];
     }
   }
 
   async createPostComment(postId: string, content: string, parentId?: string): Promise<CommunityComment> {
-    const res = await this.request<any>(`/community/posts/${postId}/comments`, {
+    const res = await this.request<CommunityComment>(`/community/posts/${postId}/comments`, {
       method: 'POST',
       body: JSON.stringify({ content, parent_id: parentId }),
     });
-    return res.data || res;
+    return res;
   }
 
   // ---- DANH SÁCH PHÁT (PLAYLISTS) ----
   async getUserPlaylists(): Promise<Playlist[]> {
     try {
-      const res = await this.request<any>('/playlists');
-      if (Array.isArray(res)) return res;
-      if (res && Array.isArray(res.items)) return res.items;
-      if (res && Array.isArray(res.data)) return res.data;
-      return [];
+      const res = await this.request<ListResponse<Playlist>>('/playlists');
+      return toList(res);
     } catch {
       return [];
     }
   }
 
   async createPlaylist(data: CreatePlaylistReq): Promise<Playlist> {
-    const res = await this.request<any>('/playlists', {
+    const res = await this.request<Playlist>('/playlists', {
       method: 'POST',
       body: JSON.stringify(data),
     });
-    return res.data || res;
+    return res;
   }
 
   async getPlaylistDetail(id: string): Promise<PlaylistDetail> {
@@ -768,35 +823,35 @@ class ApiClient {
   }
 
   async updatePlaylist(id: string, data: Partial<CreatePlaylistReq>): Promise<Playlist> {
-    const res = await this.request<any>(`/playlists/${id}`, {
+    const res = await this.request<Playlist>(`/playlists/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
-    return res.data || res;
+    return res;
   }
 
-  async deletePlaylist(id: string): Promise<any> {
-    return await this.request<any>(`/playlists/${id}`, {
+  async deletePlaylist(id: string): Promise<unknown> {
+    return await this.request<unknown>(`/playlists/${id}`, {
       method: 'DELETE',
     });
   }
 
-  async addPlaylistItem(playlistId: string, chapterId: string): Promise<any> {
-    return await this.request<any>(`/playlists/${playlistId}/items`, {
+  async addPlaylistItem(playlistId: string, chapterId: string): Promise<unknown> {
+    return await this.request<unknown>(`/playlists/${playlistId}/items`, {
       method: 'POST',
       body: JSON.stringify({ chapter_id: chapterId }),
     });
   }
 
-  async removePlaylistItem(playlistId: string, chapterId: string): Promise<any> {
-    return await this.request<any>(`/playlists/${playlistId}/items/${chapterId}`, {
+  async removePlaylistItem(playlistId: string, chapterId: string): Promise<unknown> {
+    return await this.request<unknown>(`/playlists/${playlistId}/items/${chapterId}`, {
       method: 'DELETE',
     });
   }
 
   // ---- BÁO CÁO & KHIẾU NẠI (REPORTS) ----
-  async createReport(data: CreateReportReq): Promise<any> {
-    return await this.request<any>('/reports', {
+  async createReport(data: CreateReportReq): Promise<unknown> {
+    return await this.request<unknown>('/reports', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -805,11 +860,8 @@ class ApiClient {
   // ---- THEO DÕI TÁC GIẢ & MC (FOLLOW) ----
   async getFollowedAuthors(): Promise<FollowedAuthor[]> {
     try {
-      const res = await this.request<any>('/users/following-authors');
-      if (Array.isArray(res)) return res;
-      if (res && Array.isArray(res.items)) return res.items;
-      if (res && Array.isArray(res.data)) return res.data;
-      return [];
+      const res = await this.request<ListResponse<FollowedAuthor>>('/users/following-authors');
+      return toList(res);
     } catch {
       return [];
     }
@@ -817,53 +869,50 @@ class ApiClient {
 
   async getFollowedNarrators(): Promise<FollowedNarrator[]> {
     try {
-      const res = await this.request<any>('/users/following-narrators');
-      if (Array.isArray(res)) return res;
-      if (res && Array.isArray(res.items)) return res.items;
-      if (res && Array.isArray(res.data)) return res.data;
-      return [];
+      const res = await this.request<ListResponse<FollowedNarrator>>('/users/following-narrators');
+      return toList(res);
     } catch {
       return [];
     }
   }
 
-  async toggleFollowAuthor(authorId: string): Promise<any> {
-    return await this.request<any>(`/authors/${authorId}/follow`, {
+  async toggleFollowAuthor(authorId: string): Promise<{ is_following: boolean }> {
+    return await this.request<{ is_following: boolean }>(`/authors/${authorId}/follow`, {
       method: 'POST',
     });
   }
 
-  async toggleFollowNarrator(narratorId: string): Promise<any> {
-    return await this.request<any>(`/narrators/${narratorId}/follow`, {
+  async toggleFollowNarrator(narratorId: string): Promise<{ is_following: boolean }> {
+    return await this.request<{ is_following: boolean }>(`/narrators/${narratorId}/follow`, {
       method: 'POST',
     });
   }
 
   // ---- QUÊN & ĐẶT LẠI MẬT KHẨU (PASSWORD RECOVERY) ----
-  async forgotPassword(email: string): Promise<any> {
-    return await this.request<any>('/auth/forgot-password', {
+  async forgotPassword(email: string): Promise<unknown> {
+    return await this.request<unknown>('/auth/forgot-password', {
       method: 'POST',
       body: JSON.stringify({ email }),
     });
   }
 
-  async resetPassword(token: string, new_password: string): Promise<any> {
-    return await this.request<any>('/auth/reset-password', {
+  async resetPassword(token: string, new_password: string): Promise<unknown> {
+    return await this.request<unknown>('/auth/reset-password', {
       method: 'POST',
       body: JSON.stringify({ token, new_password }),
     });
   }
 
   // ---- ĐĂNG NHẬP, ĐĂNG KÝ & XÁC THỰC EMAIL/2FA ----
-  async login(email: string, password: string): Promise<any> {
-    return await this.request<any>('/auth/login', {
+  async login(email: string, password: string): Promise<LoginResponse> {
+    return await this.request<LoginResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
   }
 
-  async register(username: string, email: string, password: string): Promise<any> {
-    return await this.request<any>('/auth/register', {
+  async register(username: string, email: string, password: string): Promise<{ user: User }> {
+    return await this.request<{ user: User }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify({ username, email, password }),
     });
@@ -875,29 +924,29 @@ class ApiClient {
     name: string;
     provider_user_id: string;
     avatar_url?: string;
-  }): Promise<any> {
-    return await this.request<any>('/auth/social', {
+  }): Promise<AuthenticatedResponse> {
+    return await this.request<AuthenticatedResponse>('/auth/social', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
-  async verifyTwoFactorLogin(mfa_token: string, code: string): Promise<any> {
-    return await this.request<any>('/auth/2fa/verify', {
+  async verifyTwoFactorLogin(mfa_token: string, code: string): Promise<AuthenticatedResponse> {
+    return await this.request<AuthenticatedResponse>('/auth/2fa/verify', {
       method: 'POST',
       body: JSON.stringify({ mfa_token, code }),
     });
   }
 
-  async verifyEmail(token: string): Promise<any> {
-    return await this.request<any>('/auth/verify-email', {
+  async verifyEmail(token: string): Promise<unknown> {
+    return await this.request<unknown>('/auth/verify-email', {
       method: 'POST',
       body: JSON.stringify({ token }),
     });
   }
 
-  async resendVerificationEmail(email: string): Promise<any> {
-    return await this.request<any>('/auth/resend-verification', {
+  async resendVerificationEmail(email: string): Promise<unknown> {
+    return await this.request<unknown>('/auth/resend-verification', {
       method: 'POST',
       body: JSON.stringify({ email }),
     });
@@ -913,5 +962,4 @@ export function getFullAvatarUrl(url?: string | null): string {
   const cleanUrl = url.startsWith('/') ? url : `/${url}`;
   return `${backendBase}${cleanUrl}`;
 }
-
 

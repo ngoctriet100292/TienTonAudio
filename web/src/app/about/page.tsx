@@ -1,157 +1,40 @@
-import React from 'react';
+import { ArrowRight, BookOpen, Headphones, Heart, Layers, ShieldCheck } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import {
-  Compass,
-  Headphones,
-  Sparkles,
-  Flame,
-  Bot,
-  ShieldCheck,
-  Zap,
-  Users,
-  Award,
-  BookOpen,
-  ArrowRight,
-} from 'lucide-react';
+import { EditorialCTA, EditorialHeading, EditorialHero, EditorialShell } from '@/components/editorial';
+import { Reveal } from '@/components/reveal';
 
 export const metadata: Metadata = {
-  title: 'Về Chúng Tôi - Sứ Mệnh Tiên Tôn Audio | Nền Tảng Audiobook Tiên Hiệp Hàng Đầu',
-  description: 'Khám phá Tiên Tôn Audio - Nền tảng nghe truyện audio và đọc truyện tiên hiệp, kiếm hiệp chuẩn âm thanh 320kbps với hệ thống 17 Cảnh Giới Tu Tiên và trợ lý AI Đạo Hữu.',
-  openGraph: {
-    title: 'Về Chúng Tôi - Tiên Tôn Audio',
-    description: 'Nền tảng nghe truyện audio tiên hiệp kết hợp gamification tu chân và trí tuệ nhân tạo AI Đạo Hữu.',
-    type: 'website',
-    url: 'https://tientonaudio.com/about',
-  },
+  title: 'Về chúng tôi | Tiên Tôn Audio',
+  description: 'Một không gian dành cho người yêu truyện. Khám phá câu chuyện và tinh thần xây dựng Tiên Tôn Audio.',
 };
 
+const values = [
+  { icon: Headphones, number: '01', title: 'Lắng nghe theo cách của bạn', text: 'Một giọng đọc yêu thích, tốc độ vừa vặn và khoảnh khắc dành riêng cho mình. Chúng tôi chăm chút cho từng thao tác để bạn ở lại cùng câu chuyện.' },
+  { icon: BookOpen, number: '02', title: 'Đọc và nghe liền mạch', text: 'Chuyển từ trang chữ sang thanh âm, lưu lại tác phẩm yêu thích và tiếp tục hành trình còn dang dở. Mỗi câu chuyện có nhiều cách để cảm nhận.' },
+  { icon: Heart, number: '03', title: 'Cùng chung một thế giới', text: 'Từ một cảm nhận sau chương truyện đến cuộc trao đổi về nhân vật, cộng đồng là nơi những người cùng sở thích tìm thấy nhau.' },
+];
+
 export default function AboutPage() {
-  return (
-    <main className="min-h-screen py-8">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-16">
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-2 text-xs text-slate-400 font-medium">
-          <Link href="/" className="hover:text-[#ffd166] flex items-center gap-1">
-            <Compass className="w-3.5 h-3.5" /> Trang Chủ
-          </Link>
-          <span>/</span>
-          <span className="text-amber-400 font-bold">Về Chúng Tôi</span>
-        </nav>
+  return <EditorialShell label="Về chúng tôi">
+    <EditorialHero eyebrow="CÂU CHUYỆN CỦA TIÊN TÔN" title="Một nơi để nghe." accent="Một thế giới để thuộc về." description="Tiên Tôn Audio được xây dựng từ tình yêu dành cho truyện tiên hiệp, huyền huyễn và kiếm hiệp. Chúng tôi muốn mỗi lần bạn mở một câu chuyện đều là một khoảng thời gian đáng tận hưởng.">
+      <Link href="/categories" className="editorial-button">Tìm câu chuyện của bạn <ArrowRight size={17} /></Link>
+      <Link href="#our-story" className="editorial-button-secondary">Về hành trình này</Link>
+    </EditorialHero>
 
-        {/* Hero Section */}
-        <div className="relative overflow-hidden rounded-3xl border border-amber-500/20 bg-gradient-to-b from-[#162035]/80 via-[#0d1424]/90 to-[#070a12] p-8 sm:p-14 text-center">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/10 via-transparent to-transparent pointer-events-none" />
+    <Reveal><section id="our-story" className="grid scroll-mt-28 gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
+      <EditorialHeading eyebrow="VÌ SAO CHÚNG TÔI BẮT ĐẦU" title="Những câu chuyện hay xứng đáng có một không gian đẹp." />
+      <div className="space-y-5 text-sm leading-[1.95] text-slate-300 sm:text-base"><p>Có những câu chuyện khiến ta quên thời gian. Có những giọng đọc trở thành người bạn trên đường đi, trong lúc làm việc hay trước khi ngủ.</p><p>Tiên Tôn Audio hướng đến trải nghiệm ấy: dễ tìm truyện, dễ bắt đầu nghe và dễ quay lại nơi bạn đã dừng. Giao diện, âm thanh và cộng đồng cùng phục vụ một điều giản dị — niềm vui được ở trong thế giới mình yêu thích.</p><blockquote className="border-l-2 border-[#ffb703] pl-6 font-serif text-xl text-[#ffd166] sm:text-2xl">“Bật một câu chuyện. Dành một khoảng lặng cho mình.”</blockquote></div>
+    </section></Reveal>
 
-          <div className="relative z-10 max-w-3xl mx-auto space-y-4">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/30 text-xs font-bold uppercase tracking-wider">
-              <Sparkles className="w-4 h-4 text-[#ffd166]" />
-              Tiên Đạo Vô Nhai • Âm Vang Bất Tuyệt
-            </div>
+    <section><Reveal><EditorialHeading eyebrow="NHỮNG ĐIỀU CHÚNG TÔI CHĂM CHÚT" title="Trải nghiệm bắt đầu từ những điều nhỏ." /></Reveal>
+      <div className="grid gap-5 md:grid-cols-3">{values.map(({ icon: Icon, number, title, text }, index) => <Reveal key={number} delay={index * 80}><article className="editorial-card h-full p-7"><div className="mb-8 flex items-center justify-between"><span className="editorial-icon"><Icon size={23} /></span><span className="font-serif text-3xl text-white/15">{number}</span></div><h3 className="mb-3 text-lg font-semibold text-white">{title}</h3><p className="text-sm leading-[1.85] text-slate-400">{text}</p></article></Reveal>)}</div>
+    </section>
 
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white">
-              Tái Định Nghĩa Trải Nghiệm <br />
-              <span className="bg-gradient-to-r from-[#ffd166] via-[#ffb703] to-amber-500 bg-clip-text text-transparent">
-                Audiobook Tiên Hiệp
-              </span>
-            </h1>
-
-            <p className="text-sm sm:text-base text-slate-300 leading-relaxed max-w-2xl mx-auto">
-              Tiên Tôn Audio được khai mở với tâm huyết mang lại một thánh địa nghe và đọc truyện tiên hiệp, huyền huyễn, kiếm hiệp đỉnh cao, nơi từng thanh âm đều chứa đựng linh khí thiên địa.
-            </p>
-          </div>
-        </div>
-
-        {/* Tôn Chỉ & Sứ Mệnh */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="rounded-3xl border border-white/10 bg-slate-900/60 p-8 space-y-4 hover:border-amber-500/40 transition-all">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/30">
-              <Headphones className="w-6 h-6" />
-            </div>
-            <h3 className="text-xl font-black text-white">Âm Thanh Đỉnh Cao</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Tất cả các tập truyện audio đều được truyền phát với công nghệ mã hóa tiên tiến 320kbps, bảo đảm độ sắc nét của giọng đọc MC truyền cảm, không tạp âm, tùy chỉnh tốc độ phát mượt mà từ 0.5x đến 2.0x.
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-white/10 bg-slate-900/60 p-8 space-y-4 hover:border-amber-500/40 transition-all">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-400 border border-sky-500/30">
-              <Flame className="w-6 h-6" />
-            </div>
-            <h3 className="text-xl font-black text-white">17 Cảnh Giới Tu Tiên</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Hệ thống gamification tu chân độc quyền: Mỗi phút Đạo Hữu thưởng thức truyện là một khoảnh khắc kinh mạch hấp thu linh khí, từ phàm nhân Luyện Khí từng bước thăng hoa đến Tiên Đế chí tôn.
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-white/10 bg-slate-900/60 p-8 space-y-4 hover:border-amber-500/40 transition-all">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
-              <Bot className="w-6 h-6" />
-            </div>
-            <h3 className="text-xl font-black text-white">AI Đạo Hữu Trí Tuệ</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Trợ lý trí tuệ nhân tạo chuyên sâu về thế giới tiên hiệp, sẵn sàng đàm đạo cốt truyện, tóm tắt diễn biến, phân tích hệ thống công pháp và giải mã bí ẩn trong các tác phẩm kinh điển.
-            </p>
-          </div>
-        </div>
-
-        {/* Các Con Số Ấn Tượng */}
-        <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-[#0e1626] via-[#111c33] to-[#0e1626] p-8 sm:p-12">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-            <div className="space-y-1">
-              <p className="text-3xl sm:text-4xl font-black text-amber-400 font-mono">100.000+</p>
-              <p className="text-xs text-slate-400">Giờ Audio Phát Sóng</p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-3xl sm:text-4xl font-black text-emerald-400 font-mono">17</p>
-              <p className="text-xs text-slate-400">Cảnh Giới Tu Tiên</p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-3xl sm:text-4xl font-black text-sky-400 font-mono">320kbps</p>
-              <p className="text-xs text-slate-400">Chất Lượng Âm Thanh</p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-3xl sm:text-4xl font-black text-purple-400 font-mono">24/7</p>
-              <p className="text-xs text-slate-400">Đàm Đạo Với AI Đạo Hữu</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Cam Kết & Pháp Lý */}
-        <div className="rounded-3xl border border-white/10 bg-slate-900/40 p-8 sm:p-10 space-y-6">
-          <div className="flex items-center gap-3">
-            <ShieldCheck className="w-6 h-6 text-emerald-400" />
-            <h3 className="text-2xl font-black text-white">Cam Kết Của Tiên Tôn Audio</h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-slate-300 leading-relaxed">
-            <p>
-              Chúng tôi luôn tôn trọng bản quyền sở hữu trí tuệ của các tác giả, dịch giả và đơn vị xuất bản. Nền tảng hoạt động tuân thủ nghiêm ngặt theo chính sách DMCA và pháp luật hiện hành, sẵn sàng tiếp nhận và phản hồi nhanh chóng mọi yêu cầu từ các bên liên quan.
-            </p>
-            <p>
-              Đồng thời, trải nghiệm của người nghe luôn là ưu tiên hàng đầu. Nền tảng cam kết duy trì tốc độ phát mượt mà, lưu trữ đám mây phân tán tốc độ cao, hỗ trợ đa nền tảng từ máy tính đến điện thoại thông minh.
-            </p>
-          </div>
-        </div>
-
-        {/* CTA */}
-        <div className="rounded-3xl border border-amber-500/30 bg-gradient-to-r from-amber-500/15 via-[#ffb703]/10 to-transparent p-8 sm:p-12 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-2xl">
-          <div className="space-y-2 text-center sm:text-left max-w-xl">
-            <h3 className="text-2xl font-black text-white">Gia Nhập Cộng Đồng Đạo Hữu</h3>
-            <p className="text-xs sm:text-sm text-slate-300">
-              Khám phá ngay hàng ngàn bộ truyện audio đặc sắc và bắt đầu hành trình tu luyện cảnh giới của riêng bạn.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <Link
-              href="/"
-              className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-[#ffd166] to-[#ffb703] text-black font-black text-xs sm:text-sm shadow-xl shadow-amber-500/25 hover:scale-105 transition-all flex items-center gap-2"
-            >
-              Khám Phá Truyện <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-        </div>
-      </div>
-    </main>
-  );
+    <Reveal><section className="grid gap-5 md:grid-cols-2">
+      <Link href="/cultivation" className="editorial-card group flex flex-col items-start p-8 sm:p-10"><Layers className="mb-7 text-[#ffb703]" size={28} /><p className="editorial-kicker mb-3">MỘT CHÚT TIÊN HIỆP TRONG ĐỜI THƯỜNG</p><h2 className="mb-4 font-serif text-3xl text-white">17 cảnh giới. Một hành trình của bạn.</h2><p className="mb-7 text-sm leading-relaxed text-slate-400">Mỗi lần trở lại là một bước trên tiên lộ. Khám phá hệ thống cảnh giới và theo dõi tu vi của mình.</p><span className="mt-auto flex items-center gap-2 text-sm text-[#ffd166]">Khám phá cảnh giới <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" /></span></Link>
+      <Link href="/policies" className="editorial-card group flex flex-col items-start p-8 sm:p-10"><ShieldCheck className="mb-7 text-[#ffb703]" size={28} /><p className="editorial-kicker mb-3">XÂY DỰNG TỪ SỰ TÔN TRỌNG</p><h2 className="mb-4 font-serif text-3xl text-white">Tôn trọng tác phẩm và người thưởng thức.</h2><p className="mb-7 text-sm leading-relaxed text-slate-400">Thông tin về sử dụng dịch vụ, dữ liệu cá nhân và cách gửi yêu cầu bản quyền được tập hợp tại trung tâm chính sách.</p><span className="mt-auto flex items-center gap-2 text-sm text-[#ffd166]">Tìm hiểu chính sách <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" /></span></Link>
+    </section></Reveal>
+    <EditorialCTA />
+  </EditorialShell>;
 }

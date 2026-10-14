@@ -2,6 +2,7 @@ package config
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -9,6 +10,7 @@ import (
 )
 
 type Config struct {
+	TrustedProxyCIDRs          []string      `json:"trusted_proxy_cidrs"`
 	ServerAddress              string        `json:"server_address"`
 	Environment                string        `json:"environment"`
 	DatabaseURL                string        `json:"database_url"`
@@ -34,6 +36,7 @@ type Config struct {
 	SMTPPassword               string        `json:"smtp_password"`
 	SMTPFromEmail              string        `json:"smtp_from_email"`
 	AppBaseURL                 string        `json:"app_base_url"`
+	PaymentWebhookSecret       string        `json:"payment_webhook_secret"`
 }
 
 // LoadConfig reads configuration from app.env file (if present) and environment variables.
@@ -57,7 +60,7 @@ func LoadConfig(path string) (*Config, error) {
 
 	maxConns, _ := strconv.Atoi(getEnv("DB_MAX_CONNS", "20"))
 	minConns, _ := strconv.Atoi(getEnv("DB_MIN_CONNS", "5"))
-	rateLimit, _ := strconv.Atoi(getEnv("RATE_LIMIT_REQUESTS_PER_MINUTE", "60"))
+	rateLimit, _ := strconv.Atoi(getEnv("RATE_LIMIT_REQUESTS_PER_MINUTE", "300"))
 
 	originsStr := getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8080")
 	origins := strings.Split(originsStr, ",")
@@ -68,6 +71,7 @@ func LoadConfig(path string) (*Config, error) {
 	smtpPort, _ := strconv.Atoi(getEnv("SMTP_PORT", "587"))
 
 	cfg := &Config{
+		TrustedProxyCIDRs:          strings.FieldsFunc(getEnv("TRUSTED_PROXY_CIDRS", ""), func(r rune) bool { return r == ',' }),
 		ServerAddress:              getEnv("SERVER_ADDRESS", "0.0.0.0:8080"),
 		Environment:                getEnv("ENVIRONMENT", "development"),
 		DatabaseURL:                getEnv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/tientonaudio?sslmode=disable"),
@@ -93,8 +97,16 @@ func LoadConfig(path string) (*Config, error) {
 		SMTPPassword:               getEnv("SMTP_PASSWORD", ""),
 		SMTPFromEmail:              getEnv("SMTP_FROM_EMAIL", "noreply@tientonaudio.com"),
 		AppBaseURL:                 getEnv("APP_BASE_URL", "http://localhost:8080"),
+		PaymentWebhookSecret:       getEnv("PAYMENT_WEBHOOK_SECRET", ""),
 	}
 
+	if cfg.Environment == "production" {
+		for name, secret := range map[string]string{"JWT_SECRET_KEY": cfg.JWTSecretKey, "PAYMENT_WEBHOOK_SECRET": cfg.PaymentWebhookSecret} {
+			if len(secret) < 32 || strings.Contains(secret, "change") || strings.Contains(secret, "your-") {
+				return nil, fmt.Errorf("%s must be configured with a strong production secret", name)
+			}
+		}
+	}
 	return cfg, nil
 }
 

@@ -1,15 +1,18 @@
-import React from 'react';
+
+import { serializeJsonLd } from '@/lib/json-ld';
+
+import { ChapterComments } from '@/components/chapter-comments';
+import { FollowButton } from '@/components/follow-button';
+import { MediaImage } from '@/components/media-image';
+import { StoryActions } from '@/components/story-actions';
+import { StoryStatusBadge } from '@/components/story-status-badge';
+import { api } from '@/lib/api';
+import { Chapter, Story } from '@/types';
+import { BookOpen, Headphones, Star } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Star, Headphones, BookOpen, Crown, Share2, Heart, Play } from 'lucide-react';
-import { Story, Chapter } from '@/types';
 import ChapterListClient from './chapter-list-client';
-import { StoryStatusBadge } from '@/components/story-status-badge';
-import { StoryActions } from '@/components/story-actions';
-import { ChapterComments } from '@/components/chapter-comments';
-import { FollowButton } from '@/components/follow-button';
-import { api } from '@/lib/api';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -61,7 +64,7 @@ async function getStory(slug: string): Promise<{ story: Story; chapters: Chapter
     const story = await api.getStoryBySlug(slug);
     if (story) {
       const rawChapters = await api.getStoryChapters(story.id, 1, 1000);
-      const chapters: Chapter[] = rawChapters.map((c: any) => ({
+      const chapters: Chapter[] = rawChapters.map((c) => ({
         id: c.id,
         story_id: c.story_id || story.id,
         chapter_number: c.chapter_number,
@@ -76,7 +79,7 @@ async function getStory(slug: string): Promise<{ story: Story; chapters: Chapter
       }));
 
       // Chuẩn hóa categories dạng string[]
-      const normalizedCats: string[] = (story.categories || []).map((cat: any) =>
+      const normalizedCats: string[] = (story.categories || []).map((cat) =>
         typeof cat === 'string' ? cat : (cat?.name || '')
       ).filter(Boolean);
 
@@ -117,7 +120,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       `${story.title} audio`,
       `nghe audio ${story.title}`,
       `tác giả ${story.author_name || 'Đang cập nhật'}`,
-      ...((story.categories || []).map((c: any) => (typeof c === 'string' ? c : c?.name || '')).filter(Boolean)),
+      ...((story.categories || []).map((c) => (typeof c === 'string' ? c : c?.name || '')).filter(Boolean)),
     ],
     openGraph: {
       title,
@@ -202,14 +205,14 @@ export default async function StoryDetailPage({ params }: Props) {
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8 space-y-12">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
 
       {/* Header Truyện */}
       <div className="flex flex-col md:flex-row gap-8 items-start">
         {/* Ảnh bìa */}
         <div className="w-full md:w-64 flex-shrink-0 aspect-[3/4] rounded-2xl overflow-hidden border border-amber-500/30 bg-slate-800 shadow-2xl shadow-amber-500/10">
-          <img src={story.cover_image_url} alt={story.title} className="w-full h-full object-cover" />
+          <MediaImage src={story.cover_image_url} alt={story.title} className="w-full h-full object-cover" />
         </div>
 
         {/* Thông tin tác phẩm */}
@@ -218,7 +221,7 @@ export default async function StoryDetailPage({ params }: Props) {
             {/* Trạng thái truyện: Hoàn thành, Tạm ngưng, Còn tiếp */}
             <StoryStatusBadge status={story.status} size="md" />
 
-            {(story.categories || []).map((c: any, i: number) => {
+            {(story.categories || []).map((c, i: number) => {
               const name = typeof c === 'string' ? c : c?.name || '';
               return (
                 <span key={i} className="text-xs px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30 font-semibold">
@@ -280,9 +283,9 @@ export default async function StoryDetailPage({ params }: Props) {
           </div>
 
           {/* Tóm tắt */}
-          <p className="text-sm text-slate-300 leading-relaxed max-w-3xl">
+          <div className="text-sm text-slate-300 leading-relaxed max-w-3xl whitespace-pre-line space-y-3">
             {story.description}
-          </p>
+          </div>
 
           {/* Cụm nút tác vụ chính: Đọc truyện chữ & Nghe Audio */}
           <div className="flex flex-wrap items-center gap-3 pt-2">

@@ -88,7 +88,7 @@ type ChapterAudioFileResp struct {
 	ID            uuid.UUID `json:"id"`
 	ChapterID     uuid.UUID `json:"chapter_id"`
 	Quality       string    `json:"quality"`
-	AudioURL      string    `json:"audio_url"`
+	AudioURL      string    `json:"audio_url,omitempty"`
 	FileSizeBytes *int64    `json:"file_size_bytes,omitempty"`
 	IsPrimary     *bool     `json:"is_primary,omitempty"`
 }

@@ -46,6 +46,7 @@ type PaymentStatusResp struct {
 }
 
 type WebhookCallbackReq struct {
+	Amount        int64     `json:"amount"` // Verified amount in VND.
 	PaymentID     uuid.UUID `json:"payment_id" validate:"required"`
 	TransactionID string    `json:"transaction_id" validate:"required"`
 	Status        string    `json:"status" validate:"required"` // 'completed', 'failed'
@@ -73,4 +74,3 @@ type UserPaymentResp struct {
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 }
-

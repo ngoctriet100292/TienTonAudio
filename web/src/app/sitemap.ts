@@ -1,5 +1,5 @@
-import { MetadataRoute } from 'next';
 import { api } from '@/lib/api';
+import { MetadataRoute } from 'next';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://tientonaudio.com';
@@ -56,6 +56,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.6,
     },
   ];
+
+  staticRoutes.push(...['policies', 'privacy', 'terms', 'copyright'].map(route => ({ url: `${baseUrl}/${route}`, lastModified: now, changeFrequency: 'monthly' as const, priority: 0.5 })));
 
   // 2. Dynamic Story Routes
   let storyRoutes: MetadataRoute.Sitemap = [];

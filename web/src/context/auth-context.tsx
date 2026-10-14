@@ -1,8 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { User } from '@/types';
 import { api } from '@/lib/api';
+import { User } from '@/types';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 interface AuthContextType {
   user: User | null;
@@ -37,27 +37,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem('user_profile');
       }
     } catch {
-      setUser(null);
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      localStorage.removeItem('user_profile');
+      // Preserve the session when the server or connection is temporarily unavailable.
     }
   }, []);
-
-  useEffect(() => {
-    const storedUser = localStorage.getItem('user_profile');
-    const token = localStorage.getItem('access_token');
-    if (storedUser && token) {
-      try {
-        setUser(JSON.parse(storedUser));
-        // Làm mới dữ liệu ngầm để lấy Tu Vi mới nhất
-        refreshProfile();
-      } catch {
-        localStorage.removeItem('user_profile');
-      }
-    }
-    setIsLoading(false);
-  }, [refreshProfile]);
 
   const login = (token: string, refreshToken: string, userData: User) => {
     localStorage.setItem('access_token', token);
@@ -67,11 +49,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
+    const refreshToken = localStorage.getItem('refresh_token');
+    if (refreshToken) void api.logout(refreshToken).catch(() => { });
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user_profile');
     setUser(null);
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getMe().then((me) => {
+      if (cancelled) return;
+      setUser(me);
+      if (me) localStorage.setItem('user_profile', JSON.stringify(me));
+    }).catch(() => {
+      const stored = localStorage.getItem('user_profile');
+      if (!cancelled && stored) {
+        try { setUser(JSON.parse(stored)); } catch { localStorage.removeItem('user_profile'); }
+      }
+    }).finally(() => { if (!cancelled) setIsLoading(false); });
+    const onSessionChange = () => { if (!localStorage.getItem('access_token')) setUser(null); };
+    window.addEventListener('storage', onSessionChange);
+    window.addEventListener('tienton-session-change', onSessionChange);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('storage', onSessionChange);
+      window.removeEventListener('tienton-session-change', onSessionChange);
+    };
+  }, []);
 
   return (
     <AuthContext.Provider

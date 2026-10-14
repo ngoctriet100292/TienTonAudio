@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
-import { UserCheck, UserPlus, Mic } from 'lucide-react';
-import { api } from '@/lib/api';
-import { useAuth } from '@/context/auth-context';
-import { useRouter } from 'next/navigation';
 import { CultivationSpinner } from '@/components/cultivation-spinner';
+import { useAuth } from '@/context/auth-context';
+import { api } from '@/lib/api';
+import { UserCheck, UserPlus } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import React, { useState } from 'react';
 
 interface FollowButtonProps {
   targetType: 'author' | 'narrator';
@@ -73,11 +73,10 @@ export function FollowButton({
         onClick={handleToggle}
         disabled={loading}
         title={isFollowing ? 'Hủy theo dõi' : `Theo dõi ${targetName}`}
-        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all active:scale-95 ${
-          isFollowing
+        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all active:scale-95 ${isFollowing
             ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-rose-500/20 hover:text-rose-300 hover:border-rose-500/40'
             : 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 border border-white/10'
-        }`}
+          }`}
       >
         {loading ? (
           <CultivationSpinner size="xs" showText={false} variant="gold" />
@@ -100,11 +99,10 @@ export function FollowButton({
     <button
       onClick={handleToggle}
       disabled={loading}
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm ${
-        isFollowing
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm ${isFollowing
           ? 'bg-amber-500/15 text-amber-300 border border-amber-500/40 hover:bg-rose-950/40 hover:text-rose-300 hover:border-rose-500/40'
           : 'bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-white/15'
-      }`}
+        }`}
     >
       {loading ? (
         <CultivationSpinner size="xs" showText={false} variant="gold" />
