@@ -98,7 +98,7 @@ TienTonAudio/
 Cài Go theo `backend/go.mod`, Node.js **22** và npm. Dùng Docker Compose nếu muốn chạy PostgreSQL/Redis local; dùng Neon thì không cần PostgreSQL local.
 
 ```bash
-git clone https://github.com/IREAKING/TienTonAudio.git
+git clone https://github.com/ngoctriet100292/TienTonAudio.git
 cd TienTonAudio
 cp backend/app.env.example backend/app.env
 ```
