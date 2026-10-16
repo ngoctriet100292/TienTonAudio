@@ -1,5 +1,7 @@
 'use client';
 
+import { getRealmProgress } from '@/lib/cultivation';
+import { useCultivationCatalogue } from '@/context/cultivation-context';
 import { MediaImage } from '@/components/media-image';
 
 import { NotificationDropdown } from '@/components/notification-dropdown';
@@ -35,6 +37,8 @@ import React, { useEffect, useRef, useState } from 'react';
 
 export function Navbar() {
   const router = useRouter();
+  const { realms, count } = useCultivationCatalogue();
+  const REALM_COUNT = count || '…';
   const { user, isAuthenticated, logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -205,7 +209,7 @@ export function Navbar() {
                           Cảnh Giới Tu Tiên
                         </p>
                         <span className="text-[11px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase">
-                          17 Cảnh
+                          {REALM_COUNT} cảnh
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
@@ -369,18 +373,18 @@ export function Navbar() {
                             borderWidth: 1,
                           }}
                         >
-                          {user.cultivation_realm || 'Luyện Khí'} Cảnh
+                          {user.cultivation_realm || 'Phàm Nhân'} Cảnh
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono mb-1">
                         <span>Tu Vi: {user.cultivation_exp || 0} điểm</span>
-                        <span>Cấp {user.cultivation_level || 1}/17</span>
+                        <span>Cấp {user.cultivation_level || 1}/{REALM_COUNT}</span>
                       </div>
                       <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-gradient-to-r from-[#ffd166] to-[#ffb703] rounded-full transition-all duration-500"
                           style={{
-                            width: `${Math.min(100, Math.max(12, ((user.cultivation_exp || 0) % 300) / 3))}%`,
+                            width: `${(realms.length ? getRealmProgress(user.cultivation_exp, realms).progress : 0)}%`,
                           }}
                         />
                       </div>
@@ -402,6 +406,7 @@ export function Navbar() {
                     </div>
                   </div>
 
+                  <Link href="/account" onClick={()=>setDropdownOpen(false)} className="block px-3 py-2.5 text-sm font-semibold text-amber-300 hover:bg-slate-800 rounded-xl">Tiên lộ · Nghe tiếp & thành tựu</Link>
                   {/* Danh sách tính năng & Cài đặt */}
                   <div className="space-y-1 text-xs text-slate-300">
                     <Link
@@ -428,7 +433,7 @@ export function Navbar() {
                       className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-800 hover:text-amber-400 transition-colors"
                     >
                       <Flame className="w-4 h-4 text-amber-400" />
-                      17 Cảnh Giới Tu Tiên
+                      {REALM_COUNT} cảnh giới
                     </Link>
 
                     <Link
@@ -615,7 +620,7 @@ export function Navbar() {
               >
                 <span className="flex items-center gap-3">
                   <Flame className="w-5 h-5 text-amber-400" />
-                  17 Cảnh Giới Tu Tiên
+                  {REALM_COUNT} cảnh giới
                 </span>
                 <span className="text-[11px] px-2 py-0.5 rounded font-mono font-bold bg-amber-500/20 text-amber-300 uppercase">
                   Mới
@@ -665,7 +670,7 @@ export function Navbar() {
                   <div className="truncate flex-1">
                     <p className="text-sm font-bold text-white truncate">{user.username}</p>
                     <p className="text-xs text-amber-400 font-medium">
-                      {user.cultivation_realm || 'Luyện Khí'} Cảnh (Cấp {user.cultivation_level || 1})
+                      {user.cultivation_realm || 'Phàm Nhân'} Cảnh (Cấp {user.cultivation_level || 1})
                     </p>
                   </div>
                   <Link
@@ -677,6 +682,7 @@ export function Navbar() {
                   </Link>
                 </div>
 
+                <Link href="/account" onClick={()=>setMobileMenuOpen(false)} className="block rounded-xl bg-amber-400/10 p-3 text-sm text-amber-300">Tiên lộ · Nghe tiếp & thành tựu</Link>
                 <Link
                   href="/studio"
                   onClick={() => setMobileMenuOpen(false)}

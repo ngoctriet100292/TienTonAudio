@@ -1,3 +1,4 @@
+import { StoryEngagement } from '@/components/story-engagement';
 
 import { serializeJsonLd } from '@/lib/json-ld';
 
@@ -11,6 +12,7 @@ import { Chapter, Story } from '@/types';
 import { BookOpen, Headphones, Star } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import ChapterListClient from './chapter-list-client';
 
@@ -18,89 +20,12 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
-const MOCK_STORY: Story = {
-  id: 'story-pham-nhan',
-  title: 'Phàm Nhân Tu Tiên Chi Tiên Giới Thiên',
-  slug: 'pham-nhan-tu-tien',
-  author_name: 'Vong Ngữ',
-  description: 'Hàn Lập sau khi phi thăng Tiên Giới bị mất đi ký ức và tu vi, lưu lạc đến Linh Hoàn Giới. Từ một phàm nhân bắt đầu lại con đường tu tiên đầy chông gai, nghịch thiên cải mệnh, vén màn bí mật của Tiên Giới...',
-  cover_image_url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80',
-  status: 'completed',
-  view_count: 125400,
-  total_chapters: 1395,
-  rating_avg: 4.9,
-  rating_count: 1420,
-  favorite_count: 980,
-  categories: ['Tiên Hiệp', 'Tu Chân', 'Cổ Điển'],
-};
-
-const MOCK_CHAPTERS: Chapter[] = [
-  {
-    id: 'ch-1',
-    story_id: 'story-pham-nhan',
-    chapter_number: 1,
-    title: 'Chương 1: Linh Hoàn Giới Tỉnh Lại',
-    is_premium: false,
-    duration_seconds: 1420,
-    listen_count: 15420,
-    narrator_name: 'MC Hải Triều',
-    created_at: '2026-01-01',
-  },
-  {
-    id: 'ch-2',
-    story_id: 'story-pham-nhan',
-    chapter_number: 2,
-    title: 'Chương 2: Khôi Phục Ký Ức',
-    is_premium: false,
-    duration_seconds: 1350,
-    listen_count: 12800,
-    narrator_name: 'MC Hải Triều',
-    created_at: '2026-01-02',
-  },
-];
-
-async function getStory(slug: string): Promise<{ story: Story; chapters: Chapter[] } | null> {
-  try {
-    const story = await api.getStoryBySlug(slug);
-    if (story) {
-      const rawChapters = await api.getStoryChapters(story.id, 1, 1000);
-      const chapters: Chapter[] = rawChapters.map((c) => ({
-        id: c.id,
-        story_id: c.story_id || story.id,
-        chapter_number: c.chapter_number,
-        title: c.title,
-        content: c.content,
-        content_text: c.content || c.content_text,
-        is_premium: c.is_premium || false,
-        duration_seconds: c.duration_seconds || 0,
-        listen_count: c.listen_count || 0,
-        narrator_name: c.narrator_name || 'Hệ Thống',
-        created_at: c.created_at || new Date().toISOString(),
-      }));
-
-      // Chuẩn hóa categories dạng string[]
-      const normalizedCats: string[] = (story.categories || []).map((cat) =>
-        typeof cat === 'string' ? cat : (cat?.name || '')
-      ).filter(Boolean);
-
-      story.categories = normalizedCats.length > 0 ? normalizedCats : ['Tiên Hiệp'];
-      if (!story.cover_image_url) {
-        story.cover_image_url = 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80';
-      }
-
-      return { story, chapters };
-    }
-  } catch (err) {
-    console.error('Error fetching story from API:', err);
-  }
-
-  // Fallback dự phòng
-  if (slug === 'pham-nhan-tu-tien' || slug === 'story-pham-nhan') {
-    return { story: MOCK_STORY, chapters: MOCK_CHAPTERS };
-  }
-
-  return null;
-}
+const getStory = cache(async (slug: string): Promise<{ story: Story; chapters: Chapter[] } | null> => {
+  const story = await api.getStoryBySlug(slug);
+  if (!story) return null;
+  const chapters = await api.getStoryChapters(story.id, 1, 1000);
+  return { story, chapters };
+});
 
 // 1. Dynamic SEO Metadata cho từng bộ truyện trên Google
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -339,6 +264,7 @@ export default async function StoryDetailPage({ params }: Props) {
           chapterTitle={`Đàm Đạo & Nhận Xét: ${story.title}`}
         />
       )}
+      <StoryEngagement storyId={story.id} />
     </div>
   );
 }

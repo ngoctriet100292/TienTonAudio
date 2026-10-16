@@ -11,17 +11,17 @@ INSERT INTO users (
 RETURNING id, username, email, avatar_url, role, is_email_verified, two_factor_enabled, cultivation_exp, cultivation_realm, created_at, updated_at;
 
 -- name: GetUserByID :one
-SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, provider, provider_id, deleted_at, created_at, updated_at
+SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, provider, provider_id, deleted_at, created_at, updated_at, last_listening_reward_at
 FROM users
 WHERE id = $1 AND deleted_at IS NULL;
 
 -- name: GetUserByEmail :one
-SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, provider, provider_id, deleted_at, created_at, updated_at
+SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, provider, provider_id, deleted_at, created_at, updated_at, last_listening_reward_at
 FROM users
 WHERE email = $1 AND deleted_at IS NULL;
 
 -- name: GetUserByUsername :one
-SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, provider, provider_id, deleted_at, created_at, updated_at
+SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, provider, provider_id, deleted_at, created_at, updated_at, last_listening_reward_at
 FROM users
 WHERE username = $1 AND deleted_at IS NULL;
 
@@ -187,3 +187,13 @@ FROM oauth_accounts
 WHERE user_id = $1;
 
 
+
+-- name: ConsumeEmailVerificationToken :one
+WITH consumed AS (
+ DELETE FROM email_verification_tokens
+ WHERE (token = sqlc.arg(token_hash) OR (length(token) <> 64 AND token = sqlc.arg(legacy_token))) AND expires_at > CURRENT_TIMESTAMP
+ RETURNING user_id
+)
+UPDATE users SET is_email_verified = TRUE, updated_at = CURRENT_TIMESTAMP
+WHERE id = (SELECT user_id FROM consumed LIMIT 1) AND deleted_at IS NULL
+RETURNING id;

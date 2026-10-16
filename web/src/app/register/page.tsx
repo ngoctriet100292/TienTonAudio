@@ -47,7 +47,7 @@ export default function RegisterPage() {
 
         {error && (
           <div className="mb-6 rounded-xl bg-rose-500/10 border border-rose-500/30 p-3 text-xs text-rose-400">
-            {error}
+            {error}<Link href={`/verify-email?email=${encodeURIComponent(email)}`} className="mt-2 block text-amber-300">Xác thực email / Gửi lại thư</Link>
           </div>
         )}
 
@@ -59,10 +59,10 @@ export default function RegisterPage() {
               Vui lòng kiểm tra hòm thư Email để nhận mã xác thực tài khoản.
             </p>
             <Link
-              href="/login"
+              href={`/verify-email?email=${encodeURIComponent(email)}`}
               className="inline-block mt-4 px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#ffd166] to-[#ffb703] text-black font-black text-xs"
             >
-              Chuyển Đến Đăng Nhập
+              Xác Thực Email / Gửi Lại Thư
             </Link>
           </div>
         ) : (

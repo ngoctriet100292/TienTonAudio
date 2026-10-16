@@ -61,6 +61,29 @@ func (q *Queries) AddUserCultivationExp(ctx context.Context, arg AddUserCultivat
 	return i, err
 }
 
+const consumeEmailVerificationToken = `-- name: ConsumeEmailVerificationToken :one
+WITH consumed AS (
+ DELETE FROM email_verification_tokens
+ WHERE (token = $1 OR (length(token) <> 64 AND token = $2)) AND expires_at > CURRENT_TIMESTAMP
+ RETURNING user_id
+)
+UPDATE users SET is_email_verified = TRUE, updated_at = CURRENT_TIMESTAMP
+WHERE id = (SELECT user_id FROM consumed LIMIT 1) AND deleted_at IS NULL
+RETURNING id
+`
+
+type ConsumeEmailVerificationTokenParams struct {
+	TokenHash   string `json:"token_hash"`
+	LegacyToken string `json:"legacy_token"`
+}
+
+func (q *Queries) ConsumeEmailVerificationToken(ctx context.Context, arg ConsumeEmailVerificationTokenParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, consumeEmailVerificationToken, arg.TokenHash, arg.LegacyToken)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const createEmailVerificationToken = `-- name: CreateEmailVerificationToken :one
 INSERT INTO email_verification_tokens (
     user_id,
@@ -465,7 +488,7 @@ func (q *Queries) GetUnusedTwoFactorBackupCodesByUserID(ctx context.Context, use
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, provider, provider_id, deleted_at, created_at, updated_at
+SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, provider, provider_id, deleted_at, created_at, updated_at, last_listening_reward_at
 FROM users
 WHERE email = $1 AND deleted_at IS NULL
 `
@@ -490,12 +513,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LastListeningRewardAt,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, provider, provider_id, deleted_at, created_at, updated_at
+SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, provider, provider_id, deleted_at, created_at, updated_at, last_listening_reward_at
 FROM users
 WHERE id = $1 AND deleted_at IS NULL
 `
@@ -520,12 +544,13 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LastListeningRewardAt,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, provider, provider_id, deleted_at, created_at, updated_at
+SELECT id, username, email, password_hash, avatar_url, role, is_email_verified, two_factor_enabled, two_factor_secret, cultivation_exp, cultivation_realm, provider, provider_id, deleted_at, created_at, updated_at, last_listening_reward_at
 FROM users
 WHERE username = $1 AND deleted_at IS NULL
 `
@@ -550,6 +575,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LastListeningRewardAt,
 	)
 	return i, err
 }

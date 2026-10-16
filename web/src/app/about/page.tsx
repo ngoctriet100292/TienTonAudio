@@ -1,3 +1,4 @@
+import { REALM_COUNT } from '@/lib/cultivation';
 import { ArrowRight, BookOpen, Headphones, Heart, Layers, ShieldCheck } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -32,7 +33,7 @@ export default function AboutPage() {
     </section>
 
     <Reveal><section className="grid gap-5 md:grid-cols-2">
-      <Link href="/cultivation" className="editorial-card group flex flex-col items-start p-8 sm:p-10"><Layers className="mb-7 text-[#ffb703]" size={28} /><p className="editorial-kicker mb-3">MỘT CHÚT TIÊN HIỆP TRONG ĐỜI THƯỜNG</p><h2 className="mb-4 font-serif text-3xl text-white">17 cảnh giới. Một hành trình của bạn.</h2><p className="mb-7 text-sm leading-relaxed text-slate-400">Mỗi lần trở lại là một bước trên tiên lộ. Khám phá hệ thống cảnh giới và theo dõi tu vi của mình.</p><span className="mt-auto flex items-center gap-2 text-sm text-[#ffd166]">Khám phá cảnh giới <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" /></span></Link>
+      <Link href="/cultivation" className="editorial-card group flex flex-col items-start p-8 sm:p-10"><Layers className="mb-7 text-[#ffb703]" size={28} /><p className="editorial-kicker mb-3">MỘT CHÚT TIÊN HIỆP TRONG ĐỜI THƯỜNG</p><h2 className="mb-4 font-serif text-3xl text-white">{REALM_COUNT} cảnh giới. Một hành trình của bạn.</h2><p className="mb-7 text-sm leading-relaxed text-slate-400">Mỗi lần trở lại là một bước trên tiên lộ. Khám phá hệ thống cảnh giới và theo dõi tu vi của mình.</p><span className="mt-auto flex items-center gap-2 text-sm text-[#ffd166]">Khám phá cảnh giới <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" /></span></Link>
       <Link href="/policies" className="editorial-card group flex flex-col items-start p-8 sm:p-10"><ShieldCheck className="mb-7 text-[#ffb703]" size={28} /><p className="editorial-kicker mb-3">XÂY DỰNG TỪ SỰ TÔN TRỌNG</p><h2 className="mb-4 font-serif text-3xl text-white">Tôn trọng tác phẩm và người thưởng thức.</h2><p className="mb-7 text-sm leading-relaxed text-slate-400">Thông tin về sử dụng dịch vụ, dữ liệu cá nhân và cách gửi yêu cầu bản quyền được tập hợp tại trung tâm chính sách.</p><span className="mt-auto flex items-center gap-2 text-sm text-[#ffd166]">Tìm hiểu chính sách <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" /></span></Link>
     </section></Reveal>
     <EditorialCTA />

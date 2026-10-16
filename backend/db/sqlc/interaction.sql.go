@@ -581,7 +581,7 @@ SELECT
     s.id, s.title, s.slug, s.cover_image_url, s.total_chapters, s.rating_avg, f.created_at AS favorited_at
 FROM user_favorites f
 JOIN stories s ON f.story_id = s.id
-WHERE f.user_id = $1
+WHERE s.publication_status='published' AND f.user_id = $1
 ORDER BY f.created_at DESC
 LIMIT $2 OFFSET $3
 `

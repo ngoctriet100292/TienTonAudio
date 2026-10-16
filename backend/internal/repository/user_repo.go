@@ -2,12 +2,14 @@ package repository
 
 import (
 	"context"
+	"github.com/IREAKING/tientonaudio/backend/pkg/auth"
 
-	"github.com/google/uuid"
 	db "github.com/IREAKING/tientonaudio/backend/db/sqlc"
+	"github.com/google/uuid"
 )
 
 type UserRepository interface {
+	ConsumeEmailVerificationToken(context.Context, string) (uuid.UUID, error)
 	CreateUser(ctx context.Context, arg db.CreateUserParams) (db.CreateUserRow, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error)
 	GetUserByEmail(ctx context.Context, email string) (db.User, error)
@@ -168,4 +170,7 @@ func (r *userRepo) GetOAuthAccountByProvider(ctx context.Context, arg db.GetOAut
 
 func (r *userRepo) GetOAuthAccountsByUserID(ctx context.Context, userID uuid.UUID) ([]db.OauthAccount, error) {
 	return r.q.GetOAuthAccountsByUserID(ctx, userID)
+}
+func (r *userRepo) ConsumeEmailVerificationToken(ctx context.Context, token string) (uuid.UUID, error) {
+	return r.q.ConsumeEmailVerificationToken(ctx, db.ConsumeEmailVerificationTokenParams{TokenHash: auth.HashTokenSHA256(token), LegacyToken: token})
 }

@@ -66,24 +66,25 @@ INSERT INTO chapters (
     is_premium,
     duration_seconds,
     waveform_data,
-    timeline_markers
+    timeline_markers, publication_status
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
 )
-RETURNING id, story_id, narrator_id, chapter_number, title, content, content_url, is_premium, duration_seconds, waveform_data, timeline_markers, listen_count, created_at, updated_at
+RETURNING id, story_id, narrator_id, chapter_number, title, content, content_url, is_premium, duration_seconds, waveform_data, timeline_markers, listen_count, created_at, updated_at, publication_status, scheduled_at
 `
 
 type CreateChapterParams struct {
-	StoryID         uuid.UUID       `json:"story_id"`
-	NarratorID      *int32          `json:"narrator_id"`
-	ChapterNumber   pgtype.Numeric  `json:"chapter_number"`
-	Title           string          `json:"title"`
-	Content         *string         `json:"content"`
-	ContentUrl      *string         `json:"content_url"`
-	IsPremium       *bool           `json:"is_premium"`
-	DurationSeconds int32           `json:"duration_seconds"`
-	WaveformData    json.RawMessage `json:"waveform_data"`
-	TimelineMarkers json.RawMessage `json:"timeline_markers"`
+	StoryID           uuid.UUID       `json:"story_id"`
+	NarratorID        *int32          `json:"narrator_id"`
+	ChapterNumber     pgtype.Numeric  `json:"chapter_number"`
+	Title             string          `json:"title"`
+	Content           *string         `json:"content"`
+	ContentUrl        *string         `json:"content_url"`
+	IsPremium         *bool           `json:"is_premium"`
+	DurationSeconds   int32           `json:"duration_seconds"`
+	WaveformData      json.RawMessage `json:"waveform_data"`
+	TimelineMarkers   json.RawMessage `json:"timeline_markers"`
+	PublicationStatus string          `json:"publication_status"`
 }
 
 func (q *Queries) CreateChapter(ctx context.Context, arg CreateChapterParams) (Chapter, error) {
@@ -98,6 +99,7 @@ func (q *Queries) CreateChapter(ctx context.Context, arg CreateChapterParams) (C
 		arg.DurationSeconds,
 		arg.WaveformData,
 		arg.TimelineMarkers,
+		arg.PublicationStatus,
 	)
 	var i Chapter
 	err := row.Scan(
@@ -115,6 +117,8 @@ func (q *Queries) CreateChapter(ctx context.Context, arg CreateChapterParams) (C
 		&i.ListenCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PublicationStatus,
+		&i.ScheduledAt,
 	)
 	return i, err
 }
@@ -278,7 +282,7 @@ SELECT
     n.name AS narrator_name
 FROM chapters c
 LEFT JOIN narrators n ON c.narrator_id = n.id
-WHERE c.story_id = $1
+WHERE c.publication_status='published' AND c.story_id = $1
 ORDER BY c.chapter_number ASC
 `
 
@@ -350,7 +354,7 @@ SET
     timeline_markers = $10,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = $1
-RETURNING id, story_id, narrator_id, chapter_number, title, content, content_url, is_premium, duration_seconds, waveform_data, timeline_markers, listen_count, created_at, updated_at
+RETURNING id, story_id, narrator_id, chapter_number, title, content, content_url, is_premium, duration_seconds, waveform_data, timeline_markers, listen_count, created_at, updated_at, publication_status, scheduled_at
 `
 
 type UpdateChapterParams struct {
@@ -395,6 +399,8 @@ func (q *Queries) UpdateChapter(ctx context.Context, arg UpdateChapterParams) (C
 		&i.ListenCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PublicationStatus,
+		&i.ScheduledAt,
 	)
 	return i, err
 }
@@ -410,32 +416,34 @@ INSERT INTO chapters (
     is_premium,
     duration_seconds,
     waveform_data,
-    timeline_markers
+    timeline_markers, publication_status
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
 )
 ON CONFLICT (story_id, chapter_number) DO UPDATE
 SET 
+    publication_status=EXCLUDED.publication_status,
     title = EXCLUDED.title,
     content = EXCLUDED.content,
     content_url = COALESCE(EXCLUDED.content_url, chapters.content_url),
     is_premium = COALESCE(EXCLUDED.is_premium, chapters.is_premium),
     timeline_markers = COALESCE(EXCLUDED.timeline_markers, chapters.timeline_markers),
     updated_at = CURRENT_TIMESTAMP
-RETURNING id, story_id, narrator_id, chapter_number, title, content, content_url, is_premium, duration_seconds, waveform_data, timeline_markers, listen_count, created_at, updated_at
+RETURNING id, story_id, narrator_id, chapter_number, title, content, content_url, is_premium, duration_seconds, waveform_data, timeline_markers, listen_count, created_at, updated_at, publication_status, scheduled_at
 `
 
 type UpsertChapterParams struct {
-	StoryID         uuid.UUID       `json:"story_id"`
-	NarratorID      *int32          `json:"narrator_id"`
-	ChapterNumber   pgtype.Numeric  `json:"chapter_number"`
-	Title           string          `json:"title"`
-	Content         *string         `json:"content"`
-	ContentUrl      *string         `json:"content_url"`
-	IsPremium       *bool           `json:"is_premium"`
-	DurationSeconds int32           `json:"duration_seconds"`
-	WaveformData    json.RawMessage `json:"waveform_data"`
-	TimelineMarkers json.RawMessage `json:"timeline_markers"`
+	StoryID           uuid.UUID       `json:"story_id"`
+	NarratorID        *int32          `json:"narrator_id"`
+	ChapterNumber     pgtype.Numeric  `json:"chapter_number"`
+	Title             string          `json:"title"`
+	Content           *string         `json:"content"`
+	ContentUrl        *string         `json:"content_url"`
+	IsPremium         *bool           `json:"is_premium"`
+	DurationSeconds   int32           `json:"duration_seconds"`
+	WaveformData      json.RawMessage `json:"waveform_data"`
+	TimelineMarkers   json.RawMessage `json:"timeline_markers"`
+	PublicationStatus string          `json:"publication_status"`
 }
 
 func (q *Queries) UpsertChapter(ctx context.Context, arg UpsertChapterParams) (Chapter, error) {
@@ -450,6 +458,7 @@ func (q *Queries) UpsertChapter(ctx context.Context, arg UpsertChapterParams) (C
 		arg.DurationSeconds,
 		arg.WaveformData,
 		arg.TimelineMarkers,
+		arg.PublicationStatus,
 	)
 	var i Chapter
 	err := row.Scan(
@@ -467,6 +476,8 @@ func (q *Queries) UpsertChapter(ctx context.Context, arg UpsertChapterParams) (C
 		&i.ListenCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PublicationStatus,
+		&i.ScheduledAt,
 	)
 	return i, err
 }

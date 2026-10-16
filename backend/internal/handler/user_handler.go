@@ -103,9 +103,9 @@ func (h *UserHandler) GetCultivation(w http.ResponseWriter, r *http.Request) {
 	utils.JSON(w, http.StatusOK, cult)
 }
 
-// GetAllCultivationRealms trả về 17 cảnh giới tu tiên chính thống
+// GetAllCultivationRealms trả về lộ trình Võ Đạo, Tu Tiên và Tiên Giới
 func (h *UserHandler) GetAllCultivationRealms(w http.ResponseWriter, r *http.Request) {
-	utils.JSON(w, http.StatusOK, domain.CultivationRealms)
+	utils.JSON(w, http.StatusOK, domain.GetCultivationRealms())
 }
 
 // UploadAvatar xử lý tải ảnh đại diện từ client (multipart form) và cập nhật avatar_url

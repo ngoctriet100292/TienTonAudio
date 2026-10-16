@@ -75,6 +75,12 @@ func processPaymentWebhook(ctx context.Context, req domain.WebhookCallbackReq, t
 		if err != nil {
 			return err
 		}
+		if payment.DurationDays != nil {
+			plan.DurationDays = *payment.DurationDays
+		}
+		if payment.PlanName != nil {
+			plan.Name = *payment.PlanName
+		}
 		if plan.DurationDays <= 0 {
 			return errors.New("invalid subscription duration")
 		}

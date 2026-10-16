@@ -1,4 +1,4 @@
-import type { AuthenticatedResponse, ChapterAudioFile, ChapterComment, CommentReactionResponse, LoginResponse, PlaybackSpeedsResponse, SignedStreamResponse, StoryRealmsResponse, TwoFactorSetupResponse } from '@/types';
+import type { AuthenticatedResponse, ChapterAudioFile, ChapterComment, CommentReactionResponse, LoginResponse, PlaybackSpeedsResponse, SignedStreamResponse, StoryRealmsResponse, TwoFactorSetupResponse, OAuthLoginResponse, OAuthProvider } from '@/types';
 import { AdminReport, AdminStats, AdminUser, Category, Chapter, CommunityComment, CommunityPost, CreateCommunityPostReq, CreatePartnerChapterReq, CreatePartnerStoryReq, CreatePaymentResp, CreatePlaylistReq, CreateReportReq, CultivationRealmInfo, FavoriteStoryItem, FollowedAuthor, FollowedNarrator, ListeningHistoryItem, NotificationItem, PartnerStats, PartnerStoryItem, PaymentHistoryItem, PaymentStatusResp, Playlist, PlaylistDetail, Story, SubscriptionPlan, User, UserCultivation, UserSubscription } from '@/types';
 import { ApiError, getErrorMessage } from './errors';
 
@@ -6,8 +6,14 @@ const API_BASE_URL = (typeof window === 'undefined' ? process.env.API_INTERNAL_O
 
 type ListResponse<T> = T[] | { items?: T[]; data?: T[]; total?: number };
 function toList<T>(response: ListResponse<T>): T[] {
+  if (!response || typeof response !== 'object') throw new ApiError('Phản hồi danh sách không hợp lệ', 502);
   if (Array.isArray(response)) return response;
   return response.items || response.data || [];
+}
+
+function normalizeStory(story: Story): Story {
+  const count = (value: number) => Number.isFinite(value) ? value : 0;
+  return { ...story, view_count: count(story.view_count), total_chapters: count(story.total_chapters), rating_avg: count(story.rating_avg), rating_count: count(story.rating_count), favorite_count: count(story.favorite_count), categories: Array.isArray(story.categories) ? story.categories : [] };
 }
 
 export class ApiClient {
@@ -75,9 +81,10 @@ export class ApiClient {
     const res = await fetch(`${this.baseUrl}${endpoint}`, {
       ...options,
       headers,
+      signal: options.signal || AbortSignal.timeout(15000),
     });
 
-    if (res.status === 401 && !isRetry && token && !endpoint.startsWith('/auth/')) {
+    if (res.status === 401 && !isRetry && token && (!endpoint.startsWith('/auth/') || /^\/auth\/oauth\/(google|facebook|apple)\/link$/.test(endpoint))) {
       const currentToken = this.getToken();
       const newToken = currentToken && currentToken !== token ? currentToken : await this.refreshToken();
       if (newToken) {
@@ -91,70 +98,62 @@ export class ApiClient {
       throw new ApiError(errorData.error || errorData.message || `Lỗi yêu cầu: ${res.status}`, res.status);
     }
 
+    if (res.status === 204) return undefined as T;
     const data = await res.json();
     return data.data !== undefined ? data.data : data;
   }
 
+  platformRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    return this.request<T>(endpoint, options);
+  }
+  async searchCatalogue(params: URLSearchParams): Promise<Story[]> {
+    return (await this.request<Story[]>(`/catalogue/search?${params}`, {cache:'no-store'})).map(normalizeStory);
+  }
   // ---- STORIES ----
   async getStories(page = 1, limit = 20): Promise<Story[]> {
-    try {
-      const res = await this.request<ListResponse<Story>>(`/stories?page=${page}&limit=${limit}`, {
-        next: { revalidate: 30 },
-      });
-      return toList(res);
-    } catch {
-      return [];
-    }
+    const res = await this.request<ListResponse<Story>>(`/stories?page=${page}&limit=${limit}`, {
+      next: { revalidate: 30 },
+    });
+    return toList(res).map(normalizeStory);
   }
 
   async getTopViewStories(limit = 10): Promise<Story[]> {
-    try {
-      const res = await this.request<ListResponse<Story>>(`/stories/top-views?limit=${limit}`, {
-        next: { revalidate: 30 },
-      });
-      return toList(res);
-    } catch {
-      return [];
-    }
+    const res = await this.request<ListResponse<Story>>(`/stories/top-views?limit=${limit}`, {
+      next: { revalidate: 30 },
+    });
+    return toList(res).map(normalizeStory);
   }
 
   async getStoryBySlug(slug: string): Promise<Story | null> {
     try {
-      return await this.request<Story>(`/stories/${slug}`, {
+      return normalizeStory(await this.request<Story>(`/stories/${encodeURIComponent(slug)}`, {
         next: { revalidate: 30 },
-      });
-    } catch {
-      return null;
+      }));
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
     }
   }
 
   async getStoryChapters(storyId: string, page = 1, limit = 1000): Promise<Chapter[]> {
-    try {
-      const res = await this.request<ListResponse<Chapter>>(`/stories/${storyId}/chapters?page=${page}&limit=${limit}`, {
-        next: { revalidate: 30 },
-      });
-      return toList(res);
-    } catch {
-      return [];
-    }
+    const res = await this.request<ListResponse<Chapter>>(`/stories/${storyId}/chapters?page=${page}&limit=${limit}`, {
+      next: { revalidate: 30 },
+    });
+    return toList(res);
   }
 
   async getRelatedStories(storyId: string, limit = 6): Promise<Story[]> {
     try {
       const res = await this.request<ListResponse<Story>>(`/stories/${storyId}/related?limit=${limit}`);
-      return toList(res);
+      return toList(res).map(normalizeStory);
     } catch {
       return [];
     }
   }
 
   async searchStories(query: string): Promise<Story[]> {
-    try {
-      const res = await this.request<ListResponse<Story>>(`/stories/search?q=${encodeURIComponent(query)}`);
-      return toList(res);
-    } catch {
-      return [];
-    }
+    const res = await this.request<ListResponse<Story>>(`/stories/search?q=${encodeURIComponent(query)}`);
+    return toList(res).map(normalizeStory);
   }
 
   async filterStories(params: {
@@ -164,27 +163,24 @@ export class ApiClient {
     page?: number;
     limit?: number;
   }): Promise<Story[]> {
-    try {
-      const q = new URLSearchParams();
-      if (params.category_id) q.set('category_id', params.category_id.toString());
-      if (params.status) q.set('status', params.status);
-      if (params.sort_by) q.set('sort_by', params.sort_by);
-      q.set('page', (params.page || 1).toString());
-      q.set('limit', (params.limit || 20).toString());
+    const q = new URLSearchParams();
+    if (params.category_id) q.set('category_id', params.category_id.toString());
+    if (params.status) q.set('status', params.status);
+    if (params.sort_by) q.set('sort_by', params.sort_by);
+    q.set('page', (params.page || 1).toString());
+    q.set('limit', (params.limit || 20).toString());
 
-      const res = await this.request<ListResponse<Story>>(`/stories/filter?${q.toString()}`);
-      return toList(res);
-    } catch {
-      return [];
-    }
+    const res = await this.request<ListResponse<Story>>(`/stories/filter?${q.toString()}`);
+    return toList(res).map(normalizeStory);
   }
 
   // ---- CHAPTERS & STREAMING ----
   async getChapter(id: string): Promise<Chapter | null> {
     try {
-      return await this.request<Chapter>(`/chapters/${id}`);
-    } catch {
-      return null;
+      return await this.request<Chapter>(`/chapters/${encodeURIComponent(id)}`, { cache: 'no-store' });
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
     }
   }
 
@@ -222,6 +218,7 @@ export class ApiClient {
     speed = 1.0,
     storyId?: string
   ): Promise<void> {
+    if (!this.getToken()) return;
     try {
       await this.request('/chapters/progress', {
         method: 'POST',
@@ -299,12 +296,8 @@ export class ApiClient {
 
   // ---- CATEGORIES ----
   async getCategories(): Promise<Category[]> {
-    try {
-      const res = await this.request<ListResponse<Category>>('/stories/categories');
-      return toList(res);
-    } catch {
-      return [];
-    }
+    const res = await this.request<ListResponse<Category>>('/stories/categories', { next: { revalidate: 30 } });
+    return toList(res);
   }
 
   // ---- AI ASSISTANT ----
@@ -350,12 +343,8 @@ export class ApiClient {
   }
 
   async getCultivationRealms(): Promise<CultivationRealmInfo[]> {
-    try {
-      const res = await this.request<ListResponse<CultivationRealmInfo>>('/cultivation/realms');
-      return toList(res);
-    } catch {
-      return [];
-    }
+    const res = await this.request<ListResponse<CultivationRealmInfo>>('/cultivation/realms');
+    return toList(res);
   }
 
   // ---- USER ACTIONS (AVATAR, FAVORITES, HISTORY, PAYMENTS) ----
@@ -501,9 +490,11 @@ export class ApiClient {
 
   // ---- PARTNER / CREATOR STUDIO ----
   async becomePartner(): Promise<{ user_id: string; role: string }> {
-    return await this.request<{ user_id: string; role: string }>('/partner/become-partner', {
-      method: 'POST',
-    });
+    const result = await this.request<{ user_id: string; role: string }>('/partner/become-partner', { method: 'POST' });
+    // The current access token still contains the old role after activation.
+    const token = await this.refreshToken();
+    if (!token) throw new ApiError('Vui lòng đăng nhập lại để sử dụng quyền đối tác.', 401);
+    return result;
   }
 
   async getPartnerStats(): Promise<PartnerStats> {
@@ -684,12 +675,8 @@ export class ApiClient {
 
   // ---- THANH TOÁN & XÁC NHẬN TỰ ĐỘNG (PAYMENTS & AUTO VERIFICATION) ----
   async getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
-    try {
-      const res = await this.request<ListResponse<SubscriptionPlan>>('/payments/plans');
-      return toList(res);
-    } catch {
-      return [];
-    }
+    const res = await this.request<ListResponse<SubscriptionPlan>>('/payments/plans');
+    return toList(res);
   }
 
   async createPayment(planId: number, provider: string = 'vietqr'): Promise<CreatePaymentResp> {
@@ -936,6 +923,22 @@ export class ApiClient {
       method: 'POST',
       body: JSON.stringify({ mfa_token, code }),
     });
+  }
+
+  async getOAuthProviders(): Promise<Record<OAuthProvider, boolean>> {
+    return this.request('/auth/oauth/providers');
+  }
+  getOAuthLoginURL(provider: OAuthProvider, redirect = '/'): string {
+    return `${this.baseUrl}/auth/oauth/${provider}?redirect=${encodeURIComponent(redirect)}`;
+  }
+  private oauthExchanges = new Map<string, Promise<OAuthLoginResponse>>();
+  exchangeOAuthCode(provider: OAuthProvider, code: string): Promise<OAuthLoginResponse> {
+    const key = `${provider}:${code}`;
+    const existing = this.oauthExchanges.get(key);
+    if (existing) return existing;
+    const request = this.request<OAuthLoginResponse>('/auth/oauth/exchange', { method: 'POST', credentials: 'include', body: JSON.stringify({ provider, code }) });
+    this.oauthExchanges.set(key, request);
+    return request;
   }
 
   async verifyEmail(token: string): Promise<unknown> {

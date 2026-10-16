@@ -2,89 +2,33 @@
 import { FavoriteButton } from '@/components/favorite-button';
 import { MediaImage } from '@/components/media-image';
 import { ResumePlaybackWidget } from '@/components/resume-playback-widget';
+import { CatalogueState } from '@/components/catalogue-state';
+import { SoundOrbit } from '@/components/editorial';
 import { StoryStatusBadge } from '@/components/story-status-badge';
 import { api } from '@/lib/api';
 import { Story } from '@/types';
 import { BookOpen, ChevronRight, Crown, Flame, Headphones, MessageSquare, PenTool, Play, Sparkles, Star, Zap } from 'lucide-react';
 import Link from 'next/link';
 
-// Mock data dự phòng khi backend chưa khởi động
-const MOCK_TOP_STORIES: Story[] = [
-  {
-    id: 'story-1',
-    title: 'Phàm Nhân Tu Tiên Chi Tiên Giới Thiên',
-    slug: 'pham-nhan-tu-tien',
-    author_name: 'Vong Ngữ',
-    cover_image_url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600&auto=format&fit=crop&q=80',
-    status: 'completed',
-    view_count: 125400,
-    total_chapters: 1395,
-    rating_avg: 4.9,
-    rating_count: 1420,
-    favorite_count: 980,
-    categories: ['Tiên Hiệp', 'Tu Chân', 'Cổ Điển'],
-  },
-  {
-    id: 'story-2',
-    title: 'Võ Luyện Đỉnh Phong',
-    slug: 'vo-luyen-dinh-phong',
-    author_name: 'Mạc Mặc',
-    cover_image_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80',
-    status: 'ongoing',
-    view_count: 98700,
-    total_chapters: 6009,
-    rating_avg: 4.8,
-    rating_count: 930,
-    favorite_count: 750,
-    categories: ['Huyền Huyễn', 'Nhiệt Huyết'],
-  },
-  {
-    id: 'story-3',
-    title: 'Tiên Nghịch (Bản Chuẩn Audio)',
-    slug: 'tien-nghich',
-    author_name: 'Nhĩ Căn',
-    cover_image_url: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&auto=format&fit=crop&q=80',
-    status: 'completed',
-    view_count: 85200,
-    total_chapters: 2088,
-    rating_avg: 4.9,
-    rating_count: 1100,
-    favorite_count: 640,
-    categories: ['Tiên Hiệp', 'Nghịch Thiên'],
-  },
-  {
-    id: 'story-4',
-    title: 'Đấu Phá Thương Khung',
-    slug: 'dau-pha-thuong-khung',
-    author_name: 'Thiên Tằm Thổ Đậu',
-    cover_image_url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&auto=format&fit=crop&q=80',
-    status: 'paused',
-    view_count: 74100,
-    total_chapters: 1641,
-    rating_avg: 4.7,
-    rating_count: 820,
-    favorite_count: 530,
-    categories: ['Huyền Huyễn', 'Dị Giới'],
-  },
+const CATEGORIES = [
+  { slug: '', name: 'Tất cả', icon: '✨' },
+  { slug: 'tien-hiep', name: 'Tiên hiệp', icon: '⚔️' },
+  { slug: 'huyen-huyen', name: 'Huyền huyễn', icon: '🔮' },
+  { slug: 'trung-sinh', name: 'Trùng sinh', icon: '⚡' },
+  { slug: 'kiem-hiep', name: 'Kiếm hiệp', icon: '🗡️' },
+  { slug: 'do-thi-tu-tien', name: 'Đô thị tu tiên', icon: '🏙️' },
 ];
 
-const CATEGORIES = [
-  { slug: '', name: 'Tất cả', icon: '✨', count: 120 },
-  { slug: 'tien-hiep', name: 'Tiên hiệp', icon: '⚔️', count: 48 },
-  { slug: 'huyen-huyen', name: 'Huyền huyễn', icon: '🔮', count: 35 },
-  { slug: 'trung-sinh', name: 'Trùng sinh', icon: '⚡', count: 19 },
-  { slug: 'kiem-hiep', name: 'Kiếm hiệp', icon: '🗡️', count: 14 },
-  { slug: 'do-thi', name: 'Đô thị tu tiên', icon: '🏙️', count: 12 },
-];
+export const revalidate = 30;
 
 export default async function HomePage() {
-  const [apiStories, topViewed] = await Promise.all([
-    api.getStories(1, 12),
-    api.getTopViewStories(12),
-  ]);
-
-  const stories = topViewed.length > 0 ? topViewed : (apiStories.length > 0 ? apiStories : MOCK_TOP_STORIES);
-  const heroStory = stories[0] || MOCK_TOP_STORIES[0];
+  let stories: Story[] = [];
+  let unavailable = false;
+  try {
+    const [apiStories, topViewed] = await Promise.all([api.getStories(1, 12), api.getTopViewStories(12)]);
+    stories = topViewed.length > 0 ? topViewed : apiStories;
+  } catch { unavailable = true; }
+  const heroStory = stories[0];
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-10 sm:space-y-14 pt-5 sm:pt-8">
@@ -107,7 +51,7 @@ export default async function HomePage() {
               đắm chìm trong giọng đọc yêu thích và tiếp tục câu chuyện ở bất cứ đâu.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href={`/stories/${heroStory.slug}`} className="gold-gradient inline-flex min-h-12 items-center justify-center gap-2.5 rounded-xl px-6 text-sm font-semibold text-slate-950 shadow-lg shadow-black/15 transition-transform hover:-translate-y-0.5">
+              <Link href={heroStory ? `/stories/${heroStory.slug}` : '/categories'} className="gold-gradient inline-flex min-h-12 items-center justify-center gap-2.5 rounded-xl px-6 text-sm font-semibold text-slate-950 shadow-lg shadow-black/15 transition-transform hover:-translate-y-0.5">
                 <Play className="h-4 w-4 fill-current" />
                 Bắt đầu lắng nghe
               </Link>
@@ -120,7 +64,7 @@ export default async function HomePage() {
               <span className="inline-flex items-center gap-2"><BookOpen className="h-3.5 w-3.5 text-amber-300" /> Nghe và đọc cùng lúc</span>
             </div>
           </div>
-          <Link href={`/stories/${heroStory.slug}`} className="group relative mx-auto hidden w-full max-w-[260px] md:block lg:max-w-[280px]" aria-label={`Khám phá ${heroStory.title}`}>
+          {heroStory ? <Link href={`/stories/${heroStory.slug}`} className="group relative mx-auto hidden w-full max-w-[260px] md:block lg:max-w-[280px]" aria-label={`Khám phá ${heroStory.title}`}>
             <div className="hero-cover relative aspect-[3/4] overflow-hidden rounded-[18px] border border-white/15 bg-slate-800">
               <MediaImage src={heroStory.cover_image_url} alt={heroStory.title} width={420} height={560} sizes="280px" preload className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/10 to-transparent" />
@@ -134,7 +78,7 @@ export default async function HomePage() {
                 </div>
               </div>
             </div>
-          </Link>
+          </Link> : <div className="hidden md:block"><SoundOrbit /></div>}
         </div>
       </section>
 
@@ -162,9 +106,7 @@ export default async function HomePage() {
             >
               <span>{cat.icon}</span>
               <span>{cat.name}</span>
-              <span className={`text-[11px] px-1.5 py-0.5 rounded-full ${idx === 0 ? 'bg-black/20 text-black' : 'bg-slate-800 text-slate-400'}`}>
-                {cat.count}
-              </span>
+
             </Link>
           ))}
         </div>
@@ -250,6 +192,7 @@ export default async function HomePage() {
             );
           })}
         </div>
+        {stories.length === 0 && <CatalogueState unavailable={unavailable} />}
       </section>
 
       {/* 4. Banner Nâng Cấp VIP & VietQR Tự Động */}

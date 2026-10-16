@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/mail"
 	"strings"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 )
 
 type AuthService interface {
+	LoginOAuthUser(ctx context.Context, userID uuid.UUID) (*domain.LoginResp, error)
 	Register(ctx context.Context, req domain.RegisterReq) (*domain.UserResp, error)
 	VerifyEmail(ctx context.Context, token string) error
 	ResendVerificationEmail(ctx context.Context, emailAddr string) error
@@ -57,15 +59,12 @@ func getRole(r *string) string {
 	return "user"
 }
 
-func toUserResp(id uuid.UUID, username, email string, avatarURL *string, role *string, isVerified, twoFactorEnabled bool, exp *int64, realm *string, createdAt, updatedAt time.Time) *domain.UserResp {
+func toUserResp(id uuid.UUID, username, email string, avatarURL *string, role *string, isVerified, twoFactorEnabled bool, exp *int64, _ *string, createdAt, updatedAt time.Time) *domain.UserResp {
 	cultivationExp := int64(0)
 	if exp != nil {
 		cultivationExp = *exp
 	}
 	realmName, level, _, _, color, _ := domain.CalculateCultivationRealm(cultivationExp)
-	if realm != nil && *realm != "" {
-		realmName = *realm
-	}
 
 	return &domain.UserResp{
 		ID:               id,
@@ -111,6 +110,11 @@ func (s *authService) issueTokenPair(ctx context.Context, userID uuid.UUID, emai
 }
 
 func (s *authService) Register(ctx context.Context, req domain.RegisterReq) (*domain.UserResp, error) {
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	address, err := mail.ParseAddress(req.Email)
+	if err != nil || address.Address != req.Email || len(req.Email) > 255 || len(req.Username) < 3 || len(req.Username) > 50 || len(req.Password) < 8 || len(req.Password) > 128 {
+		return nil, errors.New("email, tên đăng nhập hoặc mật khẩu không hợp lệ")
+	}
 	if _, err := s.userRepo.GetUserByEmail(ctx, req.Email); err == nil {
 		return nil, errors.New("email is already registered")
 	}
@@ -144,7 +148,7 @@ func (s *authService) Register(ctx context.Context, req domain.RegisterReq) (*do
 
 	_, err = s.userRepo.CreateEmailVerificationToken(ctx, db.CreateEmailVerificationTokenParams{
 		UserID:    userRow.ID,
-		Token:     tokenStr,
+		Token:     auth.HashTokenSHA256(tokenStr),
 		ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(24 * time.Hour), Valid: true},
 	})
 	if err != nil {
@@ -153,7 +157,9 @@ func (s *authService) Register(ctx context.Context, req domain.RegisterReq) (*do
 
 	// Gửi email xác thực
 	if s.emailService != nil {
-		_ = s.emailService.SendVerificationEmail(userRow.Email, userRow.Username, tokenStr)
+		if err := s.emailService.SendVerificationEmail(userRow.Email, userRow.Username, tokenStr); err != nil {
+			return nil, errors.New("tài khoản đã được tạo nhưng chưa gửi được email xác thực; vui lòng dùng chức năng gửi lại email")
+		}
 	}
 
 	userResp := toUserResp(
@@ -178,36 +184,25 @@ func (s *authService) VerifyEmail(ctx context.Context, token string) error {
 		return errors.New("verification token is required")
 	}
 
-	record, err := s.userRepo.GetEmailVerificationToken(ctx, token)
-	if err != nil {
-		return errors.New("invalid or expired verification token")
+	if _, err := s.userRepo.ConsumeEmailVerificationToken(ctx, token); err != nil {
+		return errors.New("mã xác thực không hợp lệ, đã được dùng hoặc hết hạn")
 	}
-
-	if record.ExpiresAt.Valid && time.Now().After(record.ExpiresAt.Time) {
-		_ = s.userRepo.DeleteEmailVerificationTokensByUserID(ctx, record.UserID)
-		return errors.New("verification token has expired, please request a new one")
-	}
-
-	if err := s.userRepo.SetUserEmailVerified(ctx, record.UserID); err != nil {
-		return fmt.Errorf("failed to verify email: %w", err)
-	}
-
-	_ = s.userRepo.DeleteEmailVerificationTokensByUserID(ctx, record.UserID)
 	return nil
 }
 
 func (s *authService) ResendVerificationEmail(ctx context.Context, emailAddr string) error {
+	emailAddr = strings.ToLower(strings.TrimSpace(emailAddr))
 	if emailAddr == "" {
 		return errors.New("email is required")
 	}
 
 	user, err := s.userRepo.GetUserByEmail(ctx, emailAddr)
 	if err != nil {
-		return errors.New("user not found")
+		return nil
 	}
 
 	if user.IsEmailVerified {
-		return errors.New("email is already verified")
+		return nil
 	}
 
 	_ = s.userRepo.DeleteEmailVerificationTokensByUserID(ctx, user.ID)
@@ -219,7 +214,7 @@ func (s *authService) ResendVerificationEmail(ctx context.Context, emailAddr str
 
 	_, err = s.userRepo.CreateEmailVerificationToken(ctx, db.CreateEmailVerificationTokenParams{
 		UserID:    user.ID,
-		Token:     tokenStr,
+		Token:     auth.HashTokenSHA256(tokenStr),
 		ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(24 * time.Hour), Valid: true},
 	})
 	if err != nil {
@@ -227,13 +222,16 @@ func (s *authService) ResendVerificationEmail(ctx context.Context, emailAddr str
 	}
 
 	if s.emailService != nil {
-		_ = s.emailService.SendVerificationEmail(user.Email, user.Username, tokenStr)
+		if err := s.emailService.SendVerificationEmail(user.Email, user.Username, tokenStr); err != nil {
+			return errors.New("chưa gửi được email xác thực; vui lòng thử lại sau")
+		}
 	}
 
 	return nil
 }
 
 func (s *authService) Login(ctx context.Context, req domain.LoginReq) (*domain.LoginResp, error) {
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 	user, err := s.userRepo.GetUserByEmail(ctx, req.Email)
 	if err != nil {
 		return nil, errors.New("invalid email or password")
@@ -488,7 +486,7 @@ func (s *authService) ForgotPassword(ctx context.Context, req domain.ForgotPassw
 
 	_, err = s.userRepo.CreatePasswordResetToken(ctx, db.CreatePasswordResetTokenParams{
 		UserID:    user.ID,
-		Token:     tokenStr,
+		Token:     auth.HashTokenSHA256(tokenStr),
 		ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(15 * time.Minute), Valid: true},
 	})
 	if err != nil {
@@ -510,7 +508,10 @@ func (s *authService) ResetPassword(ctx context.Context, req domain.ResetPasswor
 		return errors.New("new password must be at least 8 characters")
 	}
 
-	record, err := s.userRepo.GetPasswordResetToken(ctx, req.Token)
+	record, err := s.userRepo.GetPasswordResetToken(ctx, auth.HashTokenSHA256(req.Token))
+	if err != nil && len(req.Token) != 64 {
+		record, err = s.userRepo.GetPasswordResetToken(ctx, req.Token)
+	}
 	if err != nil {
 		return errors.New("invalid or expired reset token")
 	}
@@ -642,9 +643,6 @@ func (s *authService) GetCultivation(ctx context.Context, userID uuid.UUID) (*do
 	}
 
 	realmName, level, nextExp, progressPct, color, desc := domain.CalculateCultivationRealm(exp)
-	if row.CultivationRealm != nil && *row.CultivationRealm != "" {
-		realmName = *row.CultivationRealm
-	}
 
 	return &domain.UserCultivationResp{
 		CurrentRealm:  realmName,
@@ -656,7 +654,7 @@ func (s *authService) GetCultivation(ctx context.Context, userID uuid.UUID) (*do
 		VipStatus:     "Đạo Hữu",
 		Color:         color,
 		Description:   desc,
-		AllRealms:     domain.CultivationRealms,
+		AllRealms:     domain.GetCultivationRealms(),
 	}, nil
 }
 
@@ -684,4 +682,27 @@ func (s *authService) UpdatePassword(ctx context.Context, userID uuid.UUID, req 
 
 	_ = s.userRepo.RevokeAllUserRefreshTokens(ctx, userID)
 	return nil
+}
+
+// LoginOAuthUser is reached only after exchanging a browser-bound, one-use OAuth code.
+func (s *authService) LoginOAuthUser(ctx context.Context, userID uuid.UUID) (*domain.LoginResp, error) {
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, errors.New("account is unavailable")
+	}
+	if !user.IsEmailVerified {
+		return &domain.LoginResp{VerificationRequired: true, Email: user.Email}, nil
+	}
+	if user.TwoFactorEnabled {
+		token, err := s.jwtService.GenerateMFAPendingToken(user.ID, user.Email)
+		if err != nil {
+			return nil, err
+		}
+		return &domain.LoginResp{MFARequired: true, MFAToken: token}, nil
+	}
+	tokens, err := s.issueTokenPair(ctx, user.ID, user.Email, user.Role)
+	if err != nil {
+		return nil, err
+	}
+	return &domain.LoginResp{User: toUserResp(user.ID, user.Username, user.Email, user.AvatarUrl, user.Role, user.IsEmailVerified, user.TwoFactorEnabled, user.CultivationExp, user.CultivationRealm, user.CreatedAt.Time, user.UpdatedAt.Time), Tokens: tokens}, nil
 }

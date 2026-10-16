@@ -59,7 +59,7 @@ func main() {
 
 	dbService, err := db.NewService(ctx, cfg.DatabaseURL, cfg.DBMaxConns, cfg.DBMinConns)
 	if err != nil {
-		slog.Error("fatal: could not connect to PostgreSQL database pool", "error", err, "url", cfg.DatabaseURL)
+		slog.Error("fatal: could not connect to PostgreSQL database pool", "error", err)
 		os.Exit(1)
 	}
 	defer dbService.Close()
@@ -71,6 +71,36 @@ func main() {
 		slog.Error("failed to auto-migrate database schema", "error", err)
 	}
 	migrateCancel()
+
+	realmCtx, realmCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	err = repository.RefreshCultivationRealms(realmCtx, dbService.Pool())
+	realmCancel()
+	if err != nil {
+		slog.Error("could not load cultivation catalogue from database", "error", err)
+		os.Exit(1)
+	}
+	realmRefreshCtx, stopRealmRefresh := context.WithCancel(context.Background())
+	defer stopRealmRefresh()
+	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-realmRefreshCtx.Done():
+				return
+			case <-ticker.C:
+				refreshCtx, stop := context.WithTimeout(realmRefreshCtx, 10*time.Second)
+				err := repository.RefreshCultivationRealms(refreshCtx, dbService.Pool())
+				if scheduleErr := handler.SchedulePublications(refreshCtx, dbService.Pool()); scheduleErr != nil {
+					slog.Error("scheduled publication failed")
+				}
+				stop()
+				if err != nil {
+					slog.Error("could not refresh cultivation catalogue; retaining last valid snapshot", "error", err)
+				}
+			}
+		}
+	}()
 
 	querier := dbService.Repo()
 
@@ -92,7 +122,7 @@ func main() {
 
 	// 4. Initialize Repositories
 	userRepo := repository.NewUserRepository(querier)
-	storyRepo := repository.NewStoryRepository(querier)
+	storyRepo := repository.NewStoryRepository(querier, dbService.Pool())
 	chapterRepo := repository.NewChapterRepository(querier)
 	paymentRepo := repository.NewPaymentRepository(querier, dbService.Pool())
 	adminRepo := repository.NewAdminRepository(querier)
@@ -121,12 +151,33 @@ func main() {
 	commentSvc := service.NewCommentService(storyRepo, notificationRepo)
 	aiSvc := service.NewAIService(aiClient, storyRepo, cacheSvc)
 	chapterSvc := service.NewChapterService(chapterRepo, paymentRepo, streamSigner, storageSvc)
-	paymentSvc := service.NewPaymentService(paymentRepo, userRepo, notificationRepo)
+	paymentSvc := service.NewPaymentService(paymentRepo, userRepo, notificationRepo, service.PaymentSettings{Enabled: cfg.PaymentCheckoutEnabled, BankCode: cfg.PaymentBankCode, BankName: cfg.PaymentBankName, BankAccount: cfg.PaymentBankAccount, AccountName: cfg.PaymentAccountName, WebhookSecret: cfg.PaymentWebhookSecret})
 	adminSvc := service.NewAdminService(adminRepo)
 	playlistSvc := service.NewPlaylistService(playlistRepo)
 
 	// 6. Initialize Handlers
-	authHandler := handler.NewAuthHandler(authSvc)
+	authHandler := handler.NewAuthHandler(authSvc, cfg.AppBaseURL)
+	oauthHandler, err := handler.NewOAuthHandler(cfg, repository.NewOAuthRepository(dbService.Pool()), authSvc)
+	if err != nil {
+		slog.Error("invalid OAuth configuration", "error", err)
+		os.Exit(1)
+	}
+	go func() {
+		ticker := time.NewTicker(10 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-realmRefreshCtx.Done():
+				return
+			case <-ticker.C:
+				ctx, cancel := context.WithTimeout(realmRefreshCtx, 10*time.Second)
+				if err := repository.CleanupOAuthSessions(ctx, dbService.Pool()); err != nil {
+					slog.Error("OAuth cleanup failed")
+				}
+				cancel()
+			}
+		}
+	}()
 	userHandler := handler.NewUserHandler(authSvc, storageSvc)
 	storyHandler := handler.NewStoryHandler(storySvc)
 	chapterHandler := handler.NewChapterHandler(chapterSvc)
@@ -153,6 +204,8 @@ func main() {
 		DBService:           dbService,
 		CacheService:        cacheSvc,
 		AuthHandler:         authHandler,
+		PlatformHandler:     handler.NewPlatformHandler(dbService.Pool()),
+		OAuthHandler:        oauthHandler,
 		UserHandler:         userHandler,
 		StoryHandler:        storyHandler,
 		ChapterHandler:      chapterHandler,

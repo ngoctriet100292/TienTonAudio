@@ -3,6 +3,7 @@ import { useAsyncResource } from '@/lib/use-async-resource';
 
 import { CultivationSpinner } from '@/components/cultivation-spinner';
 import { useAuth } from '@/context/auth-context';
+import {platform} from '@/lib/platform';
 import { api } from '@/lib/api';
 import { NotificationItem } from '@/types';
 import {
@@ -57,6 +58,9 @@ export function NotificationDropdown() {
     }
     setOpen(false);
     // Nếu có liên kết điều hướng
+    if (item.type === 'new_chapter' && item.reference_id) {
+      try { const location=await platform<{story_slug:string;chapter_id:string}>(`/chapters/${item.reference_id}/location`);router.push(`/stories/${location.story_slug}/chapters/${location.chapter_id}`); } catch {router.push('/account');}
+    }
     if (item.type === 'vip_expiring') {
       router.push('/vip');
     }

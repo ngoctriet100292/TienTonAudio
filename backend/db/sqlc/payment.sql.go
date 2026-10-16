@@ -47,23 +47,15 @@ func (q *Queries) ActivateSubscription(ctx context.Context, arg ActivateSubscrip
 }
 
 const createPayment = `-- name: CreatePayment :one
-INSERT INTO payments (
-    user_id,
-    plan_id,
-    amount,
-    provider,
-    status,
-    transaction_id
-) VALUES (
-    $1, $2, $3, $4, $5, $6
-)
-RETURNING id, user_id, plan_id, amount, provider, status, transaction_id, created_at, updated_at
+INSERT INTO payments(user_id,plan_id,amount,provider,status,transaction_id,plan_name,duration_days)
+SELECT $1,$2,p.price,$4,$5,$6,p.name,p.duration_days FROM subscription_plans p WHERE p.id=$2 AND p.is_active AND p.price=$3
+RETURNING id,user_id,plan_id,amount,provider,status,transaction_id,created_at,updated_at,plan_name,duration_days
 `
 
 type CreatePaymentParams struct {
 	UserID        uuid.UUID      `json:"user_id"`
 	PlanID        *int32         `json:"plan_id"`
-	Amount        pgtype.Numeric `json:"amount"`
+	Price         pgtype.Numeric `json:"price"`
 	Provider      string         `json:"provider"`
 	Status        *string        `json:"status"`
 	TransactionID *string        `json:"transaction_id"`
@@ -73,7 +65,7 @@ func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (P
 	row := q.db.QueryRow(ctx, createPayment,
 		arg.UserID,
 		arg.PlanID,
-		arg.Amount,
+		arg.Price,
 		arg.Provider,
 		arg.Status,
 		arg.TransactionID,
@@ -89,12 +81,14 @@ func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (P
 		&i.TransactionID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PlanName,
+		&i.DurationDays,
 	)
 	return i, err
 }
 
 const getPaymentByID = `-- name: GetPaymentByID :one
-SELECT id, user_id, plan_id, amount, provider, status, transaction_id, created_at, updated_at
+SELECT id, user_id, plan_id, amount, provider, status, transaction_id, created_at, updated_at, plan_name, duration_days
 FROM payments
 WHERE id = $1
 `
@@ -112,12 +106,14 @@ func (q *Queries) GetPaymentByID(ctx context.Context, id uuid.UUID) (Payment, er
 		&i.TransactionID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PlanName,
+		&i.DurationDays,
 	)
 	return i, err
 }
 
 const getSubscriptionPlanByID = `-- name: GetSubscriptionPlanByID :one
-SELECT id, name, price, duration_days, description
+SELECT id, name, price, duration_days, description, is_active
 FROM subscription_plans
 WHERE id = $1
 `
@@ -131,6 +127,7 @@ func (q *Queries) GetSubscriptionPlanByID(ctx context.Context, id int32) (Subscr
 		&i.Price,
 		&i.DurationDays,
 		&i.Description,
+		&i.IsActive,
 	)
 	return i, err
 }
@@ -170,8 +167,9 @@ func (q *Queries) GetUserActiveSubscription(ctx context.Context, userID uuid.Nul
 }
 
 const listSubscriptionPlans = `-- name: ListSubscriptionPlans :many
-SELECT id, name, price, duration_days, description
+SELECT id, name, price, duration_days, description, is_active
 FROM subscription_plans
+WHERE is_active
 ORDER BY price ASC
 `
 
@@ -190,6 +188,7 @@ func (q *Queries) ListSubscriptionPlans(ctx context.Context) ([]SubscriptionPlan
 			&i.Price,
 			&i.DurationDays,
 			&i.Description,
+			&i.IsActive,
 		); err != nil {
 			return nil, err
 		}
@@ -204,7 +203,7 @@ func (q *Queries) ListSubscriptionPlans(ctx context.Context) ([]SubscriptionPlan
 const listUserPayments = `-- name: ListUserPayments :many
 SELECT 
     p.id, p.user_id, p.plan_id, p.amount, p.provider, p.status, p.transaction_id, p.created_at, p.updated_at,
-    sp.name AS plan_name, sp.duration_days
+    COALESCE(p.plan_name,sp.name) AS plan_name, COALESCE(p.duration_days,sp.duration_days) AS duration_days
 FROM payments p
 LEFT JOIN subscription_plans sp ON p.plan_id = sp.id
 WHERE p.user_id = $1
@@ -221,8 +220,8 @@ type ListUserPaymentsRow struct {
 	TransactionID *string            `json:"transaction_id"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
-	PlanName      *string            `json:"plan_name"`
-	DurationDays  *int32             `json:"duration_days"`
+	PlanName      string             `json:"plan_name"`
+	DurationDays  int32              `json:"duration_days"`
 }
 
 func (q *Queries) ListUserPayments(ctx context.Context, userID uuid.UUID) ([]ListUserPaymentsRow, error) {
@@ -264,7 +263,7 @@ SET
     transaction_id = COALESCE($3, transaction_id),
     updated_at = CURRENT_TIMESTAMP
 WHERE id = $1
-RETURNING id, user_id, plan_id, amount, provider, status, transaction_id, created_at, updated_at
+RETURNING id, user_id, plan_id, amount, provider, status, transaction_id, created_at, updated_at, plan_name, duration_days
 `
 
 type UpdatePaymentStatusParams struct {
@@ -286,6 +285,8 @@ func (q *Queries) UpdatePaymentStatus(ctx context.Context, arg UpdatePaymentStat
 		&i.TransactionID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PlanName,
+		&i.DurationDays,
 	)
 	return i, err
 }

@@ -124,3 +124,56 @@ func TestPremiumContentAndRawAudioAreNotPublic(t *testing.T) {
 		t.Fatal("premium check failed open without payment repository")
 	}
 }
+
+func TestOAuthLoginPreservesVerificationAndTwoFactor(t *testing.T) {
+	repo := newMockUserRepo()
+	jwtSvc := auth.NewJWTService("a-test-secret-with-enough-characters", "tientonaudio", time.Minute, time.Hour)
+	svc := NewAuthService(repo, jwtSvc, nil)
+	id := uuid.New()
+	role := "admin"
+	repo.users[id] = db.User{ID: id, Email: "oauth@example.com", Role: &role}
+	pending, err := svc.LoginOAuthUser(context.Background(), id)
+	if err != nil || !pending.VerificationRequired || pending.Tokens != nil {
+		t.Fatalf("unverified login granted a session: %+v %v", pending, err)
+	}
+	user := repo.users[id]
+	user.IsEmailVerified = true
+	user.TwoFactorEnabled = true
+	repo.users[id] = user
+	mfa, err := svc.LoginOAuthUser(context.Background(), id)
+	if err != nil || !mfa.MFARequired || mfa.MFAToken == "" || mfa.Tokens != nil {
+		t.Fatalf("2FA bypassed: %+v %v", mfa, err)
+	}
+	user.TwoFactorEnabled = false
+	repo.users[id] = user
+	logged, err := svc.LoginOAuthUser(context.Background(), id)
+	if err != nil || logged.User.Role != "admin" || logged.Tokens == nil {
+		t.Fatalf("OAuth login changed role or failed: %+v %v", logged, err)
+	}
+}
+
+func TestVerificationTokensAreHashedAndSingleUse(t *testing.T) {
+	repo := newMockUserRepo()
+	emailSvc := newMockEmailService()
+	svc := NewAuthService(repo, nil, emailSvc)
+	_, err := svc.Register(context.Background(), domain.RegisterReq{Username: "verify_hash", Email: "hash@example.com", Password: "Password123!"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := emailSvc.sentVerificationTokens["hash@example.com"]
+	if _, exists := repo.emailTokens[raw]; exists {
+		t.Fatal("plaintext verification token persisted")
+	}
+	if _, exists := repo.emailTokens[auth.HashTokenSHA256(raw)]; !exists {
+		t.Fatal("hashed verification token missing")
+	}
+	if svc.VerifyEmail(context.Background(), auth.HashTokenSHA256(raw)) == nil {
+		t.Fatal("database hash can be used as a bearer token")
+	}
+	if err = svc.VerifyEmail(context.Background(), raw); err != nil {
+		t.Fatal(err)
+	}
+	if svc.VerifyEmail(context.Background(), raw) == nil {
+		t.Fatal("verification token reused")
+	}
+}

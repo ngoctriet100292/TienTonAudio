@@ -152,7 +152,7 @@ export default function AdminPage() {
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white">
             Trung Tâm Quản Trị Tối Cao (Admin Portal)
-          </h1>
+          </h1><nav className="flex flex-wrap gap-3 mt-3 text-sm text-amber-300" aria-label="Chức năng bổ sung"><Link href="/admin/catalogue">Cảnh giới & gói VIP</Link><Link href="/admin/moderation">Duyệt nội dung</Link><Link href="/admin/support">Yêu cầu hỗ trợ</Link></nav>
           <p className="text-xs sm:text-sm text-slate-400">
             Giám sát tài chính, phân quyền thành viên và kiểm duyệt báo cáo toàn hệ thống.
           </p>

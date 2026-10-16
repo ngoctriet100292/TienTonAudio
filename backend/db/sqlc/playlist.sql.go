@@ -129,7 +129,7 @@ SELECT
 FROM playlist_items pi
 JOIN chapters c ON pi.chapter_id = c.id
 JOIN stories s ON c.story_id = s.id
-WHERE pi.playlist_id = $1
+WHERE c.publication_status='published' AND s.publication_status='published' AND pi.playlist_id = $1
 ORDER BY pi.position ASC
 `
 

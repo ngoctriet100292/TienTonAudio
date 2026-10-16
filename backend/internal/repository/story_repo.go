@@ -2,9 +2,10 @@ package repository
 
 import (
 	"context"
+	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/google/uuid"
 	db "github.com/IREAKING/tientonaudio/backend/db/sqlc"
+	"github.com/google/uuid"
 )
 
 type StoryRepository interface {
@@ -53,11 +54,16 @@ type StoryRepository interface {
 }
 
 type storyRepo struct {
-	q db.Querier
+	q    db.Querier
+	pool *pgxpool.Pool
 }
 
-func NewStoryRepository(q db.Querier) StoryRepository {
-	return &storyRepo{q: q}
+func NewStoryRepository(q db.Querier, pools ...*pgxpool.Pool) StoryRepository {
+	r := &storyRepo{q: q}
+	if len(pools) > 0 {
+		r.pool = pools[0]
+	}
+	return r
 }
 
 func (r *storyRepo) CreateStory(ctx context.Context, arg db.CreateStoryParams) (db.Story, error) {

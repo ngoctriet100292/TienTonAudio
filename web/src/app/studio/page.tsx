@@ -88,7 +88,7 @@ export default function StudioPage() {
     user?.role === 'narrator' ||
     user?.role === 'admin';
 
-  const { data: studio, loading, reload: loadData } = useAsyncResource(
+  const { data: studio, loading, error: studioError, reload: loadData } = useAsyncResource(
     isAuthenticated && isPartnerOrAdmin ? `studio:${user?.id}:${user?.role}` : null,
     async () => { const [stats, stories] = await Promise.all([api.getPartnerStats(), api.getPartnerStories()]); return { stats, stories }; },
     { stats: { total_stories: 0, total_chapters: 0, total_views: 0, total_listens: 0, is_admin: false } as PartnerStats, stories: [] as PartnerStoryItem[] }
@@ -473,6 +473,7 @@ export default function StudioPage() {
   // Dashboard Đối Tác Đã Kích Hoạt
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8 pb-20 space-y-8">
+      {studioError != null && <div role="alert" className="rounded-2xl border border-rose-500/25 bg-rose-500/10 p-5 text-sm text-rose-300"><p>Chưa thể tải dữ liệu Studio. Vui lòng kiểm tra kết nối và thử lại.</p><button type="button" onClick={loadData} className="mt-3 font-semibold underline">Tải lại dữ liệu</button></div>}
       {/* Header Studio */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/10 pb-6">
         <div>
@@ -482,7 +483,7 @@ export default function StudioPage() {
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white flex items-center gap-2">
             Studio Quản Lý Tác Phẩm
-          </h1>
+          </h1><nav className="flex flex-wrap gap-3 mt-3 text-sm text-amber-300"><Link href="/studio/publications">Xuất bản & bản nháp</Link><Link href="/studio/analytics">Thống kê tác phẩm</Link></nav>
           <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
             Đăng truyện, xuất bản audio 320kbps lên Cloudflare R2 và theo dõi tương tác độc giả.
           </p>

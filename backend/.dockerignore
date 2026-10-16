@@ -1,0 +1,12 @@
+app.env
+.env
+.env.*
+*.p8
+*.key
+*.pem
+.git
+bin
+server
+uploads
+storage
+*.log

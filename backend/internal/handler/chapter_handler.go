@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"github.com/jackc/pgx/v5"
 	"net/http"
 	"strconv"
 
@@ -51,7 +52,10 @@ func (h *ChapterHandler) GetChapterByID(w http.ResponseWriter, r *http.Request) 
 
 	chapter, err := h.chapterService.GetChapterByID(r.Context(), id)
 	if err != nil {
-		status := http.StatusNotFound
+		status := http.StatusInternalServerError
+		if errors.Is(err, pgx.ErrNoRows) {
+			status = http.StatusNotFound
+		}
 		if errors.Is(err, service.ErrPremiumRequired) {
 			status = http.StatusForbidden
 		}

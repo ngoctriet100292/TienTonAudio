@@ -98,10 +98,13 @@ type TwoFactorVerifyLoginReq struct {
 }
 
 type LoginResp struct {
-	User        *UserResp  `json:"user,omitempty"`
-	Tokens      *TokenResp `json:"tokens,omitempty"`
-	MFARequired bool       `json:"mfa_required"`
-	MFAToken    string     `json:"mfa_token,omitempty"`
+	RedirectPath         string     `json:"redirect_path,omitempty"`
+	VerificationRequired bool       `json:"verification_required,omitempty"`
+	Email                string     `json:"email,omitempty"`
+	User                 *UserResp  `json:"user,omitempty"`
+	Tokens               *TokenResp `json:"tokens,omitempty"`
+	MFARequired          bool       `json:"mfa_required"`
+	MFAToken             string     `json:"mfa_token,omitempty"`
 }
 
 type ForgotPasswordReq struct {

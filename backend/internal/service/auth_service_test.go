@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	db "github.com/IREAKING/tientonaudio/backend/db/sqlc"
 	"github.com/IREAKING/tientonaudio/backend/internal/domain"
 	"github.com/IREAKING/tientonaudio/backend/pkg/auth"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type mockUserRepo struct {
@@ -657,43 +657,22 @@ func TestAuthService_RefreshTokenAndLogout(t *testing.T) {
 }
 
 func TestCultivationRealmsAndProgression(t *testing.T) {
-	// 1. Kiểm tra đủ 17 cảnh giới
-	expectedRealms := []string{
-		"Luyện Khí", "Trúc Cơ", "Nguyên Anh", "Hoá Thần", "Luyện Hư",
-		"Hợp Đạo", "Đại Thừa", "Nhân Tiên", "Địa Tiên", "Thiên Tiên",
-		"Kim Tiên", "Thái Ất Kim Tiên", "Đại La Kim Tiên", "Tiên Quân",
-		"Tiên Vương", "Tiên Tôn", "Tiên Đế",
+	if len(domain.GetCultivationRealms()) != 34 {
+		t.Fatalf("expected 34 realms, got %d", len(domain.GetCultivationRealms()))
 	}
-
-	if len(domain.CultivationRealms) != 17 {
-		t.Fatalf("expected 17 realms, got %d", len(domain.CultivationRealms))
-	}
-
-	for i, name := range expectedRealms {
-		if domain.CultivationRealms[i].Name != name {
-			t.Errorf("expected realm %d to be %s, got %s", i+1, name, domain.CultivationRealms[i].Name)
+	for _, exp := range []int64{-1, 0, 299} {
+		name, level, _, _, _, _ := domain.CalculateCultivationRealm(exp)
+		if name != "Phàm Nhân" || level != 1 {
+			t.Fatalf("initial realm: %s %d", name, level)
 		}
 	}
-
-	// 2. Test tính toán thăng cấp cảnh giới
-	r1, lvl1, _, _, _, _ := domain.CalculateCultivationRealm(0)
-	if r1 != "Luyện Khí" || lvl1 != 1 {
-		t.Errorf("expected Luyện Khí (1), got %s (%d)", r1, lvl1)
+	name, _, _, _, _, _ := domain.CalculateCultivationRealm(300000)
+	if name != "Kết Đan" {
+		t.Fatalf("expected Kết Đan, got %s", name)
 	}
-
-	r2, lvl2, _, _, _, _ := domain.CalculateCultivationRealm(100)
-	if r2 != "Trúc Cơ" || lvl2 != 2 {
-		t.Errorf("expected Trúc Cơ (2), got %s (%d)", r2, lvl2)
-	}
-
-	r3, lvl3, _, _, _, _ := domain.CalculateCultivationRealm(350)
-	if r3 != "Nguyên Anh" || lvl3 != 3 {
-		t.Errorf("expected Nguyên Anh (3), got %s (%d)", r3, lvl3)
-	}
-
-	rEnd, lvlEnd, _, _, _, _ := domain.CalculateCultivationRealm(3000000)
-	if rEnd != "Tiên Đế" || lvlEnd != 17 {
-		t.Errorf("expected Tiên Đế (17), got %s (%d)", rEnd, lvlEnd)
+	name, level, _, _, _, _ := domain.CalculateCultivationRealm(20000000)
+	if name != "Tiên Đế" || level != 34 {
+		t.Fatalf("final realm: %s %d", name, level)
 	}
 
 	// 3. Test Service GetCultivation
@@ -716,10 +695,23 @@ func TestCultivationRealmsAndProgression(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetCultivation failed: %v", err)
 	}
-	if cult.CurrentRealm != "Luyện Khí" {
-		t.Errorf("expected initial realm Luyện Khí, got %s", cult.CurrentRealm)
+	if cult.CurrentRealm != "Phàm Nhân" {
+		t.Errorf("expected initial realm Phàm Nhân, got %s", cult.CurrentRealm)
 	}
-	if len(cult.AllRealms) != 17 {
-		t.Errorf("expected all 17 realms returned in resp")
+	if len(cult.AllRealms) != 34 {
+		t.Errorf("expected all 34 realms returned in resp")
 	}
+}
+
+func (m *mockUserRepo) ConsumeEmailVerificationToken(ctx context.Context, token string) (uuid.UUID, error) {
+	token = auth.HashTokenSHA256(token)
+	record, err := m.GetEmailVerificationToken(ctx, token)
+	if err != nil || time.Now().After(record.ExpiresAt.Time) {
+		return uuid.Nil, errors.New("invalid token")
+	}
+	if err = m.SetUserEmailVerified(ctx, record.UserID); err != nil {
+		return uuid.Nil, err
+	}
+	delete(m.emailTokens, token)
+	return record.UserID, nil
 }

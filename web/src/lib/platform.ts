@@ -1,0 +1,10 @@
+import { api } from './api';
+export type ResumeItem = {story_id:string;story_slug:string;story_title:string;chapter_id:string;chapter_title:string;position_seconds:number};
+export type FollowedStory = {id:string;title:string;slug:string;total_chapters:number};
+export type Achievement = {key:string;name:string;progress:number;target:number;reward_exp:number;claimed:boolean};
+export type LinkedAccount = {provider:string;email:string};
+export type Ticket = {id:string;subject:string;status:string;category:string;payment_id:string|null;username:string};
+export type Message = {id:string;content:string;username:string;created_at:string};
+export type Publication = {id:string;title:string;slug:string;publication_status:string;owner_name:string;chapters:{id:string;title:string;chapter_number:number;publication_status:string;scheduled_at:string|null}[]};
+export type Analytics = {id:string;title:string;view_count:number;rating_avg:number;total_chapters:number;listeners:number;completed_plays:number;recorded_minutes:number;top_chapters: {title:string;listen_count:number}[]};
+export const platform = <T>(path:string, method='GET', body?:unknown) => api.platformRequest<T>(path,{method,body:body === undefined ? undefined : JSON.stringify(body),credentials:'include',cache:'no-store'});

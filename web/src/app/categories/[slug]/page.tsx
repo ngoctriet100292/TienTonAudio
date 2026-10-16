@@ -4,6 +4,7 @@ import { serializeJsonLd } from '@/lib/json-ld';
 import { FavoriteButton } from '@/components/favorite-button';
 import { MediaImage } from '@/components/media-image';
 import { StoryStatusBadge } from '@/components/story-status-badge';
+import { notFound } from 'next/navigation';
 import { api } from '@/lib/api';
 import { ArrowLeft, Headphones, Sparkles, Star } from 'lucide-react';
 import type { Metadata } from 'next';
@@ -58,26 +59,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function CategoryDetailPage({ params }: Props) {
   const { slug } = await params;
-  const categoryInfo = CATEGORY_MAP[slug] || {
-    name: slug.replace(/-/g, ' ').toUpperCase(),
-    icon: '📜',
-    desc: 'Danh sách các bộ truyện audio đặc sắc thuộc thể loại này.',
+  const actualSlug = slug === 'do-thi' ? 'do-thi-tu-tien' : slug;
+  const category = (await api.getCategories()).find(item => item.slug === actualSlug);
+  if (!category) notFound();
+  const categoryInfo = {
+    name: category.name,
+    icon: CATEGORY_MAP[slug]?.icon || '📜',
+    desc: category.description || CATEGORY_MAP[slug]?.desc || 'Khám phá tác phẩm thuộc thể loại này.',
   };
-
-  // Lấy danh sách truyện từ API
-  const allStories = await api.getStories(1, 30);
-
-  // Lọc theo thể loại
-  const filteredStories = allStories.filter((s) => {
-    if (!s.categories || !Array.isArray(s.categories)) return true;
-    return s.categories.some((c) => {
-      const cName = typeof c === 'string' ? c.toLowerCase() : (c?.name || '').toLowerCase();
-      const targetName = categoryInfo.name.toLowerCase();
-      return cName.includes(targetName) || targetName.includes(cName);
-    });
-  });
-
-  const stories = filteredStories.length > 0 ? filteredStories : allStories;
+  const stories = await api.filterStories({ category_id: category.id, limit: 100 });
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://tientonaudio.com';
 
   const jsonLd = {

@@ -41,7 +41,7 @@ func main() {
 	if err := dbPool.Ping(ctx); err != nil {
 		log.Fatalf("❌ Database ping thất bại: %v", err)
 	}
-	log.Println("✅ [1/7] Kết nối Supabase PostgreSQL thành công!")
+	log.Println("✅ [1/7] Kết nối PostgreSQL thành công!")
 
 	// 2. Khởi tạo Storage Service
 	storageSvc, err := storage.NewR2Storage(

@@ -1,341 +1,383 @@
-# 🎧 TienTonAudio — Nền Tảng Streaming Audio Truyện & Nghe Nhìn Tiên Hiệp
+# Tiên Tôn Audio
 
-> **TienTonAudio** là hệ thống Backend dịch vụ Streaming Audio truyện tiên hiệp, kiếm hiệp và tiểu thuyết số hiện đại, hiệu năng cao, được thiết kế theo kiến trúc sạch (Clean Architecture), độ trễ thấp và sẵn sàng cho môi trường thương mại (Production-Ready).
+Nền tảng nghe truyện audio và đọc truyện chữ, gồm API Go, web Next.js và ứng dụng Flutter. Hướng phát triển hiện tại tập trung vào **backend và web**; mobile được giữ trong repository để phát triển sau.
 
----
+Web dùng giao diện tối với màu vàng chủ đạo, font Be Vietnam Pro/Lora, hiệu ứng chuyển trang và bố cục thích ứng với điện thoại.
 
-## 📑 Mục lục
-1. [Tính năng nổi bật](#-tính-năng-nổi-bật)
-2. [Công nghệ sử dụng](#-công-nghệ-sử-dụng-tech-stack)
-3. [Cấu trúc thư mục dự án](#-cấu-trúc-thư-mục-project-structure)
-4. [Hướng dẫn cài đặt & Khởi chạy](#-hướng-dẫn-cài-đặt--khởi-chạy-quickstart)
-5. [Cấu hình biến môi trường (Environment Variables)](#-cấu-hình-biến-môi-trường-environment-variables)
-6. [Danh mục API & Swagger UI](#-danh-mục-api--swagger-ui)
-7. [Kiểm thử & Biên dịch (Testing & Build)](#-kiểm-thử--biên-dịch-testing--build)
+## Mục lục
 
----
+- [Tính năng](#tính-năng)
+- [Công nghệ và cấu trúc](#công-nghệ-và-cấu-trúc)
+- [Chạy ở máy cá nhân](#chạy-ở-máy-cá-nhân)
+- [Cấu hình dịch vụ](#cấu-hình-dịch-vụ)
+- [Dữ liệu và migration](#dữ-liệu-và-migration)
+- [Các khu vực trên web](#các-khu-vực-trên-web)
+- [API](#api)
+- [Kiểm thử và build](#kiểm-thử-và-build)
+- [Docker và triển khai](#docker-và-triển-khai)
 
-## 🌟 Tính năng nổi bật
+## Tính năng
 
-### 1. 🔐 Bảo mật & Xác thực chuẩn Enterprise (Authentication & Security)
-* **Xác thực Email**: Gửi token kích hoạt tài khoản qua email khi đăng ký mới.
-* **Xác thực 2 yếu tố (2FA TOTP RFC 6238)**: Hỗ trợ bật/tắt 2FA tương thích Google Authenticator, Authy.
-* **8 Mã dự phòng khẩn cấp (Backup Codes)**: Khôi phục tài khoản khi mất thiết bị 2FA (mỗi mã chỉ dùng 1 lần, lưu băm SHA-256 an toàn).
-* **Quên & Đặt lại mật khẩu**: Quy trình cấp mã reset bảo mật 15 phút gửi qua email.
-* **Refresh Token Rotation & Revocation**: Xoay vòng refresh token mỗi lần cấp mới, tự động phát hiện và thu hồi toàn bộ phiên đăng nhập nếu token cũ bị tái sử dụng trái phép.
-* **Phân quyền người dùng (RBAC)**: Middleware phân quyền chặt chẽ giữa người dùng phổ thông, hội viên VIP và Admin.
+### Người nghe
 
-### 2. 🎧 Quản lý Truyện & Trình phát Audio (Audio Streaming & Player)
-* **Phát trực tuyến đa chất lượng**: Hỗ trợ nhiều bitrate (`64k`, `128k`, `320k`, `HLS`).
-* **Dữ liệu dạng sóng (Waveform)**: Cung cấp mảng tần số âm thanh để vẽ biểu đồ sóng chuyển động trên giao diện Player.
-* **Đồng bộ tiến độ nghe**: Tự động lưu và khôi phục mốc giây đang nghe dở trên mọi thiết bị.
-* **Lịch sử nghe & Lượt xem**: Tự động cập nhật lượt nghe từng tập, tổng lượt xem của truyện và bảng xếp hạng Top Views.
-* **Gợi ý truyện thông minh (Related Stories)**: Thuật toán đề xuất các bộ truyện tương tự dựa trên cùng thể loại hoặc cùng tác giả.
+- Tìm truyện theo tên/tác giả, trạng thái, giọng đọc, số chương và thời lượng tối thiểu; sắp xếp theo lượt xem, đánh giá hoặc số chương.
+- Đọc nội dung chữ, nghe audio, thay đổi tốc độ, hẹn giờ dừng và chuyển chương.
+- Đồng bộ tiến độ theo tài khoản để tiếp tục nghe trên thiết bị khác; khách có phiên nghe lưu trên thiết bị.
+- Quản lý thư viện, danh sách phát và truyện yêu thích; theo dõi truyện, tác giả và giọng đọc.
+- Nhận thông báo trong ứng dụng khi truyện đang theo dõi có chương mới được xuất bản.
+- Bình luận, trả lời, thả biểu cảm và đánh giá truyện từ 1 đến 5 sao.
+- Tích lũy EXP, lên cảnh giới, hoàn thành nhiệm vụ và nhận thưởng thành tựu.
+- Gửi yêu cầu hỗ trợ, đính kèm đơn thanh toán của mình và trao đổi với quản trị.
+- Trang trợ lý AI khi đã cấu hình nhà cung cấp và API key.
 
-### 3. 🛡️ Bảo vệ bản quyền Audio (Signed Stream Tokens)
-* **Chữ ký số HMAC-SHA256 có thời hạn**: Cấp link phát âm thanh gắn kèm token mật mã có hiệu lực 2 giờ.
-* **Chống cào trộm dữ liệu CDN**: Không để lộ link file gốc trên Cloudflare R2 / AWS S3.
-* **Kiểm soát đặc quyền VIP**: Tự động chặn truy cập trái phép đối với các chương truyện trả phí (`is_premium = true`).
+### Tài khoản
 
-### 4. 💬 Tương tác & Cộng đồng chuyên sâu (Community & Engagement)
-* **Bình luận lồng nhau (Threaded/Nested Replies)**: Cho phép người nghe trả lời trực tiếp từng bình luận của nhau, hiển thị số lượt phản hồi.
-* **Xóa bình luận an toàn (Soft Delete)**: Đánh dấu xóa nhưng vẫn giữ nguyên cấu trúc nhánh thảo luận cho các câu trả lời con.
-* **Thả biểu cảm bình luận (Comment Reactions)**: Thả 6 loại cảm xúc (`like`, `love`, `haha`, `wow`, `sad`, `angry`) kèm cơ chế toggle (bấm lại để hủy, bấm biểu cảm khác để đổi).
-* **Playlist cá nhân**: Tạo danh sách phát yêu thích, thêm/xóa/sắp xếp thứ tự các tập audio, hỗ trợ chế độ Công khai (Public) hoặc Riêng tư (Private).
-* **Đánh giá & Xếp hạng**: Đánh giá 1 - 5 sao kèm nhận xét, tự động tính điểm trung bình bằng Database Trigger.
-* **Theo dõi Tác giả & MC Giọng đọc**: Bấm "Theo dõi" để cập nhật thông tin tác giả và giọng đọc yêu thích.
+- Đăng ký, đăng nhập, xác thực email và đặt lại mật khẩu qua SMTP.
+- JWT, xoay vòng refresh token, đăng xuất và xác thực hai bước TOTP với mã dự phòng.
+- Đăng nhập Google/Facebook/Apple qua Goth; nhà cung cấp chưa cấu hình được vô hiệu hóa trên web.
+- Liên kết OAuth vào tài khoản đang đăng nhập có email đã xác thực. Email trùng không tự gộp tài khoản; không cho gỡ phương thức đăng nhập cuối cùng khi chưa có cách thay thế.
 
-### 5. 🔔 Thông báo & Hỗ trợ vận hành (Notifications & Reports)
-* **Hệ thống Thông báo In-App**: Tự động gửi thông báo khi có người trả lời bình luận của bạn, hoặc khi truyện bạn theo dõi ra chương mới.
-* **Badge đếm thông báo chưa đọc**: API đếm số lượng thông báo chưa đọc phục vụ hiển thị icon chuông trên app/web.
-* **Báo lỗi Audio & Vi phạm**: Người nghe gửi ticket báo cáo (audio rè, mất tiếng, sai tập, bình luận thô tục).
-* **Admin Portal**: Quản trị viên lọc và xử lý báo cáo (`pending`, `resolved`, `rejected`), xem thống kê doanh thu, quản lý danh sách người dùng.
+### Studio và quản trị
 
-### 6. 💎 Gói cước VIP & Thanh toán (Monetization & Subscriptions)
-* Quản lý các gói hội viên: Miễn phí, VIP Tháng, VIP Năm.
-* Tích hợp cơ chế Webhook kích hoạt tài khoản tự động từ cổng thanh toán (MoMo, VNPay, ZaloPay, Stripe).
+- Đối tác tạo truyện, chương và gắn audio; nội dung mới ở trạng thái nháp.
+- Nhập tối đa 500 chương nháp/lần từ tệp JSON, tối đa 8 MB. Lỗi hoặc trùng số chương sẽ hủy toàn bộ lần nhập.
+- Gửi duyệt, xem bản thảo, xuất bản hoặc lên lịch. Chỉ quản trị được duyệt và đặt lịch; lịch được kiểm tra mỗi phút khi API chạy.
+- Thống kê theo tác phẩm: lượt xem, số tài khoản nghe, lượt hoàn tất, phút nghe hợp lệ và chương được nghe nhiều.
+- Quản trị người dùng, báo cáo, yêu cầu hỗ trợ, danh sách cảnh giới và gói hội viên.
+- Danh mục cảnh giới có kiểm tra phiên bản để tránh ghi đè chỉnh sửa của người khác; thay đổi ngưỡng giữ nguyên EXP của người dùng.
 
-### 7. 🤖 AI Trợ lý Đạo Hữu (AI Assistant)
-* Tích hợp AI (Google Gemini / OpenAI):
-  - Trò chuyện, giải đáp thắc mắc về cốt truyện và nhân vật.
-  - Tự động bóc tách các tầng cảnh giới tu tiên trong truyện.
-  - Tóm tắt cốt truyện nhanh gọn.
+### VIP và thanh toán
 
----
+- Gói mặc định: **Kết Đan (30 ngày)** — 49.000đ; **Nguyên Anh (90 ngày)** — 129.000đ; **Tiên Vương (365 ngày)** — 449.000đ.
+- Hội viên được truy cập chương VIP khi gói còn hạn, EXP nghe x2 và thưởng 50 EXP/ngày của gói khi thanh toán được xác nhận.
+- Tên, giá và thời hạn đơn được giữ theo lúc tạo đơn; sửa hoặc ngừng bán gói không thay đổi điều kiện của đơn đã có.
+- Checkout hiện hỗ trợ tạo thông tin chuyển khoản VietQR và tiếp nhận webhook từ adapter đối soát tin cậy. **Checkout mặc định tắt**; chưa có tích hợp hoàn chỉnh MoMo/VNPay/ZaloPay/Stripe.
 
-## 🛠 Công nghệ sử dụng (Tech Stack)
+## Công nghệ và cấu trúc
 
-| Thành phần | Công nghệ / Thư viện |
-| :--- | :--- |
-| **Ngôn ngữ** | [Go (Golang)](https://golang.org/) 1.22+ |
-| **Web Router** | [go-chi/chi/v5](https://github.com/go-chi/chi) (Router nhẹ, chuẩn RESTful, tương thích chuẩn `net/http`) |
-| **Cơ sở dữ liệu** | [PostgreSQL](https://www.postgresql.org/) 15+ |
-| **Database Tooling** | [sqlc](https://sqlc.dev/) (Sinh mã Go an toàn type-safe từ thuần SQL), [golang-migrate](https://github.com/golang-migrate/migrate) |
-| **Bộ nhớ đệm (Cache)** | [Redis](https://redis.io/) 7+ |
-| **Lưu trữ đám mây** | [Cloudflare R2](https://www.cloudflare.com/products/r2/) / AWS S3 (S3 Compatible API) |
-| **Tài liệu API** | [Swagger / OpenAPI UI](https://swagger.io/) (Tích hợp sẵn giao diện trực quan tại `/swagger`) |
-| **Đóng gói** | Docker & Docker Compose |
-
----
-
-## 📁 Cấu trúc thư mục (Project Structure)
-
-Dự án được tổ chức theo cấu trúc **Monorepo** gọn gàng, tách bạch độc lập giữa Backend và Mobile:
+| Thành phần | Công nghệ |
+| --- | --- |
+| Backend | Go **1.26.5**, Chi, pgx, sqlc |
+| Web | Next.js **16.3.8**, React **19.2.8**, TypeScript, Tailwind CSS 4 |
+| Dữ liệu | PostgreSQL; Neon là lựa chọn DB cho môi trường triển khai |
+| Cache | Redis; có bộ nhớ đệm trong tiến trình khi Redis không khả dụng |
+| File | Cloudflare R2 qua API tương thích S3; lưu local phục vụ phát triển |
+| Xác thực | JWT, TOTP, Goth, SMTP |
+| Đóng gói và CI | Docker Compose, GitHub Actions |
+| Mobile | Flutter; xem [mobile/README.md](mobile/README.md) |
 
 ```text
 TienTonAudio/
-├── backend/                # 🌐 TOÀN BỘ BACKEND GO (API & Dịch vụ)
-│   ├── cmd/
-│   │   ├── server/         # Khởi chạy API Server chính (main.go)
-│   │   └── migrate/        # Công cụ Auto-Migration Supabase/Postgres
-│   ├── internal/           # Clean Architecture (domain, handler, repository, service, router)
-│   ├── pkg/                # Thư viện dùng chung (auth 2FA, stream signer, ai, email, storage)
-│   ├── db/                 # Migrations (schema.sql), queries SQL, sqlc
-│   ├── config/             # Cấu hình app.env
-│   ├── docs/               # Swagger API specs (/swagger)
-│   ├── app.env             # File biến môi trường Database, JWT, R2
-│   ├── Makefile            # Lệnh build, test, migrate riêng cho backend
-│   └── Dockerfile          # Dockerfile đa tầng siêu nhẹ
-│
-├── mobile/                 # 📱 TOÀN BỘ MOBILE APP FLUTTER (iOS & Android)
-│   ├── lib/
-│   │   ├── core/           # Constants (endpoints), Theme tiên hiệp, ApiClient (Dio)
-│   │   ├── data/           # Models (Story, Chapter, User) & AudioPlayerService
-│   │   ├── providers/      # State Management (AuthProvider, StoryProvider)
-│   │   ├── screens/        # Màn hình: Home, StoryDetail, Mini/Full Player, Login 2FA
-│   │   └── main.dart       # Điểm khởi chạy Flutter
-│   ├── test/               # Bộ kiểm thử Unit test của Mobile
-│   └── pubspec.yaml        # Danh sách thư viện (just_audio, dio, provider, ...)
-│
-├── docker-compose.yml      # Khởi động PostgreSQL 16 & Redis 7
-├── Makefile                # Makefile điều phối chung toàn bộ Monorepo
-└── README.md               # Tài liệu hướng dẫn dự án
+├── backend/
+│   ├── cmd/                 # server, migrate, seed, check_email, upload_to_r2
+│   ├── config/              # Đọc cấu hình app.env và biến môi trường
+│   ├── db/
+│   │   ├── migrations/      # Schema và SQL cập nhật dữ liệu/cấu trúc
+│   │   ├── query/           # Truy vấn nguồn cho sqlc
+│   │   └── sqlc/            # Mã Go được sinh từ SQL
+│   ├── internal/            # domain, handler, middleware, repository, service, router
+│   ├── pkg/                 # auth, oauth, email, storage, cache, ...
+│   └── app.env.example
+├── web/
+│   ├── src/app/             # Trang web theo App Router
+│   ├── src/components/      # Thành phần giao diện
+│   ├── src/context/         # Phiên đăng nhập, audio và danh mục cảnh giới
+│   ├── src/lib/             # API client và tiện ích
+│   └── tests/               # Kiểm thử web
+├── mobile/                  # Ứng dụng Flutter
+├── scripts/                 # Công cụ hỗ trợ danh mục
+├── .github/workflows/ci.yml
+├── docker-compose.yml
+└── Makefile
 ```
 
----
+## Chạy ở máy cá nhân
 
-## 🚀 Hướng dẫn cài đặt & Khởi chạy (Quickstart)
+### 1. Chuẩn bị
 
-### 1. Yêu cầu môi trường
-* **Go** phiên bản >= 1.22
-* **Docker** & **Docker Compose**
-* **Make** (tùy chọn nhưng khuyến nghị)
-
----
-
-### 2. Khởi chạy nhanh bằng Docker Compose (Khuyến nghị)
-
-Chỉ cần một lệnh duy nhất để khởi động toàn bộ hệ sinh thái (PostgreSQL, Redis và TienTonAudio Backend):
+Cài Go theo `backend/go.mod`, Node.js **22** và npm. Dùng Docker Compose nếu muốn chạy PostgreSQL/Redis local; dùng Neon thì không cần PostgreSQL local.
 
 ```bash
-# 1. Clone repository
-git clone https://github.com/your-username/TienTonAudio.git
+git clone https://github.com/IREAKING/TienTonAudio.git
 cd TienTonAudio
-
-# 2. Khởi động Docker containers
-make docker-up
-# Hoặc: docker compose up -d
+cp backend/app.env.example backend/app.env
 ```
 
-Ứng dụng sẽ tự động chạy tại: `http://localhost:8080`  
-Giao diện Swagger API Documentation: `http://localhost:8080/swagger`
+Sửa `backend/app.env`, ít nhất là `DATABASE_URL` và `JWT_SECRET_KEY`. File cấu hình backend nằm tại **`backend/app.env`** khi chạy lệnh trong thư mục backend. Biến môi trường của tiến trình có ưu tiên cao hơn file.
 
----
+Nếu dùng dịch vụ local:
 
-### 3. Chạy thủ công trên môi trường Development cục bộ
-
-#### Bước 1: Khởi động cơ sở dữ liệu (PostgreSQL & Redis)
-Nếu bạn đã có sẵn Docker:
 ```bash
 docker compose up -d postgres redis
 ```
 
-#### Bước 2: Khởi tạo Schema Database
-Chạy toàn bộ schema trong file `db/migrations/schema.sql`:
-```bash
-# Sử dụng psql hoặc bất kỳ công cụ quản lý DB nào (DBeaver, DataGrip):
-psql -U postgres -h localhost -d tientonaudio -f db/migrations/schema.sql
-```
+Thiết lập tương ứng trong `backend/app.env`:
 
-#### Bước 3: Cấu hình biến môi trường
-Kiểm tra file `app.env` ở thư mục gốc (xem hướng dẫn ở mục bên dưới).
-
-#### Bước 4: Chạy Server
-```bash
-# Cài đặt dependencies
-go mod download
-
-# Chạy server
-make run
-# Hoặc: go run cmd/server/main.go
-```
-
----
-
-## ⚙️ Cấu hình biến môi trường (Environment Variables)
-
-File cấu hình đặt tại `app.env` ở thư mục gốc của dự án:
-
-```env
-# Server
-SERVER_ADDRESS=0.0.0.0:8080
-ENVIRONMENT=development
-
-# PostgreSQL
+```dotenv
 DATABASE_URL=postgresql://postgres:password@localhost:5432/tientonaudio?sslmode=disable
-DB_MAX_CONNS=20
-DB_MIN_CONNS=5
-
-# Redis
 REDIS_URL=redis://localhost:6379/0
+APP_BASE_URL=http://localhost:3000
+OAUTH_PUBLIC_URL=http://localhost:8080
+CORS_ALLOWED_ORIGINS=http://localhost:3000
+PAYMENT_CHECKOUT_ENABLED=false
+```
 
-# JWT & Security
-JWT_SECRET_KEY=your-super-secret-jwt-key-change-this-in-production-must-be-long
-ACCESS_TOKEN_DURATION=15m
-REFRESH_TOKEN_DURATION=168h
+### 2. Chạy API
 
-# Cloudflare R2 / S3 (Lưu trữ Audio & Ảnh bìa)
-R2_ACCOUNT_ID=your-cloudflare-account-id
-R2_ACCESS_KEY_ID=your-r2-access-key-id
-R2_ACCESS_KEY_SECRET=your-r2-secret-access-key
-R2_BUCKET_NAME=tientonaudio
-R2_PUBLIC_URL=https://pub-xxxxxxxxxxxxxxxxxxxx.r2.dev
+```bash
+cd backend
+go mod download
+go run ./cmd/migrate
+go run ./cmd/server
+```
 
-# Rate Limiting & CORS
-RATE_LIMIT_REQUESTS_PER_MINUTE=60
-CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
+API tự áp dụng schema khi khởi động. Migration tạo cấu trúc và danh mục mặc định; không tự nhập kho truyện/audio thật.
 
-# Email SMTP (Để trống SMTP_HOST sẽ tự động bật Mock Console Logger khi test)
-SMTP_HOST=
+### 3. Chạy web
+
+Mở terminal khác tại thư mục dự án:
+
+```bash
+cd web
+npm ci
+npm run dev
+```
+
+Web mặc định gọi `http://localhost:8080/api/v1`. Khi cần thay đổi, tạo `web/.env.local`:
+
+```dotenv
+NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
+API_INTERNAL_ORIGIN=http://localhost:8080
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+```
+
+`NEXT_PUBLIC_API_URL` là địa chỉ trình duyệt truy cập. `API_INTERNAL_ORIGIN` dành cho Next.js phía máy chủ, không gồm `/api/v1`. `NEXT_PUBLIC_*` được đưa vào mã phía trình duyệt khi build; không đặt secret trong nhóm biến này.
+
+| Dịch vụ | Địa chỉ mặc định |
+| --- | --- |
+| Web | http://localhost:3000 |
+| API | http://localhost:8080/api/v1 |
+| Swagger UI | http://localhost:8080/swagger/index.html |
+| Liveness | http://localhost:8080/health |
+| Readiness | http://localhost:8080/readyz |
+
+## Cấu hình dịch vụ
+
+Toàn bộ mẫu cấu hình nằm trong [backend/app.env.example](backend/app.env.example). Giữ thông tin thật trong file được Git bỏ qua hoặc secret của môi trường triển khai.
+
+### PostgreSQL / Neon
+
+Đặt `DATABASE_URL` bằng connection string của Neon, giữ cấu hình TLS trong URL. Backend hỗ trợ kết nối qua pooler và tắt prepared statement cache để tương thích transaction pooling. Điều chỉnh `DB_MAX_CONNS`/`DB_MIN_CONNS` theo giới hạn kết nối của môi trường.
+
+Kiểm tra kết nối và schema mà không chạy migration:
+
+```bash
+cd backend
+go run ./cmd/migrate -check
+```
+
+### Redis
+
+`REDIS_URL` phải có scheme, ví dụ `redis://localhost:6379/0` hoặc `rediss://...` khi dùng TLS. Khi Redis lỗi, API chuyển sang cache trong tiến trình; cache này không dùng chung giữa nhiều instance. Dữ liệu tiến độ và thưởng nghe vẫn được lưu trong PostgreSQL.
+
+### Cloudflare R2
+
+Cấu hình `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_ACCESS_KEY_SECRET`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL`.
+
+Audio/text cần nằm trong bucket private. API kiểm tra quyền và cung cấp URL phát có thời hạn; một URL công khai đã tồn tại ở R2 không thể được bảo vệ chỉ bằng kiểm tra quyền ở API. Ảnh bìa/avatar cần đường phục vụ công khai phù hợp, như bucket ảnh riêng hoặc proxy chỉ cho phép đường dẫn ảnh.
+
+Khi dùng local, chỉ ảnh bìa/avatar được phục vụ công khai qua storage; text và audio đi qua API có kiểm soát quyền. Có công cụ `backend/cmd/upload_to_r2`; xem các tùy chọn bằng `go run ./cmd/upload_to_r2 -help` trước khi chuyển dữ liệu. Công cụ này có thể cập nhật DB và dọn nội dung text sau upload.
+
+### Gmail / SMTP
+
+```dotenv
+SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USERNAME=
-SMTP_PASSWORD=
-SMTP_FROM_EMAIL=noreply@tientonaudio.com
-APP_BASE_URL=http://localhost:8080
-
-# AI Đạo Hữu (OpenAI hoặc Gemini)
-AI_PROVIDER=gemini
-AI_API_KEY=your-gemini-or-openai-api-key
-AI_MODEL_NAME=gemini-1.5-flash
+SMTP_USERNAME=your-account@gmail.com
+SMTP_PASSWORD=your-gmail-app-password
+SMTP_FROM_EMAIL=your-account@gmail.com
+APP_BASE_URL=http://localhost:3000
 ```
 
----
+Dùng mật khẩu ứng dụng Gmail với tài khoản đã bật xác minh hai bước. Hỗ trợ STARTTLS và TLS trực tiếp cổng 465. Email chưa cấu hình hoặc gửi lỗi sẽ được báo lỗi; không có chế độ giả lập báo gửi thành công hay ghi token vào log.
 
-## 📖 Danh mục API & Swagger UI
-
-Truy cập giao diện tương tác và kiểm thử API trực quan tại:
-👉 **`http://localhost:8080/swagger`**
-
-### Bảng tóm tắt các Endpoints chính:
-
-| Nhóm chức năng | Method | Endpoint | Yêu cầu Auth | Ghi chú |
-| :--- | :--- | :--- | :---: | :--- |
-| **Xác thực** | `POST` | `/api/v1/auth/register` | ❌ | Đăng ký tài khoản (gửi email xác nhận) |
-| | `GET` | `/api/v1/auth/verify-email?token=...` | ❌ | Kích hoạt tài khoản qua link email |
-| | `POST` | `/api/v1/auth/login` | ❌ | Đăng nhập (hỗ trợ kiểm tra 2FA) |
-| | `POST` | `/api/v1/auth/2fa/verify` | ❌ | Xác thực bước 2 bằng mã TOTP hoặc Backup code |
-| | `POST` | `/api/v1/auth/2fa/enable` | ✅ | Bật 2FA & nhận 8 mã backup |
-| | `POST` | `/api/v1/auth/2fa/disable` | ✅ | Tắt 2FA |
-| | `POST` | `/api/v1/auth/forgot-password` | ❌ | Yêu cầu gửi email reset mật khẩu |
-| | `POST` | `/api/v1/auth/reset-password` | ❌ | Đặt lại mật khẩu mới bằng token |
-| | `POST` | `/api/v1/auth/refresh` | ❌ | Cấp mới Access Token bằng Refresh Token |
-| | `POST` | `/api/v1/auth/logout` | ✅ | Đăng xuất & thu hồi Refresh Token |
-| **Người dùng** | `GET` | `/api/v1/users/me` | ✅ | Xem thông tin cá nhân |
-| | `PUT` | `/api/v1/users/me` | ✅ | Cập nhật thông tin |
-| | `PUT` | `/api/v1/users/password` | ✅ | Đổi mật khẩu |
-| | `GET` | `/api/v1/users/history` | ✅ | Lịch sử nghe truyện |
-| | `GET` | `/api/v1/users/favorites` | ✅ | Danh sách truyện yêu thích |
-| | `GET` | `/api/v1/users/following-authors` | ✅ | Danh sách tác giả đang theo dõi |
-| | `GET` | `/api/v1/users/following-narrators`| ✅ | Danh sách MC đang theo dõi |
-| **Truyện** | `GET` | `/api/v1/stories` | ❌ | Danh sách truyện (phân trang) |
-| | `GET` | `/api/v1/stories/top-views` | ❌ | Bảng xếp hạng truyện xem nhiều nhất |
-| | `GET` | `/api/v1/stories/search?q=...` | ❌ | Tìm kiếm theo tiêu đề |
-| | `GET` | `/api/v1/stories/filter` | ❌ | Lọc nâng cao theo thể loại, tác giả, trạng thái |
-| | `GET` | `/api/v1/stories/{id}/related` | ❌ | Gợi ý các bộ truyện tương tự |
-| | `GET` | `/api/v1/stories/{slug}` | ❌ | Chi tiết truyện (tự động tăng view count) |
-| | `POST` | `/api/v1/stories/{id}/favorite`| ✅ | Yêu thích / Bỏ yêu thích truyện (Toggle) |
-| **Chương & Audio**| `GET` | `/api/v1/stories/{id}/chapters` | ❌ | Danh sách các tập của truyện |
-| | `GET` | `/api/v1/chapters/{id}` | ❌ | Chi tiết chương (kèm dữ liệu waveform) |
-| | `GET` | `/api/v1/chapters/{id}/stream` | Tùy chọn | Lấy Signed URL phát audio có thời hạn (Kiểm tra VIP) |
-| | `POST` | `/api/v1/chapters/progress` | ✅ | Lưu vị trí giây đang nghe |
-| **Bình luận** | `GET` | `/api/v1/chapters/{id}/comments`| Tùy chọn | Bình luận gốc (kèm số replies, biểu cảm) |
-| | `POST` | `/api/v1/chapters/{id}/comments`| ✅ | Đăng bình luận chương |
-| | `GET` | `/api/v1/comments/{id}/replies` | Tùy chọn | Danh sách câu trả lời của bình luận |
-| | `POST` | `/api/v1/comments/{id}/reply` | ✅ | Trả lời bình luận (tự động gửi thông báo) |
-| | `POST` | `/api/v1/comments/{id}/reactions`| ✅ | Thả biểu cảm (`like`, `love`, `haha`, ...) |
-| | `DELETE`| `/api/v1/comments/{id}` | ✅ | Xóa bình luận (Soft delete) |
-| **Playlist** | `GET` | `/api/v1/playlists` | ✅ | Danh sách playlist của tôi |
-| | `POST` | `/api/v1/playlists` | ✅ | Tạo playlist mới |
-| | `GET` | `/api/v1/playlists/{id}` | Tùy chọn | Chi tiết playlist & các tập bên trong |
-| | `POST` | `/api/v1/playlists/{id}/items` | ✅ | Thêm tập audio vào playlist |
-| | `DELETE`| `/api/v1/playlists/{id}/items/{chapterId}` | ✅ | Xóa tập audio khỏi playlist |
-| **Thông báo** | `GET` | `/api/v1/notifications` | ✅ | Danh sách thông báo cá nhân |
-| | `GET` | `/api/v1/notifications/unread-count`| ✅ | Đếm số lượng thông báo chưa đọc |
-| | `PUT` | `/api/v1/notifications/{id}/read`| ✅ | Đánh dấu 1 thông báo là đã đọc |
-| | `PUT` | `/api/v1/notifications/read-all`| ✅ | Đánh dấu tất cả thông báo là đã đọc |
-| **Báo lỗi / Vi phạm**| `POST` | `/api/v1/reports` | ✅ | Báo lỗi audio hoặc bình luận vi phạm |
-| | `GET` | `/api/v1/admin/reports` | Admin | Quản lý danh sách báo cáo |
-| | `PUT` | `/api/v1/admin/reports/{id}/status`| Admin | Xử lý và đổi trạng thái báo cáo |
-| **Theo dõi** | `POST` | `/api/v1/authors/{id}/follow` | ✅ | Theo dõi / Hủy theo dõi tác giả |
-| | `POST` | `/api/v1/narrators/{id}/follow`| ✅ | Theo dõi / Hủy theo dõi giọng đọc |
-| **Gói VIP** | `GET` | `/api/v1/payments/plans` | ❌ | Bảng giá các gói cước hội viên |
-| | `POST` | `/api/v1/payments/create` | ✅ | Khởi tạo đơn thanh toán gói VIP |
-| | `POST` | `/api/v1/payments/webhook` | ❌ | Nhận callback IPN tự động từ cổng thanh toán |
-| **AI Đạo Hữu** | `POST` | `/api/v1/ai/chat` | ❌ | Trò chuyện với AI về truyện |
-| | `GET` | `/api/v1/ai/stories/{id}/realms`| ❌ | Bóc tách hệ thống cảnh giới tu luyện |
-| | `GET` | `/api/v1/ai/stories/{id}/summary`| ❌ | AI tóm tắt tác phẩm |
-
----
-
-## 🧪 Kiểm thử & Biên dịch (Testing & Build)
-
-### 1. Chạy Unit Tests
-Hệ thống đi kèm bộ kiểm thử tự động toàn diện bao phủ toàn bộ luồng Auth, Security, Playlist, Comments, Reactions, Signed Stream và Notifications:
+Kiểm tra kết nối và đăng nhập SMTP, không gửi thư:
 
 ```bash
-# Chạy toàn bộ tests
-make test
-# Hoặc: go test -v ./...
+cd backend
+go run ./cmd/check_email
 ```
 
-### 2. Sinh mã SQLC
-Nếu bạn chỉnh sửa hoặc bổ sung các câu truy vấn trong thư mục `db/query/`:
+Link xác thực dẫn tới trang `/verify-email`; người dùng nhấn xác nhận. Token có hạn 24 giờ, lưu dạng băm và chỉ dùng một lần.
+
+### Google, Facebook, Apple qua Goth
+
+Đặt `APP_BASE_URL` là URL web và `OAUTH_PUBLIC_URL` là origin backend công khai. Production dùng HTTPS và khai báo đúng origin web trong `CORS_ALLOWED_ORIGINS`.
+
+| Nhà cung cấp | Biến môi trường | Callback đăng ký với nhà cung cấp |
+| --- | --- | --- |
+| Google | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | `{OAUTH_PUBLIC_URL}/api/v1/auth/oauth/google/callback` |
+| Facebook | `FACEBOOK_CLIENT_ID`, `FACEBOOK_CLIENT_SECRET` | `{OAUTH_PUBLIC_URL}/api/v1/auth/oauth/facebook/callback` |
+| Apple | `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY_FILE` | `{OAUTH_PUBLIC_URL}/api/v1/auth/oauth/apple/callback` |
+
+Apple dùng Services ID và khóa `.p8`; cần domain HTTPS thực để thử callback. Khóa chỉ nằm ở backend, ngoài repository. Facebook cần quyền email và cấu hình ứng dụng phù hợp với người dùng được phép đăng nhập.
+
+Phiên OAuth dùng state/cookie gắn trình duyệt, có hạn và dùng một lần. JWT ứng dụng được nhận qua POST exchange, không đặt trên URL. Google/Apple chỉ xác thực email khi provider xác nhận; tài khoản Facebook mới phải xác thực email bằng thư của ứng dụng. Tài khoản bật 2FA vẫn phải hoàn tất bước xác thực thứ hai.
+
+### Thanh toán
+
+Chỉ bật `PAYMENT_CHECKOUT_ENABLED=true` sau khi có adapter đối soát và đã cấu hình:
+
+- `PAYMENT_BANK_CODE`, `PAYMENT_BANK_NAME`, `PAYMENT_BANK_ACCOUNT`, `PAYMENT_ACCOUNT_NAME`.
+- `PAYMENT_WEBHOOK_SECRET` riêng, tối thiểu 32 ký tự.
+
+Adapter gửi `payment_id`, `transaction_id`, `status` (`completed` hoặc `failed`) và `amount` là số nguyên VND. API xác minh `X-Webhook-Secret` hoặc HMAC-SHA256 qua `X-Signature`, đối chiếu số tiền và chống xử lý lặp. Mã chuyển khoản là `TT ` cộng UUID đơn dạng 32 ký tự hex viết hoa.
+
+Web đọc `checkout_available` từ API. Chưa sẵn sàng thanh toán thì bảng giá vẫn hiển thị và nút mua bị tắt. Client không có quyền tự xác nhận đơn; endpoint `confirm-auto` cũ trả HTTP 410.
+
+### Trợ lý AI
+
+Cấu hình `AI_PROVIDER`, `AI_API_KEY` và `AI_MODEL_NAME` ở backend theo nhà cung cấp đang sử dụng. Trang `/ai` gọi API của ứng dụng; API key chỉ được giữ ở máy chủ.
+
+## Dữ liệu và migration
+
+PostgreSQL lưu người dùng, truyện/chương, tiến độ nghe, theo dõi, đánh giá, cảnh giới, gói hội viên, đơn thanh toán, hỗ trợ và phần thưởng. R2 lưu file. Local storage của trình duyệt phục vụ phiên nghe trên thiết bị và phiên đăng nhập, không thay thế DB.
+
+### Schema
+
 ```bash
-make sqlc
-# Hoặc: sqlc generate
+cd backend
+# Áp dụng schema và seed danh mục mặc định
+go run ./cmd/migrate
+
+# Áp dụng riêng phần cấu trúc/chức năng nền tảng mới
+go run ./cmd/migrate -file db/migrations/20261016_platform_features.sql
 ```
 
-### 3. Biên dịch Binary
-Biên dịch ứng dụng thành file nhị phân độc lập siêu gọn:
+Các file SQL trong `db/migrations/` được áp dụng bằng công cụ Go của dự án; không phải toàn bộ đều theo quy ước cặp `up/down` của golang-migrate. Xem nội dung từng migration trước khi chạy: một số file cập nhật tên gói hoặc ngưỡng cảnh giới theo phiên bản, trong khi schema khởi tạo giữ chỉnh sửa đã có của danh mục.
+
+### Cảnh giới và EXP
+
+- Danh sách mặc định có **34 cảnh giới**, chia thành Võ Đạo, Tu Tiên và Tiên Giới; các tầng võ giả đứng trước Luyện Khí. Tiên Quân–Tiên Đế thuộc Tiên Giới.
+- Danh mục thực tế nằm trong `cultivation_realms`; JSON trong mã nguồn dùng làm dữ liệu khởi tạo. API nạp danh mục từ DB và làm mới định kỳ.
+- Cảnh giới tính theo EXP. Tên gói VIP không tự đặt cảnh giới của tài khoản.
+- Thành tựu: nghe 15 phút/ngày (+15 EXP), một giờ (+50), mười giờ (+200), bảy ngày có nghe (+300). Ngày tính theo `Asia/Ho_Chi_Minh`; bảy ngày không bắt buộc liên tiếp.
+- Phút nghe hợp lệ dựa trên các lần thưởng nghe được máy chủ ghi nhận từ lúc triển khai tính năng. Mỗi mốc chỉ nhận thưởng một lần theo kỳ; vị trí do client gửi không trực tiếp cấp thành tựu.
+
+### Nhập nội dung
+
+Tạo tác phẩm trong Studio, nhập chương nháp, gắn audio rồi gửi duyệt. Ví dụ tệp JSON cho nhập hàng loạt:
+
+```json
+[
+  {
+    "chapter_number": 1,
+    "title": "Khởi đầu",
+    "content": "Nội dung chương…",
+    "is_premium": false
+  }
+]
+```
+
+Chương chưa xuất bản được ẩn khỏi API công khai và luồng phát. Đối tác sửa truyện hoặc thay audio sẽ đưa nội dung về nháp để duyệt lại. Chương cũ không được gửi thông báo hồi tố khi áp dụng migration.
+
+`cmd/seed` là công cụ nhập dữ liệu có thao tác DB/R2, không phải điều kiện bắt buộc để khởi động ứng dụng. Đọc mã và chọn đúng môi trường trước khi chạy.
+
+## Các khu vực trên web
+
+| Đường dẫn | Chức năng / quyền |
+| --- | --- |
+| `/`, `/search`, `/categories`, `/rankings` | Khám phá và tìm truyện |
+| `/stories/[slug]` | Chi tiết truyện, theo dõi, đánh giá, danh sách chương |
+| `/stories/[slug]/chapters/[chapterId]` | Đọc/nghe chương đã xuất bản |
+| `/account` | Nghe tiếp, truyện theo dõi, thành tựu, liên kết OAuth |
+| `/library`, `/settings` | Thư viện và cài đặt tài khoản |
+| `/support` | Yêu cầu hỗ trợ của tài khoản; tối đa 5 yêu cầu mới/24 giờ |
+| `/vip` | Gói hội viên và trạng thái checkout |
+| `/cultivation` | Danh mục cảnh giới từ DB |
+| `/studio` | Quản lý truyện và audio của đối tác |
+| `/studio/publications` | Nháp, nhập nhiều chương và gửi duyệt |
+| `/studio/analytics` | Thống kê tác phẩm của mình; admin xem được toàn bộ |
+| `/admin` | Quản trị người dùng, báo cáo và thống kê |
+| `/admin/catalogue` | Quản trị cảnh giới và gói hội viên |
+| `/admin/moderation` | Duyệt nội dung, trả về nháp và lên lịch |
+| `/admin/support` | Phản hồi, đóng/mở yêu cầu hỗ trợ |
+| `/about`, `/policies`, `/privacy`, `/terms`, `/copyright`, `/contact` | Trang giới thiệu và thông tin |
+
+Các khu vực riêng được kiểm tra quyền ở backend. Studio dành cho `partner`, `creator`, `narrator`, `admin`; đối tác chỉ quản lý tác phẩm thuộc mình. Yêu cầu hỗ trợ và đơn thanh toán được kiểm tra quyền sở hữu.
+
+## API
+
+API có tiền tố `/api/v1`. Swagger UI tại `/swagger/index.html`; định nghĩa route thực tế nằm trong [backend/internal/router/router.go](backend/internal/router/router.go). Swagger hiện có thể chưa liệt kê đủ các endpoint nền tảng mới.
+
+| Nhóm | Endpoint tiêu biểu |
+| --- | --- |
+| Tài khoản | `/auth/register`, `/auth/login`, `/auth/verify-email`, `/auth/refresh`, `/auth/logout` |
+| OAuth | `/auth/oauth/providers`, `/auth/oauth/{provider}`, `/auth/oauth/{provider}/callback`, `/auth/oauth/exchange` |
+| Liên kết OAuth | `POST /auth/oauth/{provider}/link`, `GET /users/oauth/accounts`, `DELETE /users/oauth/{provider}` |
+| Danh mục | `/stories`, `/stories/{slug}`, `/catalogue/search`, `/cultivation/realms` |
+| Audio | `/chapters/{id}`, `/chapters/{id}/stream`, `POST /chapters/progress` |
+| Nghe tiếp | `/users/continue-listening`, `/users/chapters/{id}/progress` |
+| Theo dõi / đánh giá | `/stories/{id}/follow`, `/stories/{id}/reviews` |
+| Thành tựu | `/users/achievements`, `POST /users/achievements/{key}/claim` |
+| Hỗ trợ | `/support/tickets`, `/support/tickets/{id}/messages` |
+| Studio | `/partner/publications`, `/partner/analytics`, `/partner/stories/{id}/bulk-drafts` |
+| Duyệt xuất bản | `PUT /partner/stories/{id}/publication`, `PUT /partner/chapters/{id}/publication` |
+| Danh mục quản trị | `/admin/cultivation/realms`, `/admin/subscription-plans` |
+| Hội viên | `/payments/plans`, `/payments/create`, `/payments/webhook` |
+
+## Kiểm thử và build
+
+### Backend
+
 ```bash
-make build
+cd backend
+go test -race ./...
+go vet ./...
+go build -o bin/tientonaudio ./cmd/server
 ```
-File thực thi đầu ra được lưu tại: `bin/tientonaudio`.
 
-Chạy trực tiếp binary đã build:
+Nếu sửa truy vấn trong `db/query/`, chạy `sqlc generate` tại `backend/` và commit cả mã được sinh trong `db/sqlc/`.
+
+Kiểm thử tích hợp Neon là tùy chọn, đọc cấu hình `backend/app.env` và dùng schema tạm được hoàn tác/dọn sau kiểm thử:
+
 ```bash
-./bin/tientonaudio
+cd backend
+TIENTON_NEON_INTEGRATION=1 go test ./internal/handler ./internal/repository -run TestNeon -v
 ```
 
----
+### Web
 
-## 📄 Bản quyền (License)
-Dự án được phân phối dưới giấy phép [MIT License](LICENSE).
-Tác giả & Đội ngũ phát triển TienTonAudio © 2026.
+```bash
+cd web
+npm ci
+npm test
+npm run lint
+npm run build
+```
 
+Để build sitemap và dữ liệu trang đầy đủ, chạy API trước và đặt đúng `API_INTERNAL_ORIGIN`.
 
-## Cập nhật bảo mật và tích hợp
+GitHub Actions trong [.github/workflows/ci.yml](.github/workflows/ci.yml) chạy kiểm thử race/vet backend và test/lint/build web trên push `main` hoặc pull request. CI dùng PostgreSQL/Redis tạm, không dùng Neon hay secret triển khai. Kiểm thử tích hợp Neon không được bật mặc định.
 
-- Backend yêu cầu Go 1.26.5 theo `backend/go.mod`.
-- Đăng nhập mạng xã hội đang tạm dừng cho đến khi có xác minh OAuth phía server. Dùng email/mật khẩu và 2FA hiện có.
-- API ghi nội dung chung chỉ dành cho admin. Đối tác sử dụng `/api/v1/partner/...`, nơi quyền sở hữu được kiểm tra.
-- `/payments/{id}/confirm-auto` trả HTTP 410. Client chỉ được kiểm tra trạng thái đơn của chính mình.
-- Adapter thanh toán tin cậy gửi webhook đã đối soát với `payment_id`, `transaction_id`, `status` (`completed` hoặc `failed`) và `amount` là số nguyên VND. Webhook cần `X-Webhook-Secret` hoặc chữ ký HMAC-SHA256 qua `X-Signature`. Payload ngân hàng chưa có adapter sẽ trả HTTP 422. Không cấu hình secret sẽ trả HTTP 503.
-- Với `ENVIRONMENT=production`, phải đặt `JWT_SECRET_KEY` và `PAYMENT_WEBHOOK_SECRET` riêng, ít nhất 32 ký tự, không dùng giá trị mẫu.
-- Text và audio trong storage local không được phục vụ công khai. Audio local dùng link có chữ ký; R2 dùng presigned GET URL. Bucket chứa text/audio phải tắt truy cập công khai (`r2.dev` và domain công khai); mã nguồn không thể thu hồi URL đã công khai trên Cloudflare. Khi chuyển bucket sang private, cần phục vụ ảnh bìa/avatar qua bucket công khai riêng hoặc proxy chỉ cho phép các thư mục ảnh.
-- Docker web dùng `API_INTERNAL_ORIGIN=http://backend:8080` cho gọi API từ server. `NEXT_PUBLIC_API_URL` là URL API mà trình duyệt truy cập được và phải đặt khi build image.
+## Docker và triển khai
 
-- Web: `cd web && npm test && npm run lint && npm run build` kiểm tra API client, TypeScript và build. Refresh token được xoay một lần cho các request đồng thời; lỗi kết nối tạm thời không xóa phiên. QR 2FA được tạo trong trình duyệt, không gửi secret tới dịch vụ QR bên ngoài.
-- Rate limiter dùng bộ đếm nguyên tử với thời hạn cố định. `TRUSTED_PROXY_CIDRS` phải chỉ chứa IP/CIDR của proxy thực tế; mặc định bỏ qua header IP do client tự gửi.
+```bash
+# Từ thư mục gốc; đã tạo backend/app.env
+docker compose up -d --build
+```
 
-- Web sử dụng Next.js 16.3.8. Sau cập nhật, `npm audit --omit=dev` không báo lỗ hổng; audit đầy đủ còn 5 cảnh báo trong chuỗi ESLint → fast-glob → micromatch → braces. `braces` chưa có bản vá theo https://github.com/advisories/GHSA-vfj7-8cjw-p6xm; không dùng `npm audit fix --force` để hạ eslint-config-next về nhánh 14.x.
+Trong `backend/app.env`, dùng hostname `postgres`/`redis` thay cho `localhost` nếu kết nối các dịch vụ trong Compose. Có thể dùng Neon cho `DATABASE_URL` thay PostgreSQL container. Web trong Docker dùng đầu ra Next.js standalone; `API_INTERNAL_ORIGIN` mặc định là `http://backend:8080`.
+
+Địa chỉ `NEXT_PUBLIC_API_URL` phải truy cập được từ trình duyệt và cần được đặt đúng lúc build. Compose cung cấp API nội bộ khi chạy; bước build image có thể chưa truy cập được API để tạo dữ liệu sitemap, nên cần kiểm tra sitemap sau khi triển khai.
+
+Trước khi mở dịch vụ công khai:
+
+- Cấu hình HTTPS, domain web/API, CORS và callback OAuth tương ứng.
+- Đặt `ENVIRONMENT=production`; `JWT_SECRET_KEY` và `PAYMENT_WEBHOOK_SECRET` phải riêng biệt, tối thiểu 32 ký tự và không dùng giá trị mẫu. Backend hiện kiểm tra cả hai secret khi chạy production.
+- Cấu hình SMTP, Redis dùng chung giữa các instance, quyền bucket R2 và chính sách sao lưu PostgreSQL.
+- Chỉ khai báo mạng reverse proxy thực tế trong `TRUSTED_PROXY_CIDRS`.
+- Bật checkout sau khi adapter đối soát đã được cấu hình và kiểm thử.
+- Nhập nội dung được phép sử dụng, kiểm tra phát audio thật, phân quyền VIP và lịch xuất bản trên môi trường triển khai.
+
+File môi trường thật, khóa Apple `.p8`, file upload, dữ liệu local và thư mục build được loại trừ khỏi Git/Docker build context theo cấu hình của từng phần dự án.

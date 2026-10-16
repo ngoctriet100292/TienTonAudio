@@ -36,7 +36,7 @@ SELECT
     a.name AS author_name
 FROM stories s
 LEFT JOIN authors a ON s.author_id = a.id
-WHERE 
+WHERE s.publication_status='published' AND
     ($1::text IS NULL OR s.title ILIKE '%' || $1 || '%' OR a.name ILIKE '%' || $1 || '%')
     AND ($2::int IS NULL OR EXISTS (SELECT 1 FROM story_categories sc WHERE sc.story_id = s.id AND sc.category_id = $2))
     AND ($3::text IS NULL OR s.status = $3)
@@ -145,7 +145,7 @@ INSERT INTO stories (
 ) VALUES (
     $1, $2, $3, $4, $5, $6
 )
-RETURNING id, title, slug, description, cover_image_url, author_id, status, view_count, total_chapters, rating_avg, rating_count, created_at, updated_at, created_by
+RETURNING id, title, slug, description, cover_image_url, author_id, status, view_count, total_chapters, rating_avg, rating_count, created_at, updated_at, created_by, publication_status
 `
 
 type CreateStoryParams struct {
@@ -182,6 +182,7 @@ func (q *Queries) CreateStory(ctx context.Context, arg CreateStoryParams) (Story
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CreatedBy,
+		&i.PublicationStatus,
 	)
 	return i, err
 }
@@ -221,7 +222,7 @@ SELECT DISTINCT
     a.name AS author_name
 FROM stories s
 LEFT JOIN authors a ON s.author_id = a.id
-WHERE s.id != $1
+WHERE s.publication_status='published' AND s.id != $1
   AND (
     s.author_id = (SELECT author_id FROM stories WHERE id = $1)
     OR EXISTS (
@@ -434,7 +435,7 @@ SELECT
     n.name AS narrator_name
 FROM chapters c
 LEFT JOIN narrators n ON c.narrator_id = n.id
-WHERE c.story_id = $1
+WHERE c.publication_status='published' AND c.story_id = $1
 ORDER BY c.chapter_number ASC
 `
 
@@ -497,7 +498,7 @@ SELECT
 FROM listening_history h
 JOIN chapters c ON h.chapter_id = c.id
 JOIN stories s ON h.story_id = s.id
-WHERE h.user_id = $1
+WHERE s.publication_status='published' AND c.publication_status='published' AND h.user_id = $1
 ORDER BY h.updated_at DESC
 LIMIT $2 OFFSET $3
 `
@@ -616,6 +617,7 @@ SELECT
     a.name AS author_name
 FROM stories s
 LEFT JOIN authors a ON s.author_id = a.id
+WHERE s.publication_status='published'
 ORDER BY s.updated_at DESC
 LIMIT $1 OFFSET $2
 `
@@ -684,6 +686,7 @@ SELECT
     a.name AS author_name
 FROM stories s
 LEFT JOIN authors a ON s.author_id = a.id
+WHERE s.publication_status='published'
 ORDER BY s.view_count DESC, s.updated_at DESC
 LIMIT $1 OFFSET $2
 `
@@ -755,7 +758,7 @@ SELECT
     view_count,
     rating_avg
 FROM stories
-WHERE title ILIKE '%' || $1 || '%'
+WHERE publication_status='published' AND title ILIKE '%' || $1 || '%'
 ORDER BY view_count DESC
 LIMIT $2 OFFSET $3
 `
@@ -815,7 +818,7 @@ SET
     status = $7,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = $1
-RETURNING id, title, slug, description, cover_image_url, author_id, status, view_count, total_chapters, rating_avg, rating_count, created_at, updated_at, created_by
+RETURNING id, title, slug, description, cover_image_url, author_id, status, view_count, total_chapters, rating_avg, rating_count, created_at, updated_at, created_by, publication_status
 `
 
 type UpdateStoryParams struct {
@@ -854,6 +857,7 @@ func (q *Queries) UpdateStory(ctx context.Context, arg UpdateStoryParams) (Story
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CreatedBy,
+		&i.PublicationStatus,
 	)
 	return i, err
 }
@@ -874,7 +878,8 @@ ON CONFLICT (user_id, chapter_id)
 DO UPDATE SET
     last_position_seconds = EXCLUDED.last_position_seconds,
     playback_speed = EXCLUDED.playback_speed,
-    is_completed = EXCLUDED.is_completed,
+    is_completed = COALESCE(listening_history.is_completed, FALSE) OR COALESCE(EXCLUDED.is_completed, FALSE),
+    story_id = EXCLUDED.story_id,
     updated_at = CURRENT_TIMESTAMP
 `
 

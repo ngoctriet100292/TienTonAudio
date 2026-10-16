@@ -7,13 +7,16 @@ import (
 	"log/slog"
 	"time"
 
+	db "github.com/IREAKING/tientonaudio/backend/db/sqlc"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	db "github.com/IREAKING/tientonaudio/backend/db/sqlc"
 )
 
 //go:embed migrations/schema.sql
 var schemaSQL string
+
+//go:embed migrations/20261014_cultivation_catalogue.sql
+var cultivationSeedSQL string
 
 type Service struct {
 	repo db.Querier
@@ -50,6 +53,7 @@ func NewService(ctx context.Context, connString string, maxConns, minConns int32
 	}
 
 	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
 		return nil, err
 	}
 
@@ -85,6 +89,10 @@ func (s *Service) AutoMigrate(ctx context.Context) error {
 	slog.Info("checking database schema and running auto-migration...")
 	if _, err := s.pool.Exec(ctx, schemaSQL); err != nil {
 		return fmt.Errorf("auto-migration failed: %w", err)
+	}
+
+	if _, err := s.pool.Exec(ctx, cultivationSeedSQL); err != nil {
+		return fmt.Errorf("cultivation seed failed: %w", err)
 	}
 
 	// Đảm bảo constraint quality hỗ trợ cả 320k và 320kbps

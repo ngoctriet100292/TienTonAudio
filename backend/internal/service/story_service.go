@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	db "github.com/IREAKING/tientonaudio/backend/db/sqlc"
 	"github.com/IREAKING/tientonaudio/backend/internal/domain"
 	"github.com/IREAKING/tientonaudio/backend/internal/repository"
 	"github.com/IREAKING/tientonaudio/backend/pkg/cache"
 	"github.com/IREAKING/tientonaudio/backend/pkg/utils"
+	"github.com/google/uuid"
 )
 
 type StoryService interface {
@@ -100,16 +100,6 @@ func (s *storyService) ListStories(ctx context.Context, pagination utils.Paginat
 }
 
 func (s *storyService) ListTopViewedStories(ctx context.Context, pagination utils.PaginationParams) ([]domain.StoryResp, error) {
-	cacheKey := fmt.Sprintf("story:top_views:%d:%d", pagination.Page, pagination.Limit)
-	if s.cache != nil {
-		if val, err := s.cache.Get(ctx, cacheKey); err == nil && val != "" {
-			var cached []domain.StoryResp
-			if json.Unmarshal([]byte(val), &cached) == nil {
-				return cached, nil
-			}
-		}
-	}
-
 	rows, err := s.repo.ListTopViewedStories(ctx, db.ListTopViewedStoriesParams{
 		Limit:  pagination.Limit,
 		Offset: pagination.Offset(),
@@ -139,10 +129,6 @@ func (s *storyService) ListTopViewedStories(ctx context.Context, pagination util
 			CreatedAt:     r.CreatedAt.Time,
 			UpdatedAt:     r.UpdatedAt.Time,
 		}
-	}
-
-	if s.cache != nil {
-		_ = s.cache.Set(ctx, cacheKey, result, 3*time.Minute)
 	}
 
 	return result, nil
@@ -435,66 +421,25 @@ func (s *storyService) ListCategories(ctx context.Context) ([]domain.Category, e
 }
 
 func (s *storyService) SaveListeningProgress(ctx context.Context, userID uuid.UUID, req domain.ListeningProgressReq) error {
-	isCompleted := req.IsCompleted
-	speed := 1.0
-	if req.PlaybackSpeed != nil && domain.IsValidPlaybackSpeed(*req.PlaybackSpeed) {
-		speed = *req.PlaybackSpeed
+	if userID == uuid.Nil || req.ChapterID == uuid.Nil || req.LastPositionSeconds < 0 || (req.PlaybackSpeed != nil && !domain.IsValidPlaybackSpeed(*req.PlaybackSpeed)) {
+		return domain.ErrInvalidListeningProgress
 	}
-
-	storyID := req.StoryID
-	if storyID == uuid.Nil {
-		resolvedStoryID, err := s.repo.GetStoryIDByChapterID(ctx, req.ChapterID)
-		if err == nil && resolvedStoryID != uuid.Nil {
-			storyID = resolvedStoryID
-		}
+	if atomic, ok := s.repo.(repository.AtomicListeningRepository); ok {
+		return atomic.SaveListeningProgressAtomic(ctx, userID, req)
 	}
-
-	err := s.repo.UpsertListeningProgress(ctx, db.UpsertListeningProgressParams{
-		UserID:              userID,
-		ChapterID:           req.ChapterID,
-		StoryID:             storyID,
-		LastPositionSeconds: req.LastPositionSeconds,
-		PlaybackSpeed:       utils.Float64ToNumeric(speed),
-		IsCompleted:         &isCompleted,
-	})
+	// Repository doubles may store progress without awarding any tu vi.
+	storyID, err := s.repo.GetStoryIDByChapterID(ctx, req.ChapterID)
 	if err != nil {
 		return err
 	}
-
-	// Tăng điểm Tu Vi (EXP) khi nghe audio (Mỗi lần đồng bộ tiến độ hấp thu linh khí)
-	if s.userRepo != nil {
-		userCult, err := s.userRepo.GetUserCultivation(ctx, userID)
-		if err == nil {
-			currExp := int64(0)
-			if userCult.CultivationExp != nil {
-				currExp = *userCult.CultivationExp
-			}
-
-			// Thưởng tu vi cơ bản: 5 điểm/lần nghe. Nếu hoàn thành tập: +15 điểm
-			gain := int64(5)
-			if isCompleted {
-				gain += 15
-			}
-
-			// Nếu đang có VIP, nhân đôi (2x) tốc độ hấp thu linh khí
-			if s.paymentRepo != nil {
-				sub, err := s.paymentRepo.GetUserActiveSubscription(ctx, userID)
-				if err == nil && sub.Status != nil && *sub.Status == "active" {
-					gain = int64(float64(gain) * 2.0)
-				}
-			}
-
-			newExp := currExp + gain
-			newRealm, _, _, _, _, _ := domain.CalculateCultivationRealm(newExp)
-			_, _ = s.userRepo.AddUserCultivationExp(ctx, db.AddUserCultivationExpParams{
-				ID:               userID,
-				CultivationExp:   &gain,
-				CultivationRealm: &newRealm,
-			})
-		}
+	if storyID == uuid.Nil || (req.StoryID != uuid.Nil && storyID != req.StoryID) {
+		return domain.ErrInvalidListeningProgress
 	}
-
-	return nil
+	speed := 1.0
+	if req.PlaybackSpeed != nil {
+		speed = *req.PlaybackSpeed
+	}
+	return s.repo.UpsertListeningProgress(ctx, db.UpsertListeningProgressParams{UserID: userID, ChapterID: req.ChapterID, StoryID: storyID, LastPositionSeconds: req.LastPositionSeconds, PlaybackSpeed: utils.Float64ToNumeric(speed), IsCompleted: &req.IsCompleted})
 }
 
 func (s *storyService) GetUserListeningHistory(ctx context.Context, userID uuid.UUID, pagination utils.PaginationParams) ([]domain.ListeningHistoryResp, error) {

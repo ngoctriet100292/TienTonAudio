@@ -68,6 +68,10 @@ export interface User {
 }
 
 export interface CultivationRealmInfo {
+  tier: 'vo-dao' | 'tu-tien' | 'tien-gioi';
+  tier_name: string;
+  ability: string;
+  privilege: string;
   level: number;
   name: string;
   min_exp: number;
@@ -184,6 +188,7 @@ export interface CreatePartnerChapterReq {
 }
 
 export interface SubscriptionPlan {
+  checkout_available?: boolean;
   id: number;
   name: string;
   price: number;
@@ -399,3 +404,6 @@ export interface TwoFactorSetupResponse { secret: string; qr_code_url: string }
 export interface TokenResponse { access_token: string; refresh_token: string; expires_at: string; token_type: string }
 export interface AuthenticatedResponse { user: User; tokens: TokenResponse }
 export type LoginResponse = (AuthenticatedResponse & { mfa_required: false }) | { mfa_required: true; mfa_token: string };
+
+export type OAuthLoginResponse = LoginResponse & { redirect_path?: string } | { verification_required: true; email: string; redirect_path?: string };
+export type OAuthProvider = 'google' | 'facebook' | 'apple';

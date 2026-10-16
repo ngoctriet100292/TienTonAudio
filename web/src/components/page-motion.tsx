@@ -17,6 +17,7 @@ export function PageMotion({ children }: { children: ReactNode }) {
     const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
     const registered = new WeakSet<HTMLElement>();
     const running = new Set<Animation>();
+    const pending = new Set<HTMLElement>();
     let frame = 0;
 
     const observer = new IntersectionObserver(entries => {
@@ -25,7 +26,7 @@ export function PageMotion({ children }: { children: ReactNode }) {
         if (!entry.isIntersecting) continue;
         const element = entry.target as HTMLElement;
         observer.unobserve(element);
-        if (preference.matches || !element.isConnected || typeof element.animate !== 'function') continue;
+        if (preference.matches || !element.isConnected || typeof element.animate !== 'function') { pending.delete(element); continue; }
         // Separate translate from transform so existing hover effects still work.
         const animation = element.animate([
           { opacity: 0, translate: '0 16px' },
@@ -37,8 +38,8 @@ export function PageMotion({ children }: { children: ReactNode }) {
           fill: 'backwards',
         });
         running.add(animation);
-        animation.onfinish = () => { element.dataset.motionRegistered = 'complete'; running.delete(animation); };
-        animation.oncancel = () => { element.dataset.motionRegistered = 'complete'; running.delete(animation); };
+        animation.onfinish = () => { pending.delete(element); running.delete(animation); };
+        animation.oncancel = () => { pending.delete(element); running.delete(animation); };
       }
     }, { threshold: 0, rootMargin: '0px 0px -24px 0px' });
 
@@ -49,9 +50,11 @@ export function PageMotion({ children }: { children: ReactNode }) {
         // Never turn a container of sticky controls or a fixed modal into an
         // animated containing block. Keep reading text and live updates steady.
         if (element.matches('.fixed, .sticky') || element.querySelector('.fixed, .sticky, .reader-prose, [role="dialog"]')) continue;
-        if (element.parentElement?.closest('[data-motion-registered="pending"]')) continue;
+        let ancestor = element.parentElement;
+        while (ancestor && !pending.has(ancestor)) ancestor = ancestor.parentElement;
+        if (ancestor) continue;
         registered.add(element);
-        element.dataset.motionRegistered = 'pending';
+        pending.add(element);
         observer.observe(element);
       }
     }
@@ -71,7 +74,7 @@ export function PageMotion({ children }: { children: ReactNode }) {
         observer.disconnect();
       } else {
         register();
-        container?.querySelectorAll<HTMLElement>('[data-motion-registered="pending"]').forEach(element => observer.observe(element));
+        pending.forEach(element => observer.observe(element));
       }
     }
     preference.addEventListener('change', onPreferenceChange);
@@ -81,7 +84,7 @@ export function PageMotion({ children }: { children: ReactNode }) {
       cancelAnimationFrame(frame);
       running.forEach(animation => animation.cancel());
       preference.removeEventListener('change', onPreferenceChange);
-      container.querySelectorAll<HTMLElement>('[data-motion-registered]').forEach(element => delete element.dataset.motionRegistered);
+      pending.clear();
     };
   }, [pathname]);
 

@@ -16,7 +16,7 @@ export function SoundOrbit({ variant = 'sound' }: { variant?: 'sound' | 'realm' 
     <span className="orbit-spark spark-one" /><span className="orbit-spark spark-two" />
     <div className="orbit-core">{variant === 'sound' ? <Headphones size={56} strokeWidth={1.2} /> : <Sparkles size={56} strokeWidth={1.2} />}</div>
     <div className="sound-wave">{Array.from({ length: 23 }, (_, i) => <i key={i} style={{ '--bar-height': `${12 + ((i * 17) % 45)}px`, '--bar-delay': `${i * -0.12}s` } as CSSProperties} />)}</div>
-    <span className="orbit-caption">{variant === 'realm' ? 'PHÀM GIỚI · TIÊN GIỚI · CHÍ TÔN' : variant === 'shield' ? 'TÔN TRỌNG · MINH BẠCH · AN TOÀN' : 'ĐỂ CÂU CHUYỆN ĐƯỢC CẤT LỜI'}</span>
+    <span className="orbit-caption">{variant === 'realm' ? 'VÕ ĐẠO · TU TIÊN · TIÊN GIỚI' : variant === 'shield' ? 'TÔN TRỌNG · MINH BẠCH · AN TOÀN' : 'ĐỂ CÂU CHUYỆN ĐƯỢC CẤT LỜI'}</span>
   </div>;
 }
 

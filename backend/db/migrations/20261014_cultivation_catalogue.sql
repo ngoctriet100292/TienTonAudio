@@ -1,0 +1,50 @@
+-- Initial catalogue only; preserve existing database customizations and user EXP.
+BEGIN;
+CREATE TABLE IF NOT EXISTS cultivation_realms (
+    level INTEGER PRIMARY KEY CHECK (level > 0),
+    name TEXT NOT NULL UNIQUE CHECK (length(trim(name)) > 0),
+    tier TEXT NOT NULL CHECK (tier IN ('vo-dao', 'tu-tien', 'tien-gioi')),
+    tier_name TEXT NOT NULL,
+    min_exp BIGINT NOT NULL UNIQUE CHECK (min_exp >= 0),
+    description TEXT NOT NULL,
+    ability TEXT NOT NULL DEFAULT '',
+    privilege TEXT NOT NULL DEFAULT '',
+    color TEXT NOT NULL CHECK (color ~ '^#[0-9a-fA-F]{6}$')
+);
+INSERT INTO cultivation_realms (level, name, tier, tier_name, min_exp, description, ability, privilege, color) VALUES
+(1, 'Phàm Nhân', 'vo-dao', 'Võ Đạo', 0, 'Bắt đầu từ thân thể phàm tục, dưỡng sức và nuôi chí bước lên võ đạo.', 'Rèn đạo tâm, làm quen hành trình.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#94A3B8'),
+(2, 'Luyện Thể', 'vo-dao', 'Võ Đạo', 300, 'Rèn gân cốt, tôi luyện khí huyết, xây nền tảng thể phách vững chắc.', 'Khí huyết dồi dào, gân cốt bền bỉ.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#CBD5E1'),
+(3, 'Hậu Thiên', 'vo-dao', 'Võ Đạo', 1200, 'Khai thông kinh mạch, tích lũy nội lực qua từng bước khổ luyện.', 'Nội lực lưu chuyển trong kinh mạch.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#A3E635'),
+(4, 'Tiên Thiên', 'vo-dao', 'Võ Đạo', 3000, 'Nội lực chuyển thành chân khí, hơi thở hòa cùng khí vận thiên địa.', 'Chân khí hộ thể, cảm ứng ngoại giới.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#38BDF8'),
+(5, 'Tông Sư', 'vo-dao', 'Võ Đạo', 7000, 'Lĩnh ngộ võ ý, dung hội sở học và khai mở con đường võ học riêng.', 'Võ ý thành hình, chiêu thức tùy tâm.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#60A5FA'),
+(6, 'Đại Tông Sư', 'vo-dao', 'Võ Đạo', 15000, 'Võ ý viên mãn, khí thế trấn áp một phương và truyền đạo hậu thế.', 'Cương khí ngưng thực, võ học quy nhất.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#818CF8'),
+(7, 'Thiên Nhân', 'vo-dao', 'Võ Đạo', 30000, 'Thiên nhân giao cảm, mượn thế trời đất để nâng võ đạo vượt phàm.', 'Câu thông thiên địa, lấy ý ngự khí.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#A78BFA'),
+(8, 'Lục Địa Thần Tiên', 'vo-dao', 'Võ Đạo', 55000, 'Đứng trên đỉnh võ đạo nhân gian, một bước ngàn trượng, tiêu dao khắp đất trời.', 'Khí cơ thông thiên, thân pháp xuất trần.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#C084FC'),
+(9, 'Võ Thần', 'vo-dao', 'Võ Đạo', 90000, 'Thể phách và võ ý hợp nhất, chạm đến cánh cửa từ võ đạo bước vào tiên đạo.', 'Võ đạo thông thần, chuẩn bị khai mở linh căn.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#E879F9'),
+(10, 'Luyện Khí', 'tu-tien', 'Tu Tiên', 140000, 'Khai mở linh căn, dẫn linh khí nhập thể, bắt đầu hành trình tu chân.', 'Dẫn khí nhập thể, luyện hóa linh lực.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#2DD4BF'),
+(11, 'Trúc Cơ', 'tu-tien', 'Tu Tiên', 210000, 'Đúc thành tiên cơ, linh lực ngưng tụ hóa dịch, vững bước trên tiên lộ.', 'Đan điền ổn định, ngự khí thành pháp.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#34D399'),
+(12, 'Kết Đan', 'tu-tien', 'Tu Tiên', 300000, 'Ngưng tụ linh lực thành kim đan, đạo cơ kết quả và pháp lực chuyển hóa.', 'Kim đan thành hình, linh lực cô đọng.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#FBBF24'),
+(13, 'Nguyên Anh', 'tu-tien', 'Tu Tiên', 420000, 'Kim đan hóa anh, thần hồn ngưng kết thành nguyên anh trong đan điền.', 'Nguyên anh xuất thế, thần thức mở rộng.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#4ADE80'),
+(14, 'Xuất Khiếu', 'tu-tien', 'Tu Tiên', 560000, 'Thần hồn thoát khỏi giới hạn thân thể, sơ bộ du hành và cảm nhận ngoại giới.', 'Thần hồn xuất khiếu, linh giác tinh tường.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#22D3EE'),
+(15, 'Hóa Thần', 'tu-tien', 'Tu Tiên', 720000, 'Thần niệm hợp với linh lực, lĩnh ngộ quy tắc và điều khiển khí cơ thiên địa.', 'Thần niệm hóa vực, câu thông quy tắc.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#A78BFA'),
+(16, 'Luyện Hư', 'tu-tien', 'Tu Tiên', 900000, 'Lĩnh ngộ hư thực, tôi luyện thần hồn giữa biến hóa của không gian.', 'Hóa hư vi thực, cảm ngộ không gian.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#F472B6'),
+(17, 'Hợp Thể', 'tu-tien', 'Tu Tiên', 1100000, 'Nguyên anh, thần hồn và nhục thân dung hợp, đạo lực thống nhất trong một thể.', 'Thân hồn hợp nhất, pháp lực quy nguyên.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#FB923C'),
+(18, 'Hợp Đạo', 'tu-tien', 'Tu Tiên', 1350000, 'Dung hợp con đường của bản thân với quy luật thiên địa, xác lập đạo tâm.', 'Thiên nhân hợp đạo, vạn pháp đồng nguyên.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#F59E0B'),
+(19, 'Đại Thừa', 'tu-tien', 'Tu Tiên', 1650000, 'Đạo tâm viên mãn, pháp lực đạt đỉnh phàm giới, chuẩn bị nghênh đón thiên kiếp.', 'Tiên cơ viên mãn, đạo lực đại thành.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#FBBF24'),
+(20, 'Độ Kiếp', 'tu-tien', 'Tu Tiên', 2000000, 'Đón nhận thiên kiếp, tẩy luyện thân hồn và chuyển hóa căn cơ thành tiên.', 'Lôi kiếp luyện thân, tiên khí sơ sinh.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#FDE68A'),
+(21, 'Bán Tiên', 'tu-tien', 'Tu Tiên', 2400000, 'Đã vượt giới hạn phàm tục, tiên thể đang thành hình trước khi phi thăng.', 'Nửa bước tiên cảnh, chuyển hóa tiên nguyên.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#67E8F9'),
+(22, 'Nhân Tiên', 'tien-gioi', 'Tiên Giới', 2850000, 'Phi thăng Tiên Giới, thoát thai hoán cốt và bắt đầu tích lũy tiên nguyên.', 'Tiên thể sơ thành, hấp thu tiên khí.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#2DD4BF'),
+(23, 'Địa Tiên', 'tien-gioi', 'Tiên Giới', 3350000, 'Lĩnh ngộ tiên tắc đại địa, tạo nền móng cho một phương động thiên.', 'Địa mạch cộng hưởng, động thiên sơ khai.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#34D399'),
+(24, 'Thiên Tiên', 'tien-gioi', 'Tiên Giới', 3900000, 'Tiên lực hòa cùng cửu thiên, mở rộng thần thức và lĩnh ngộ thiên tượng.', 'Ngự khí cửu thiên, cảm ứng tinh hà.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#60A5FA'),
+(25, 'Chân Tiên', 'tien-gioi', 'Tiên Giới', 4500000, 'Tiên đạo bền vững, chân linh thuần nhất, định hình căn bản đại đạo.', 'Chân linh viên mãn, tiên lực thuần khiết.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#38BDF8'),
+(26, 'Huyền Tiên', 'tien-gioi', 'Tiên Giới', 5150000, 'Thấu hiểu huyền cơ của tiên đạo, vận dụng tiên tắc trong những biến hóa tinh vi.', 'Tiên tắc huyền diệu, đạo thuật sâu xa.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#A78BFA'),
+(27, 'Kim Tiên', 'tien-gioi', 'Tiên Giới', 5850000, 'Tôi luyện bất hủ kim thân, lĩnh ngộ ngũ hành và củng cố tiên đạo.', 'Kim thân bất hủ, ngũ hành tương sinh.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#F59E0B'),
+(28, 'Thái Ất Kim Tiên', 'tien-gioi', 'Tiên Giới', 6600000, 'Tam hoa tụ đỉnh, ngũ khí triều nguyên, tiếp cận bản nguyên tiên đạo.', 'Tam hoa ngũ khí, pháp tắc quy nguyên.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#EC4899'),
+(29, 'Đại La Kim Tiên', 'tien-gioi', 'Tiên Giới', 7400000, 'Đạo quả đại la thành tựu, thần thức bao quát rộng lớn và tiên tắc viên dung.', 'Đại la đạo quả, vạn pháp viên dung.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#8B5CF6'),
+(30, 'Tiên Quân', 'tien-gioi', 'Tiên Giới', 8500000, 'Trấn giữ một phương tiên vực, tập hợp tiên lực và khai mở truyền thừa.', 'Tiên vực thành hình, hiệu lệnh tiên chúng.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#F87171'),
+(31, 'Tiên Vương', 'tien-gioi', 'Tiên Giới', 11000000, 'Xưng vương trong Tiên Giới, đạo lực hùng hậu, trấn thủ càn khôn một cõi.', 'Vương đạo tiên tắc, uy thế một phương.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#FB923C'),
+(32, 'Tiên Tôn', 'tien-gioi', 'Tiên Giới', 14000000, 'Đạo pháp đạt tầng sâu của Tiên Giới, được vạn tiên tôn kính.', 'Đạo pháp tôn nghiêm, tiên lực viên mãn.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#FFD166'),
+(33, 'Chuẩn Tiên Đế', 'tien-gioi', 'Tiên Giới', 17000000, 'Nửa bước đế cảnh, hoàn thiện đế đạo và tích lũy căn cơ cho đột phá cuối cùng.', 'Đế đạo sơ thành, chuẩn bị ngưng tụ đế quả.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#FFC43D'),
+(34, 'Tiên Đế', 'tien-gioi', 'Tiên Giới', 20000000, 'Thành tựu đế đạo tại Tiên Giới, đứng trên đỉnh tiên lộ của hệ thống cảnh giới.', 'Tiên đế đạo quả, tiên tắc đại thành.', 'Hiển thị cảnh giới và màu huy hiệu theo tu vi; quyền VIP theo gói hội viên.', '#FFB703')
+ON CONFLICT DO NOTHING;
+COMMIT;

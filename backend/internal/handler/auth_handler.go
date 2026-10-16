@@ -3,6 +3,8 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/IREAKING/tientonaudio/backend/internal/domain"
 	"github.com/IREAKING/tientonaudio/backend/internal/service"
@@ -12,10 +14,15 @@ import (
 
 type AuthHandler struct {
 	authService service.AuthService
+	webURL      string
 }
 
-func NewAuthHandler(authService service.AuthService) *AuthHandler {
-	return &AuthHandler{authService: authService}
+func NewAuthHandler(authService service.AuthService, webURL ...string) *AuthHandler {
+	base := "http://localhost:3000"
+	if len(webURL) > 0 {
+		base = strings.TrimRight(webURL[0], "/")
+	}
+	return &AuthHandler{authService: authService, webURL: base}
 }
 
 // Register xử lý đăng ký tài khoản và gửi email xác thực
@@ -39,7 +46,13 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 // VerifyEmail kích hoạt tài khoản qua token xác thực (hỗ trợ cả JSON body lẫn Query param)
 func (h *AuthHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Referrer-Policy", "no-referrer")
 	token := r.URL.Query().Get("token")
+	if r.Method == http.MethodGet {
+		http.Redirect(w, r, h.webURL+"/verify-email?token="+url.QueryEscape(token), http.StatusSeeOther)
+		return
+	}
 	if token == "" && r.Body != nil {
 		var req domain.VerifyEmailReq
 		if err := json.NewDecoder(r.Body).Decode(&req); err == nil {
@@ -73,7 +86,7 @@ func (h *AuthHandler) ResendVerification(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	utils.JSONWithMessage(w, http.StatusOK, "Email xác thực đã được gửi lại. Vui lòng kiểm tra hộp thư.", nil)
+	utils.JSONWithMessage(w, http.StatusOK, "Nếu tài khoản cần xác thực, email đã được gửi. Vui lòng kiểm tra hộp thư.", nil)
 }
 
 // Login đăng nhập với email và mật khẩu (hỗ trợ phát hiện 2FA)

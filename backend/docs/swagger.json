@@ -327,9 +327,9 @@
     "/cultivation/realms": {
       "get": {
         "tags": ["Cultivation"],
-        "summary": "Lấy danh sách 17 Cảnh Giới Tu Tiên chính thống (Luyện Khí -> Tiên Đế)",
+        "summary": "Lấy danh sách 34 cảnh giới (Võ Đạo -> Tu Tiên -> Tiên Giới)",
         "responses": {
-          "200": { "description": "Danh sách 17 cảnh giới, mức exp tối thiểu/tối đa, mô tả và màu sắc" }
+          "200": { "description": "Danh sách 34 cảnh giới, mức exp tối thiểu/tối đa, mô tả và màu sắc" }
         }
       }
     },

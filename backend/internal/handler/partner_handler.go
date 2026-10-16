@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,9 +14,10 @@ import (
 	"strings"
 	"time"
 
+	db "github.com/IREAKING/tientonaudio/backend/db/sqlc"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/IREAKING/tientonaudio/backend/internal/domain"
 	"github.com/IREAKING/tientonaudio/backend/internal/service"
@@ -25,14 +27,14 @@ import (
 )
 
 type PartnerHandler struct {
-	pool           *pgxpool.Pool
+	pool           db.DBTX
 	storageService storage.StorageService
 	storyService   service.StoryService
 	chapterService service.ChapterService
 }
 
 func NewPartnerHandler(
-	pool *pgxpool.Pool,
+	pool db.DBTX,
 	storageService storage.StorageService,
 	storyService service.StoryService,
 	chapterService service.ChapterService,
@@ -53,10 +55,19 @@ func (h *PartnerHandler) BecomePartner(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	role := "partner"
-	_, err := h.pool.Exec(r.Context(), "UPDATE users SET role = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2", role, claims.UserID)
+	var role string
+	err := h.pool.QueryRow(r.Context(), `
+        UPDATE users SET role = CASE WHEN COALESCE(role, 'user') = 'user' THEN 'partner' ELSE role END,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1 AND deleted_at IS NULL RETURNING role
+    `, claims.UserID).Scan(&role)
 	if err != nil {
-		utils.ErrorResponse(w, http.StatusInternalServerError, fmt.Sprintf("Không thể cập nhật quyền đối tác: %v", err))
+		if err == pgx.ErrNoRows {
+			utils.ErrorResponse(w, http.StatusNotFound, "Không tìm thấy tài khoản")
+		} else {
+			slog.Error("become partner failed", "error", err)
+			utils.ErrorResponse(w, http.StatusInternalServerError, "Không thể kích hoạt quyền đối tác. Vui lòng thử lại.")
+		}
 		return
 	}
 
@@ -74,28 +85,18 @@ func (h *PartnerHandler) GetPartnerStats(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var totalStories int64
-	var totalChapters int64
-	var totalViews int64
-	var totalListens int64
-
+	var totalStories, totalChapters, totalViews, totalListens int64
 	isAdmin := claims.HasRole("admin")
-
-	var err error
-	if isAdmin {
-		_ = h.pool.QueryRow(r.Context(), "SELECT COUNT(*) FROM stories").Scan(&totalStories)
-		_ = h.pool.QueryRow(r.Context(), "SELECT COUNT(*) FROM chapters").Scan(&totalChapters)
-		_ = h.pool.QueryRow(r.Context(), "SELECT COALESCE(SUM(view_count), 0) FROM stories").Scan(&totalViews)
-		_ = h.pool.QueryRow(r.Context(), "SELECT COALESCE(SUM(listen_count), 0) FROM chapters").Scan(&totalListens)
-	} else {
-		_ = h.pool.QueryRow(r.Context(), "SELECT COUNT(*) FROM stories WHERE created_by = $1", claims.UserID).Scan(&totalStories)
-		_ = h.pool.QueryRow(r.Context(), "SELECT COUNT(c.id) FROM chapters c JOIN stories s ON c.story_id = s.id WHERE s.created_by = $1", claims.UserID).Scan(&totalChapters)
-		_ = h.pool.QueryRow(r.Context(), "SELECT COALESCE(SUM(view_count), 0) FROM stories WHERE created_by = $1", claims.UserID).Scan(&totalViews)
-		_ = h.pool.QueryRow(r.Context(), "SELECT COALESCE(SUM(c.listen_count), 0) FROM chapters c JOIN stories s ON c.story_id = s.id WHERE s.created_by = $1", claims.UserID).Scan(&totalListens)
-	}
-
+	err := h.pool.QueryRow(r.Context(), `
+        SELECT
+          (SELECT COUNT(*) FROM stories WHERE $1 OR created_by = $2),
+          (SELECT COUNT(*) FROM chapters c JOIN stories s ON c.story_id = s.id WHERE $1 OR s.created_by = $2),
+          (SELECT COALESCE(SUM(view_count), 0) FROM stories WHERE $1 OR created_by = $2),
+          (SELECT COALESCE(SUM(c.listen_count), 0) FROM chapters c JOIN stories s ON c.story_id = s.id WHERE $1 OR s.created_by = $2)
+    `, isAdmin, claims.UserID).Scan(&totalStories, &totalChapters, &totalViews, &totalListens)
 	if err != nil {
-		utils.ErrorResponse(w, http.StatusInternalServerError, err.Error())
+		slog.Error("partner stats failed", "error", err)
+		utils.ErrorResponse(w, http.StatusInternalServerError, "Không thể tải thống kê. Vui lòng thử lại.")
 		return
 	}
 
@@ -226,8 +227,8 @@ func (h *PartnerHandler) CreatePartnerStory(w http.ResponseWriter, r *http.Reque
 
 	var createdID uuid.UUID
 	insertQuery := `
-		INSERT INTO stories (title, slug, description, cover_image_url, status, created_by, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		INSERT INTO stories (title, slug, description, cover_image_url, status, created_by, created_at, updated_at,publication_status)
+		VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,'draft')
 		RETURNING id`
 	err := h.pool.QueryRow(r.Context(), insertQuery, req.Title, slug, req.Description, req.CoverImageURL, status, claims.UserID).Scan(&createdID)
 	if err != nil {
@@ -288,9 +289,10 @@ func (h *PartnerHandler) UpdatePartnerStory(w http.ResponseWriter, r *http.Reque
 		    description = COALESCE($2, description),
 		    cover_image_url = COALESCE($3, cover_image_url),
 		    status = COALESCE(NULLIF($4, ''), status),
+ publication_status=CASE WHEN $6::boolean THEN publication_status ELSE 'draft' END,
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE id = $5`
-	_, err = h.pool.Exec(r.Context(), updateQuery, req.Title, req.Description, req.CoverImageURL, req.Status, storyID)
+	_, err = h.pool.Exec(r.Context(), updateQuery, req.Title, req.Description, req.CoverImageURL, req.Status, storyID, claims.HasRole("admin"))
 	if err != nil {
 		utils.ErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
@@ -341,13 +343,12 @@ func (h *PartnerHandler) ListStoryChapters(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	chapters, err := h.chapterService.ListChaptersByStory(r.Context(), storyID)
-	if err != nil {
-		utils.ErrorResponse(w, http.StatusInternalServerError, err.Error())
+	user, admin := platformUser(r)
+	if !NewPlatformHandler(h.pool).owner(r.Context(), storyID, user, admin) {
+		utils.ErrorResponse(w, 403, "Bạn không có quyền xem chương của tác phẩm này")
 		return
 	}
-
-	utils.JSON(w, http.StatusOK, chapters)
+	NewPlatformHandler(h.pool).rows(w, r, `SELECT c.id,c.story_id,c.chapter_number,c.title,c.is_premium,c.duration_seconds,c.publication_status,c.created_at,c.updated_at,c.listen_count FROM chapters c WHERE c.story_id=$1 ORDER BY c.chapter_number`, storyID)
 }
 
 type CreatePartnerChapterReq struct {
@@ -424,7 +425,7 @@ func (h *PartnerHandler) CreateStoryChapter(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Cập nhật lại tổng số tập trong bảng stories
-	_, _ = h.pool.Exec(r.Context(), "UPDATE stories SET total_chapters = (SELECT COUNT(*) FROM chapters WHERE story_id = $1), updated_at = CURRENT_TIMESTAMP WHERE id = $1", storyID)
+	_, _ = h.pool.Exec(r.Context(), "UPDATE stories SET total_chapters = (SELECT COUNT(*) FROM chapters WHERE story_id = $1 AND publication_status='published'), updated_at = CURRENT_TIMESTAMP WHERE id = $1", storyID)
 
 	utils.JSONWithMessage(w, http.StatusCreated, "Thêm tập mới thành công!", createdCh)
 }
@@ -461,30 +462,40 @@ func (h *PartnerHandler) AttachChapterAudio(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Kiểm tra quyền sở hữu chapter
-	if !claims.HasRole("admin") {
-		var ownerID *uuid.UUID
-		err := h.pool.QueryRow(r.Context(), "SELECT s.created_by FROM chapters c JOIN stories s ON c.story_id = s.id WHERE c.id = $1", chapterID).Scan(&ownerID)
-		if err != nil || ownerID == nil || *ownerID != claims.UserID {
-			utils.ErrorResponse(w, http.StatusForbidden, "Bạn không có quyền cập nhật chương này")
-			return
-		}
-	}
-
-	quality := req.Quality
-	if quality == "" {
-		quality = "320k"
-	}
-
-	af, err := h.chapterService.AddChapterAudioFile(r.Context(), chapterID, quality, req.AudioURL, nil, true)
+	tx, err := NewPlatformHandler(h.pool).begin(r.Context())
 	if err != nil {
-		slog.Error("failed to attach audio file to chapter", "error", err, "chapter_id", chapterID)
-		utils.ErrorResponse(w, http.StatusInternalServerError, "Không thể gắn file audio: "+err.Error())
+		platformError(w)
 		return
 	}
-
-	if req.DurationSeconds > 0 {
-		_, _ = h.pool.Exec(r.Context(), "UPDATE chapters SET duration_seconds = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2", req.DurationSeconds, chapterID)
+	defer tx.Rollback(context.Background())
+	var old string
+	if err = tx.QueryRow(r.Context(), `SELECT c.publication_status FROM chapters c JOIN stories s ON s.id=c.story_id WHERE c.id=$1 AND ($3 OR s.created_by=$2) FOR UPDATE OF c,s`, chapterID, claims.UserID, claims.HasRole("admin")).Scan(&old); err != nil {
+		utils.ErrorResponse(w, 403, "Bạn không có quyền cập nhật chương này")
+		return
+	}
+	quality := strings.ToLower(strings.TrimSpace(req.Quality))
+	if strings.Contains(quality, "320") {
+		quality = "320k"
+	} else if strings.Contains(quality, "64") {
+		quality = "64k"
+	} else if strings.Contains(quality, "hls") || strings.Contains(quality, "m3u8") {
+		quality = "hls"
+	} else {
+		quality = "128k"
+	}
+	primary := true
+	af, err := db.New(tx).AddChapterAudioFile(r.Context(), db.AddChapterAudioFileParams{ChapterID: chapterID, Quality: quality, AudioUrl: req.AudioURL, IsPrimary: &primary})
+	if err != nil {
+		platformError(w)
+		return
+	}
+	if _, err = tx.Exec(r.Context(), `UPDATE chapters SET publication_status=CASE WHEN $3::boolean THEN publication_status ELSE 'draft' END,scheduled_at=CASE WHEN $3::boolean THEN scheduled_at ELSE NULL END,duration_seconds=CASE WHEN $2::int>0 THEN $2 ELSE duration_seconds END,updated_at=CURRENT_TIMESTAMP WHERE id=$1`, chapterID, req.DurationSeconds, claims.HasRole("admin")); err != nil {
+		platformError(w)
+		return
+	}
+	if tx.Commit(r.Context()) != nil {
+		platformError(w)
+		return
 	}
 
 	slog.Info("successfully attached audio to chapter", "chapter_id", chapterID, "audio_url", req.AudioURL)
@@ -526,7 +537,7 @@ func (h *PartnerHandler) DeleteStoryChapter(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Cập nhật lại total_chapters
-	_, _ = h.pool.Exec(r.Context(), "UPDATE stories SET total_chapters = (SELECT COUNT(*) FROM chapters WHERE story_id = $1), updated_at = CURRENT_TIMESTAMP WHERE id = $1", storyID)
+	_, _ = h.pool.Exec(r.Context(), "UPDATE stories SET total_chapters = (SELECT COUNT(*) FROM chapters WHERE story_id = $1 AND publication_status='published'), updated_at = CURRENT_TIMESTAMP WHERE id = $1", storyID)
 
 	utils.JSONWithMessage(w, http.StatusOK, "Đã xóa chương thành công", nil)
 }

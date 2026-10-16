@@ -1,4 +1,5 @@
 
+import { CatalogueState } from '@/components/catalogue-state';
 import { FavoriteButton } from '@/components/favorite-button';
 import { MediaImage } from '@/components/media-image';
 import { StoryStatusBadge } from '@/components/story-status-badge';
@@ -13,68 +14,12 @@ export const metadata: Metadata = {
   description: 'Bảng xếp hạng những bộ truyện audio tiên hiệp, huyền huyễn có lượt nghe và đánh giá cao nhất trên Tiên Tôn Audio.',
 };
 
-export default async function RankingsPage() {
-  const topStories = await api.getTopViewStories(20);
+export const revalidate = 30;
 
-  // Dữ liệu mẫu dự phòng nếu backend chưa có dữ liệu
-  const stories: Story[] = topStories.length > 0 ? topStories : [
-    {
-      id: 'story-1',
-      title: 'Phàm Nhân Tu Tiên Chi Tiên Giới Thiên',
-      slug: 'pham-nhan-tu-tien',
-      author_name: 'Vong Ngữ',
-      cover_image_url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600&auto=format&fit=crop&q=80',
-      status: 'completed',
-      view_count: 125400,
-      total_chapters: 1395,
-      rating_avg: 4.9,
-      rating_count: 1420,
-      favorite_count: 980,
-      categories: ['Tiên Hiệp', 'Tu Chân'],
-    },
-    {
-      id: 'story-2',
-      title: 'Võ Luyện Đỉnh Phong',
-      slug: 'vo-luyen-dinh-phong',
-      author_name: 'Mạc Mặc',
-      cover_image_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80',
-      status: 'ongoing',
-      view_count: 98700,
-      total_chapters: 6009,
-      rating_avg: 4.8,
-      rating_count: 930,
-      favorite_count: 750,
-      categories: ['Huyền Huyễn'],
-    },
-    {
-      id: 'story-3',
-      title: 'Tiên Nghịch (Audio Bản Chuẩn)',
-      slug: 'tien-nghich',
-      author_name: 'Nhĩ Căn',
-      cover_image_url: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&auto=format&fit=crop&q=80',
-      status: 'completed',
-      view_count: 85200,
-      total_chapters: 2088,
-      rating_avg: 4.9,
-      rating_count: 1100,
-      favorite_count: 640,
-      categories: ['Tiên Hiệp'],
-    },
-    {
-      id: 'story-4',
-      title: 'Đấu Phá Thương Khung',
-      slug: 'dau-pha-thuong-khung',
-      author_name: 'Thiên Tằm Thổ Đậu',
-      cover_image_url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&auto=format&fit=crop&q=80',
-      status: 'paused',
-      view_count: 74100,
-      total_chapters: 1641,
-      rating_avg: 4.7,
-      rating_count: 820,
-      favorite_count: 530,
-      categories: ['Huyền Huyễn'],
-    },
-  ];
+export default async function RankingsPage() {
+  let stories: Story[] = [];
+  let unavailable = false;
+  try { stories = await api.getTopViewStories(20); } catch { unavailable = true; }
 
   const rankBadges = [
     'bg-gradient-to-r from-[#ffd166] to-[#ffb703] text-black font-black',
@@ -96,6 +41,7 @@ export default async function RankingsPage() {
         </p>
       </div>
 
+      {stories.length === 0 && <CatalogueState unavailable={unavailable} />}
       {/* Danh sách bảng vàng */}
       <div className="space-y-3">
         {stories.map((story, index) => (

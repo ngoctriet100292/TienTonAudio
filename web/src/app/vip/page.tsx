@@ -32,6 +32,8 @@ export default function VipPage() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [activeSub, setActiveSub] = useState<UserSubscription | null>(null);
   const [loading, setLoading] = useState(true);
+  const [plansError, setPlansError] = useState<string | null>(null);
+  const [plansRevision, setPlansRevision] = useState(0);
 
   // Modal Thanh Toán
   const [, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
@@ -61,6 +63,7 @@ export default function VipPage() {
 
   // Khởi tạo thanh toán VietQR
   const handleSelectPlan = async (plan: SubscriptionPlan) => {
+    if (!plan.checkout_available) return;
     if (!isAuthenticated) {
       router.push('/login?redirect=/vip');
       return;
@@ -123,51 +126,30 @@ export default function VipPage() {
 
   // Load plans & active subscription
   useEffect(() => {
+    let cancelled = false;
     const initData = async () => {
       setLoading(true);
+      setPlansError(null);
       try {
         const [plansData, subData] = await Promise.all([
           api.getSubscriptionPlans(),
           isAuthenticated ? api.getActiveSubscription() : Promise.resolve(null),
         ]);
-
-        if (plansData && plansData.length > 0) {
-          setPlans(plansData);
-        } else {
-          // Fallback mặc định nếu chưa kịp tải
-          setPlans([
-            {
-              id: 1,
-              name: 'Đồng Đan Cảnh (1 Tháng)',
-              price: 49000,
-              duration_days: 30,
-              description: 'Mở khóa toàn bộ chương VIP, Âm thanh chuẩn Studio 320kbps, Tải về ngoại tuyến, Không quảng cáo',
-            },
-            {
-              id: 2,
-              name: 'Kim Đan Cảnh (3 Tháng)',
-              price: 129000,
-              duration_days: 90,
-              description: 'Tất cả đặc quyền Đồng Đan Cảnh, Tiết kiệm 15%, Huy hiệu VIP Kim Đan phát sáng, Tặng +4.500 Tu Vi Đột Phá',
-            },
-            {
-              id: 3,
-              name: 'Tiên Vương Cảnh (1 Năm)',
-              price: 449000,
-              duration_days: 365,
-              description: 'Tất cả đặc quyền Kim Đan, Tiết kiệm 25%, Huy hiệu Tiên Vương mạ vàng độc quyền, Nghe trước các tập audio mới nhất, Tặng +18.250 Tu Vi Đột Phá',
-            },
-          ]);
-        }
+        if (cancelled) return;
+        setPlans(plansData);
         setActiveSub(subData);
-      } catch {
-        // Fallback
+      } catch (error) {
+        if (!cancelled) {
+          setPlans([]);
+          setPlansError(getErrorMessage(error) || 'Không tải được các gói hội viên.');
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
-    initData();
-  }, [isAuthenticated]);
+    void initData();
+    return () => { cancelled = true; };
+  }, [isAuthenticated, plansRevision]);
 
   // Đếm ngược thời gian thanh toán 15 phút
   useEffect(() => {
@@ -213,10 +195,10 @@ export default function VipPage() {
           HỘI VIÊN TIÊN TÔN CÁC
         </div>
         <h1 className="text-3xl sm:text-5xl font-black text-white">
-          Nâng Cấp Cảnh Giới <span className="gold-text">Hội Viên VIP</span>
+          Khám Phá Các Gói <span className="gold-text">Hội Viên VIP</span>
         </h1>
         <p className="text-sm sm:text-base text-slate-300">
-          Trải nghiệm âm thanh thượng đỉnh 320kbps, đắm chìm trong thế giới tu chân huyền ảo không quảng cáo và tự động tăng điểm Tu Vi.
+          Mở khóa chương VIP và nhận tu vi nghe x2 khi gói còn hiệu lực. Tên gói lấy cảm hứng từ tiên lộ; cảnh giới của bạn được tính theo EXP tích lũy.
         </p>
 
         {/* Trạng thái VIP hiện tại nếu có */}
@@ -243,15 +225,23 @@ export default function VipPage() {
         )}
       </div>
 
+      {!loading && plans.length > 0 && !plans.some(plan => plan.checkout_available) && <p role="status" className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-center text-sm text-amber-200">Thanh toán đang được thiết lập. Bạn có thể xem các gói hội viên và quay lại sau để đăng ký.</p>}
       {/* Bảng giá các gói VIP */}
       {loading ? (
         <div className="py-16">
           <CultivationSpinner size="lg" text="Đang nạp các tiên trận gói VIP..." />
         </div>
+      ) : plansError ? (
+        <div role="alert" className="rounded-3xl border border-white/10 bg-slate-900/80 p-8 text-center text-slate-300">
+          <p>Không tải được các gói hội viên.</p>
+          <button type="button" onClick={() => setPlansRevision(value => value + 1)} className="mt-4 rounded-xl bg-[#ffb703] px-5 py-3 font-semibold text-black">Thử lại</button>
+        </div>
+      ) : plans.length === 0 ? (
+        <p className="py-12 text-center text-slate-400">Hiện chưa có gói hội viên được mở bán.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
-          {plans.map((plan, idx) => {
-            const isPopular = plan.duration_days === 90 || idx === 1;
+          {plans.map((plan) => {
+            const isPopular = plan.duration_days === 90;
             const bonusExp = getPlanBonusExp(plan.duration_days);
 
             return (
@@ -264,7 +254,7 @@ export default function VipPage() {
               >
                 {isPopular && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-[#ffd166] to-[#ffb703] px-3.5 py-0.5 text-[11px] font-black text-black shadow-md flex items-center gap-1">
-                    <Sparkles className="w-3 h-3" /> KHUYÊN DÙNG • TIẾT KIỆM 15%
+                    <Sparkles className="w-3 h-3" /> KHUYÊN DÙNG
                   </div>
                 )}
 
@@ -286,52 +276,29 @@ export default function VipPage() {
                   {/* Quà Đột Phá Tu Vi */}
                   <div className="mb-6 inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-bold">
                     <Flame className="w-3.5 h-3.5" />
-                    <span>Tặng +{bonusExp.toLocaleString()} Tu Vi Đột Phá</span>
+                    <span>Tặng +{bonusExp.toLocaleString('vi-VN')} EXP</span>
                   </div>
 
-                  {/* Tính năng */}
                   <ul className="space-y-3 text-xs text-slate-300 border-t border-white/10 pt-5">
-                    <li className="flex items-center gap-2.5">
-                      <CheckCircle2 className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                      <span>Mở khóa 100% chương VIP độc quyền</span>
-                    </li>
-                    <li className="flex items-center gap-2.5">
-                      <CheckCircle2 className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                      <span>Âm thanh chuẩn Studio 320kbps tốc độ cao</span>
-                    </li>
-                    <li className="flex items-center gap-2.5">
-                      <CheckCircle2 className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                      <span>Không quảng cáo làm phiền khi tu luyện</span>
-                    </li>
-                    {plan.duration_days >= 90 && (
-                      <li className="flex items-center gap-2.5">
-                        <CheckCircle2 className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                        <span className="text-amber-300 font-semibold">
-                          Huy hiệu VIP Kim Đan phát sáng rực rỡ
-                        </span>
+                    {(plan.description?.split(';').map(benefit => benefit.trim()).filter(Boolean) ?? []).map(benefit => (
+                      <li key={benefit} className="flex items-start gap-2.5">
+                        <CheckCircle2 className="mt-0.5 w-4 h-4 text-amber-400 flex-shrink-0" />
+                        <span className="leading-relaxed">{benefit}</span>
                       </li>
-                    )}
-                    {plan.duration_days >= 365 && (
-                      <li className="flex items-center gap-2.5">
-                        <CheckCircle2 className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                        <span className="text-amber-300 font-bold">
-                          Nghe trước tập mới + Hỗ trợ tông chủ 24/7
-                        </span>
-                      </li>
-                    )}
+                    ))}
                   </ul>
                 </div>
 
                 <button
                   onClick={() => handleSelectPlan(plan)}
-                  disabled={creatingPayment}
+                  disabled={creatingPayment || !plan.checkout_available}
                   className={`mt-8 w-full py-3.5 rounded-xl font-black text-xs sm:text-sm transition-all shadow-lg flex items-center justify-center gap-2 ${isPopular
                       ? 'bg-gradient-to-r from-[#ffd166] to-[#ffb703] text-black shadow-amber-500/30 hover:scale-102 active:scale-98'
                       : 'bg-slate-800 hover:bg-slate-700 text-white border border-white/10'
                     }`}
                 >
                   <Zap className="w-4 h-4" />
-                  {activeSub ? 'GIA HẠN GÓI NÀY' : 'NÂNG CẤP NGAY'}
+                  {!plan.checkout_available ? 'CHƯA MỞ THANH TOÁN' : activeSub ? 'GIA HẠN GÓI NÀY' : 'NÂNG CẤP NGAY'}
                 </button>
               </div>
             );

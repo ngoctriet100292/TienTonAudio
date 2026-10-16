@@ -1,5 +1,7 @@
 'use client';
 
+import { REALM_COUNT } from '@/lib/cultivation';
+
 import { MediaImage } from '@/components/media-image';
 
 import { useAsyncResource } from '@/lib/use-async-resource';
@@ -634,7 +636,7 @@ export default function CommunityPage() {
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
                 <Flame className="w-4 h-4 text-amber-400" />
-                17 Cảnh Giới Tu Tiên
+                {REALM_COUNT} cảnh giới
               </h3>
               <Link href="/cultivation" className="text-[11px] text-amber-400 hover:underline font-bold">
                 Khám Phá

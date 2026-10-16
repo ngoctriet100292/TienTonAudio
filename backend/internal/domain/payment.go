@@ -7,11 +7,12 @@ import (
 )
 
 type SubscriptionPlanResp struct {
-	ID           int32   `json:"id"`
-	Name         string  `json:"name"`
-	Price        float64 `json:"price"`
-	DurationDays int32   `json:"duration_days"`
-	Description  *string `json:"description,omitempty"`
+	CheckoutAvailable bool    `json:"checkout_available"`
+	ID                int32   `json:"id"`
+	Name              string  `json:"name"`
+	Price             float64 `json:"price"`
+	DurationDays      int32   `json:"duration_days"`
+	Description       *string `json:"description,omitempty"`
 }
 
 type CreatePaymentReq struct {

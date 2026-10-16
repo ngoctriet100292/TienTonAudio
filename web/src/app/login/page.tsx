@@ -87,7 +87,7 @@ export default function LoginPage() {
 
         {error && (
           <div className="mb-6 rounded-xl bg-rose-500/10 border border-rose-500/30 p-3 text-xs text-rose-400">
-            {error}
+            {error}<Link href={`/verify-email?email=${encodeURIComponent(email)}`} className="mt-2 block text-amber-300">Chưa xác thực email? Gửi lại thư</Link>
           </div>
         )}
 

@@ -21,6 +21,8 @@ import (
 )
 
 type RouterOptions struct {
+	PlatformHandler     *handler.PlatformHandler
+	OAuthHandler        *handler.OAuthHandler
 	Config              *config.Config
 	JWTService          *auth.JWTService
 	DBService           *db.Service
@@ -112,6 +114,12 @@ func (fs publicStorageFileSystem) Open(name string) (http.File, error) {
 
 func NewRouter(opts RouterOptions) http.Handler {
 	r := chi.NewRouter()
+	publicChapter := func(next http.Handler) http.Handler { return next }
+	publicStory := publicChapter
+	if opts.PlatformHandler != nil {
+		publicChapter = opts.PlatformHandler.PublicChapter
+		publicStory = opts.PlatformHandler.PublicStory
+	}
 
 	// 1. Phục hồi panic, lấy Real IP client và ghi log
 	r.Use(middleware.TrustedProxyMiddleware(opts.Config.TrustedProxyCIDRs))
@@ -236,11 +244,18 @@ func NewRouter(opts RouterOptions) http.Handler {
 		// Auth (Được áp dụng Auth Rate Limiter cho các endpoint nhạy cảm)
 		r.Route("/auth", func(r chi.Router) {
 			r.With(authLimiter.Middleware).Post("/register", opts.AuthHandler.Register)
-			r.Get("/verify-email", opts.AuthHandler.VerifyEmail)
-			r.Post("/verify-email", opts.AuthHandler.VerifyEmail)
+			r.With(authLimiter.Middleware).Get("/verify-email", opts.AuthHandler.VerifyEmail)
+			r.With(authLimiter.Middleware).Post("/verify-email", opts.AuthHandler.VerifyEmail)
 			r.With(authLimiter.Middleware).Post("/resend-verification", opts.AuthHandler.ResendVerification)
 			r.With(authLimiter.Middleware).Post("/login", opts.AuthHandler.Login)
 			r.With(authLimiter.Middleware).Post("/social", opts.AuthHandler.SocialLogin)
+			if opts.OAuthHandler != nil {
+				r.Get("/oauth/providers", opts.OAuthHandler.Providers)
+				r.With(authLimiter.Middleware).Get("/oauth/{provider}", opts.OAuthHandler.Begin)
+				r.With(authLimiter.Middleware).Get("/oauth/{provider}/callback", opts.OAuthHandler.Callback)
+				r.With(authLimiter.Middleware).Post("/oauth/{provider}/callback", opts.OAuthHandler.Callback)
+				r.With(authLimiter.Middleware).Post("/oauth/exchange", opts.OAuthHandler.Exchange)
+			}
 			r.With(authLimiter.Middleware).Post("/2fa/verify", opts.AuthHandler.VerifyTwoFactorLogin)
 			r.With(authLimiter.Middleware).Post("/forgot-password", opts.AuthHandler.ForgotPassword)
 			r.With(authLimiter.Middleware).Post("/reset-password", opts.AuthHandler.ResetPassword)
@@ -283,8 +298,8 @@ func NewRouter(opts RouterOptions) http.Handler {
 			r.Get("/filter", opts.StoryHandler.AdvancedSearch)
 			r.Get("/categories", opts.StoryHandler.ListCategories)
 			r.Get("/{id}/related", opts.StoryHandler.GetRelatedStories)
-			r.Get("/{slug}", opts.StoryHandler.GetStoryBySlug)
-			r.Get("/{storyId}/chapters", opts.ChapterHandler.ListChaptersByStory)
+			r.With(publicStory).Get("/{slug}", opts.StoryHandler.GetStoryBySlug)
+			r.With(publicStory).Get("/{storyId}/chapters", opts.ChapterHandler.ListChaptersByStory)
 
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.AuthMiddleware(opts.JWTService))
@@ -329,17 +344,17 @@ func NewRouter(opts RouterOptions) http.Handler {
 		// Chapters & Audio Streaming
 		r.Route("/chapters", func(r chi.Router) {
 			r.Get("/playback-speeds", opts.ChapterHandler.GetPlaybackSpeeds)
-			r.With(middleware.OptionalAuthMiddleware(opts.JWTService)).Get("/{id}", opts.ChapterHandler.GetChapterByID)
-			r.Get("/{id}/media", opts.ChapterHandler.ServeMedia)
-			r.With(middleware.OptionalAuthMiddleware(opts.JWTService)).Get("/{id}/stream", opts.ChapterHandler.GetSignedStreamURL)
-			r.With(middleware.OptionalAuthMiddleware(opts.JWTService)).Get("/{id}/comments", opts.CommentHandler.GetChapterComments)
+			r.With(publicChapter, middleware.OptionalAuthMiddleware(opts.JWTService)).Get("/{id}", opts.ChapterHandler.GetChapterByID)
+			r.With(publicChapter).Get("/{id}/media", opts.ChapterHandler.ServeMedia)
+			r.With(publicChapter, middleware.OptionalAuthMiddleware(opts.JWTService)).Get("/{id}/stream", opts.ChapterHandler.GetSignedStreamURL)
+			r.With(publicChapter, middleware.OptionalAuthMiddleware(opts.JWTService)).Get("/{id}/comments", opts.CommentHandler.GetChapterComments)
 
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.AuthMiddleware(opts.JWTService))
 				r.With(middleware.RequireAdmin).Post("/", opts.ChapterHandler.CreateChapter)
 				r.With(middleware.RequireAdmin).Post("/bulk", opts.ChapterHandler.BulkCreateChapters)
 				r.With(middleware.RequireAdmin).Post("/{id}/audio", opts.ChapterHandler.AddAudioFile)
-				r.Post("/{id}/comments", opts.CommentHandler.CreateComment)
+				r.With(publicChapter).Post("/{id}/comments", opts.CommentHandler.CreateComment)
 				r.Post("/progress", opts.StoryHandler.SaveListeningProgress)
 			})
 		})
@@ -458,6 +473,50 @@ func NewRouter(opts RouterOptions) http.Handler {
 			r.Put("/reports/{id}/status", opts.ReportHandler.UpdateReportStatus)
 		})
 
+		if p := opts.PlatformHandler; p != nil {
+			r.Get("/catalogue/search", p.Search)
+			r.Get("/chapters/{id}/location", p.ChapterLocation)
+			r.Get("/stories/{id}/reviews", p.Reviews)
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.AuthMiddleware(opts.JWTService))
+				r.Get("/users/continue-listening", p.ContinueListening)
+				r.Get("/users/chapters/{id}/progress", p.ChapterProgress)
+				r.Get("/users/followed-stories", p.FollowedStories)
+				r.Get("/stories/{id}/follow", p.FollowStory)
+				r.Put("/stories/{id}/follow", p.FollowStory)
+				r.Delete("/stories/{id}/follow", p.FollowStory)
+				r.Put("/stories/{id}/reviews", p.Reviews)
+				r.Delete("/stories/{id}/reviews", p.Reviews)
+				r.Get("/support/tickets", p.Tickets)
+				r.Post("/support/tickets", p.Tickets)
+				r.Get("/support/tickets/{id}/messages", p.TicketMessages)
+				r.Post("/support/tickets/{id}/messages", p.TicketMessages)
+				r.Get("/users/achievements", p.Achievements)
+				r.Post("/users/achievements/{key}/claim", p.Achievements)
+				r.Get("/users/oauth/accounts", p.LinkedAccounts)
+				r.Delete("/users/oauth/{provider}", p.LinkedAccounts)
+				if opts.OAuthHandler != nil {
+					r.Post("/auth/oauth/{provider}/link", opts.OAuthHandler.Begin)
+				}
+				r.Group(func(r chi.Router) {
+					r.Use(middleware.RequirePartnerOrAdmin)
+					r.Get("/partner/publications", p.Publications)
+					r.Put("/partner/stories/{id}/publication", p.StoryPublication)
+					r.Put("/partner/chapters/{id}/publication", p.ChapterPublication)
+					r.Get("/partner/chapters/{id}/draft", p.DraftChapter)
+					r.Post("/partner/stories/{id}/bulk-drafts", p.BulkDraftChapters)
+					r.Get("/partner/analytics", p.Analytics)
+				})
+				r.Group(func(r chi.Router) {
+					r.Use(middleware.RequireAdmin)
+					r.Get("/admin/cultivation/realms", p.AdminRealms)
+					r.Put("/admin/cultivation/realms", p.AdminRealms)
+					r.Get("/admin/subscription-plans", p.AdminPlans)
+					r.Post("/admin/subscription-plans", p.AdminPlans)
+					r.Put("/admin/subscription-plans/{id}", p.AdminPlans)
+				})
+			})
+		}
 		// Static Storage File Server (cho local dev & media storage, chặn directory listing)
 		r.Handle("/storage/*", http.StripPrefix("/api/v1/storage", http.FileServer(publicStorageFileSystem{fs: http.Dir("./storage")})))
 	})

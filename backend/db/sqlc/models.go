@@ -11,6 +11,21 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AchievementClaim struct {
+	UserID         uuid.UUID          `json:"user_id"`
+	AchievementKey string             `json:"achievement_key"`
+	Period         string             `json:"period"`
+	RewardExp      int64              `json:"reward_exp"`
+	ClaimedAt      pgtype.Timestamptz `json:"claimed_at"`
+}
+
+type AdminChangeLog struct {
+	ID        uuid.UUID          `json:"id"`
+	AdminID   uuid.NullUUID      `json:"admin_id"`
+	Action    string             `json:"action"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type Author struct {
 	ID        int32              `json:"id"`
 	Name      string             `json:"name"`
@@ -33,20 +48,27 @@ type Category struct {
 }
 
 type Chapter struct {
-	ID              uuid.UUID          `json:"id"`
-	StoryID         uuid.UUID          `json:"story_id"`
-	NarratorID      *int32             `json:"narrator_id"`
-	ChapterNumber   pgtype.Numeric     `json:"chapter_number"`
-	Title           string             `json:"title"`
-	Content         *string            `json:"content"`
-	ContentUrl      *string            `json:"content_url"`
-	IsPremium       *bool              `json:"is_premium"`
-	DurationSeconds int32              `json:"duration_seconds"`
-	WaveformData    json.RawMessage    `json:"waveform_data"`
-	TimelineMarkers json.RawMessage    `json:"timeline_markers"`
-	ListenCount     *int64             `json:"listen_count"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	ID                uuid.UUID          `json:"id"`
+	StoryID           uuid.UUID          `json:"story_id"`
+	NarratorID        *int32             `json:"narrator_id"`
+	ChapterNumber     pgtype.Numeric     `json:"chapter_number"`
+	Title             string             `json:"title"`
+	Content           *string            `json:"content"`
+	ContentUrl        *string            `json:"content_url"`
+	IsPremium         *bool              `json:"is_premium"`
+	DurationSeconds   int32              `json:"duration_seconds"`
+	WaveformData      json.RawMessage    `json:"waveform_data"`
+	TimelineMarkers   json.RawMessage    `json:"timeline_markers"`
+	ListenCount       *int64             `json:"listen_count"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	PublicationStatus string             `json:"publication_status"`
+	ScheduledAt       pgtype.Timestamptz `json:"scheduled_at"`
+}
+
+type ChapterAnnouncement struct {
+	ChapterID   uuid.UUID          `json:"chapter_id"`
+	AnnouncedAt pgtype.Timestamptz `json:"announced_at"`
 }
 
 type ChapterAudioFile struct {
@@ -107,6 +129,18 @@ type CommunityPostLike struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
+type CultivationRealm struct {
+	Level       int32  `json:"level"`
+	Name        string `json:"name"`
+	Tier        string `json:"tier"`
+	TierName    string `json:"tier_name"`
+	MinExp      int64  `json:"min_exp"`
+	Description string `json:"description"`
+	Ability     string `json:"ability"`
+	Privilege   string `json:"privilege"`
+	Color       string `json:"color"`
+}
+
 type EmailVerificationToken struct {
 	ID        uuid.UUID          `json:"id"`
 	UserID    uuid.UUID          `json:"user_id"`
@@ -123,6 +157,14 @@ type ListeningHistory struct {
 	PlaybackSpeed       pgtype.Numeric     `json:"playback_speed"`
 	IsCompleted         *bool              `json:"is_completed"`
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ListeningRewardEvent struct {
+	ID         uuid.UUID          `json:"id"`
+	UserID     uuid.UUID          `json:"user_id"`
+	ChapterID  uuid.UUID          `json:"chapter_id"`
+	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
+	Minutes    int32              `json:"minutes"`
 }
 
 type Narrator struct {
@@ -162,6 +204,25 @@ type OauthAccount struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type OauthFlow struct {
+	StateHash    string             `json:"state_hash"`
+	Provider     string             `json:"provider"`
+	BrowserHash  string             `json:"browser_hash"`
+	SessionData  string             `json:"session_data"`
+	RedirectPath string             `json:"redirect_path"`
+	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
+	LinkUserID   uuid.NullUUID      `json:"link_user_id"`
+}
+
+type OauthLoginCode struct {
+	CodeHash     string             `json:"code_hash"`
+	Provider     string             `json:"provider"`
+	BrowserHash  string             `json:"browser_hash"`
+	UserID       uuid.UUID          `json:"user_id"`
+	RedirectPath string             `json:"redirect_path"`
+	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
+}
+
 type PasswordResetToken struct {
 	ID        uuid.UUID          `json:"id"`
 	UserID    uuid.UUID          `json:"user_id"`
@@ -180,6 +241,8 @@ type Payment struct {
 	TransactionID *string            `json:"transaction_id"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	PlanName      *string            `json:"plan_name"`
+	DurationDays  *int32             `json:"duration_days"`
 }
 
 type Playlist struct {
@@ -231,25 +294,32 @@ type Review struct {
 }
 
 type Story struct {
-	ID            uuid.UUID          `json:"id"`
-	Title         string             `json:"title"`
-	Slug          string             `json:"slug"`
-	Description   *string            `json:"description"`
-	CoverImageUrl *string            `json:"cover_image_url"`
-	AuthorID      *int32             `json:"author_id"`
-	Status        *string            `json:"status"`
-	ViewCount     *int64             `json:"view_count"`
-	TotalChapters *int32             `json:"total_chapters"`
-	RatingAvg     pgtype.Numeric     `json:"rating_avg"`
-	RatingCount   *int32             `json:"rating_count"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
-	CreatedBy     uuid.NullUUID      `json:"created_by"`
+	ID                uuid.UUID          `json:"id"`
+	Title             string             `json:"title"`
+	Slug              string             `json:"slug"`
+	Description       *string            `json:"description"`
+	CoverImageUrl     *string            `json:"cover_image_url"`
+	AuthorID          *int32             `json:"author_id"`
+	Status            *string            `json:"status"`
+	ViewCount         *int64             `json:"view_count"`
+	TotalChapters     *int32             `json:"total_chapters"`
+	RatingAvg         pgtype.Numeric     `json:"rating_avg"`
+	RatingCount       *int32             `json:"rating_count"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	CreatedBy         uuid.NullUUID      `json:"created_by"`
+	PublicationStatus string             `json:"publication_status"`
 }
 
 type StoryCategory struct {
 	StoryID    uuid.UUID `json:"story_id"`
 	CategoryID int32     `json:"category_id"`
+}
+
+type StoryFollow struct {
+	UserID    uuid.UUID          `json:"user_id"`
+	StoryID   uuid.UUID          `json:"story_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type StoryTag struct {
@@ -273,6 +343,26 @@ type SubscriptionPlan struct {
 	Price        pgtype.Numeric `json:"price"`
 	DurationDays int32          `json:"duration_days"`
 	Description  *string        `json:"description"`
+	IsActive     bool           `json:"is_active"`
+}
+
+type SupportMessage struct {
+	ID        uuid.UUID          `json:"id"`
+	TicketID  uuid.UUID          `json:"ticket_id"`
+	SenderID  uuid.UUID          `json:"sender_id"`
+	Content   string             `json:"content"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type SupportTicket struct {
+	ID        uuid.UUID          `json:"id"`
+	UserID    uuid.UUID          `json:"user_id"`
+	Subject   string             `json:"subject"`
+	Category  string             `json:"category"`
+	PaymentID uuid.NullUUID      `json:"payment_id"`
+	Status    string             `json:"status"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Tag struct {
@@ -291,22 +381,23 @@ type TwoFactorBackupCode struct {
 }
 
 type User struct {
-	ID               uuid.UUID          `json:"id"`
-	Username         string             `json:"username"`
-	Email            string             `json:"email"`
-	PasswordHash     *string            `json:"password_hash"`
-	AvatarUrl        *string            `json:"avatar_url"`
-	Role             *string            `json:"role"`
-	IsEmailVerified  bool               `json:"is_email_verified"`
-	TwoFactorEnabled bool               `json:"two_factor_enabled"`
-	TwoFactorSecret  *string            `json:"two_factor_secret"`
-	CultivationExp   *int64             `json:"cultivation_exp"`
-	CultivationRealm *string            `json:"cultivation_realm"`
-	Provider         *string            `json:"provider"`
-	ProviderID       *string            `json:"provider_id"`
-	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	ID                    uuid.UUID          `json:"id"`
+	Username              string             `json:"username"`
+	Email                 string             `json:"email"`
+	PasswordHash          *string            `json:"password_hash"`
+	AvatarUrl             *string            `json:"avatar_url"`
+	Role                  *string            `json:"role"`
+	IsEmailVerified       bool               `json:"is_email_verified"`
+	TwoFactorEnabled      bool               `json:"two_factor_enabled"`
+	TwoFactorSecret       *string            `json:"two_factor_secret"`
+	CultivationExp        *int64             `json:"cultivation_exp"`
+	CultivationRealm      *string            `json:"cultivation_realm"`
+	Provider              *string            `json:"provider"`
+	ProviderID            *string            `json:"provider_id"`
+	DeletedAt             pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	LastListeningRewardAt pgtype.Timestamptz `json:"last_listening_reward_at"`
 }
 
 type UserFavorite struct {

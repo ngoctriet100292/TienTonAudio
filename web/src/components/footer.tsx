@@ -1,3 +1,4 @@
+import { REALM_COUNT } from '@/lib/cultivation';
 import { Flame, Headphones, Heart, PenTool, ShieldCheck, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
@@ -52,7 +53,7 @@ export function Footer() {
               <li className="flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> <Link href="/copyright" className="hover:text-[#ffb703]">Chính sách bản quyền</Link></li>
               <li className="flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 text-amber-400" /> <Link href="/vip" className="hover:text-[#ffb703]">Gói Hội Viên VIP Tiên Tôn</Link></li>
               <li className="flex items-center gap-1.5"><PenTool className="w-3.5 h-3.5 text-amber-400" /> <Link href="/studio" className="hover:text-[#ffb703]">Kênh Đối Tác Sáng Tác</Link></li>
-              <li className="flex items-center gap-1.5"><Flame className="w-3.5 h-3.5 text-amber-400" /> <Link href="/cultivation" className="hover:text-[#ffb703]">17 Cảnh Giới Tu Tiên</Link></li>
+              <li className="flex items-center gap-1.5"><Flame className="w-3.5 h-3.5 text-amber-400" /> <Link href="/cultivation" className="hover:text-[#ffb703]">{REALM_COUNT} cảnh giới</Link></li>
               <li><Link href="/terms" className="hover:text-[#ffb703]">Điều khoản dịch vụ</Link></li>
               <li><Link href="/contact" className="hover:text-[#ffb703]">Liên hệ quảng cáo / hợp tác</Link></li>
             </ul>

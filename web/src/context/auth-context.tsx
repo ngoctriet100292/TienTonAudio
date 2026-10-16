@@ -1,5 +1,6 @@
 'use client';
 
+import { CultivationProvider } from './cultivation-context';
 import { api } from '@/lib/api';
 import { User } from '@/types';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
@@ -28,7 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const me = await api.getMe();
       if (me) {
-        setUser(me);
+        setUser(me ? me : null);
         localStorage.setItem('user_profile', JSON.stringify(me));
       } else {
         setUser(null);
@@ -61,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     api.getMe().then((me) => {
       if (cancelled) return;
-      setUser(me);
+      setUser(me ? me : null);
       if (me) localStorage.setItem('user_profile', JSON.stringify(me));
     }).catch(() => {
       const stored = localStorage.getItem('user_profile');
@@ -90,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         refreshProfile,
       }}
     >
-      {children}
+      <CultivationProvider>{children}</CultivationProvider>
     </AuthContext.Provider>
   );
 }

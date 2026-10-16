@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/IREAKING/tientonaudio/backend/internal/domain"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/IREAKING/tientonaudio/backend/internal/domain"
 )
 
 type CommunityRepository interface {
@@ -39,7 +39,7 @@ func (r *communityRepository) ListPosts(ctx context.Context, currentUserID *uuid
 	query := `
 		SELECT 
 			p.id, p.user_id, p.story_id, p.topic, p.content, p.like_count, p.comment_count, p.created_at, p.updated_at,
-			u.username, u.avatar_url, u.role, u.cultivation_realm, u.cultivation_level, u.cultivation_color,
+			u.username, u.avatar_url, u.role, COALESCE(u.cultivation_exp, 0),
 			s.title AS story_title, s.slug AS story_slug, s.cover_image_url AS story_cover_url,
 			CASE 
 				WHEN $1::uuid IS NOT NULL AND l.user_id IS NOT NULL THEN true 
@@ -68,10 +68,11 @@ func (r *communityRepository) ListPosts(ctx context.Context, currentUserID *uuid
 	var posts []domain.CommunityPost
 	for rows.Next() {
 		var p domain.CommunityPost
+		var cultivationExp int64
 
 		err := rows.Scan(
 			&p.ID, &p.UserID, &p.StoryID, &p.Topic, &p.Content, &p.LikeCount, &p.CommentCount, &p.CreatedAt, &p.UpdatedAt,
-			&p.AuthorName, &p.AuthorAvatar, &p.AuthorRole, &p.CultivationRealm, &p.CultivationLevel, &p.CultivationColor,
+			&p.AuthorName, &p.AuthorAvatar, &p.AuthorRole, &cultivationExp,
 			&p.StoryTitle, &p.StorySlug, &p.StoryCoverURL,
 			&p.IsLiked,
 		)
@@ -79,6 +80,7 @@ func (r *communityRepository) ListPosts(ctx context.Context, currentUserID *uuid
 			return nil, fmt.Errorf("scan post error: %w", err)
 		}
 
+		p.CultivationRealm, p.CultivationLevel, _, _, p.CultivationColor, _ = domain.CalculateCultivationRealm(cultivationExp)
 		posts = append(posts, p)
 	}
 
@@ -109,7 +111,7 @@ func (r *communityRepository) GetPostByID(ctx context.Context, postID uuid.UUID,
 	query := `
 		SELECT 
 			p.id, p.user_id, p.story_id, p.topic, p.content, p.like_count, p.comment_count, p.created_at, p.updated_at,
-			u.username, u.avatar_url, u.role, u.cultivation_realm, u.cultivation_level, u.cultivation_color,
+			u.username, u.avatar_url, u.role, COALESCE(u.cultivation_exp, 0),
 			s.title AS story_title, s.slug AS story_slug, s.cover_image_url AS story_cover_url,
 			CASE 
 				WHEN $2::uuid IS NOT NULL AND l.user_id IS NOT NULL THEN true 
@@ -128,10 +130,11 @@ func (r *communityRepository) GetPostByID(ctx context.Context, postID uuid.UUID,
 	}
 
 	var p domain.CommunityPost
+	var cultivationExp int64
 
 	err := r.pool.QueryRow(ctx, query, postID, uid).Scan(
 		&p.ID, &p.UserID, &p.StoryID, &p.Topic, &p.Content, &p.LikeCount, &p.CommentCount, &p.CreatedAt, &p.UpdatedAt,
-		&p.AuthorName, &p.AuthorAvatar, &p.AuthorRole, &p.CultivationRealm, &p.CultivationLevel, &p.CultivationColor,
+		&p.AuthorName, &p.AuthorAvatar, &p.AuthorRole, &cultivationExp,
 		&p.StoryTitle, &p.StorySlug, &p.StoryCoverURL,
 		&p.IsLiked,
 	)
@@ -139,6 +142,7 @@ func (r *communityRepository) GetPostByID(ctx context.Context, postID uuid.UUID,
 		return nil, fmt.Errorf("get post by id error: %w", err)
 	}
 
+	p.CultivationRealm, p.CultivationLevel, _, _, p.CultivationColor, _ = domain.CalculateCultivationRealm(cultivationExp)
 	return &p, nil
 }
 
@@ -205,7 +209,7 @@ func (r *communityRepository) ListComments(ctx context.Context, postID uuid.UUID
 	query := `
 		SELECT 
 			c.id, c.post_id, c.user_id, c.parent_id, c.content, c.created_at,
-			u.username, u.avatar_url, u.role, u.cultivation_realm, u.cultivation_level, u.cultivation_color
+			u.username, u.avatar_url, u.role, COALESCE(u.cultivation_exp, 0)
 		FROM community_post_comments c
 		JOIN users u ON c.user_id = u.id
 		WHERE c.post_id = $1
@@ -220,15 +224,17 @@ func (r *communityRepository) ListComments(ctx context.Context, postID uuid.UUID
 	var comments []domain.CommunityComment
 	for rows.Next() {
 		var c domain.CommunityComment
+		var cultivationExp int64
 
 		err := rows.Scan(
 			&c.ID, &c.PostID, &c.UserID, &c.ParentID, &c.Content, &c.CreatedAt,
-			&c.AuthorName, &c.AuthorAvatar, &c.AuthorRole, &c.CultivationRealm, &c.CultivationLevel, &c.CultivationColor,
+			&c.AuthorName, &c.AuthorAvatar, &c.AuthorRole, &cultivationExp,
 		)
 		if err != nil {
 			return nil, err
 		}
 
+		c.CultivationRealm, c.CultivationLevel, _, _, c.CultivationColor, _ = domain.CalculateCultivationRealm(cultivationExp)
 		comments = append(comments, c)
 	}
 
@@ -250,19 +256,21 @@ func (r *communityRepository) CreateComment(ctx context.Context, postID, userID 
 	singleQuery := `
 		SELECT 
 			c.id, c.post_id, c.user_id, c.parent_id, c.content, c.created_at,
-			u.username, u.avatar_url, u.role, u.cultivation_realm, u.cultivation_level, u.cultivation_color
+			u.username, u.avatar_url, u.role, COALESCE(u.cultivation_exp, 0)
 		FROM community_post_comments c
 		JOIN users u ON c.user_id = u.id
 		WHERE c.id = $1
 	`
 	var c domain.CommunityComment
+	var cultivationExp int64
 	err = r.pool.QueryRow(ctx, singleQuery, commentID).Scan(
 		&c.ID, &c.PostID, &c.UserID, &c.ParentID, &c.Content, &c.CreatedAt,
-		&c.AuthorName, &c.AuthorAvatar, &c.AuthorRole, &c.CultivationRealm, &c.CultivationLevel, &c.CultivationColor,
+		&c.AuthorName, &c.AuthorAvatar, &c.AuthorRole, &cultivationExp,
 	)
 	if err != nil {
 		return nil, err
 	}
 
+	c.CultivationRealm, c.CultivationLevel, _, _, c.CultivationColor, _ = domain.CalculateCultivationRealm(cultivationExp)
 	return &c, nil
 }

@@ -2,15 +2,17 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
+	"github.com/jackc/pgx/v5"
 	"net/http"
 	"strconv"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"github.com/IREAKING/tientonaudio/backend/internal/domain"
 	"github.com/IREAKING/tientonaudio/backend/internal/service"
 	"github.com/IREAKING/tientonaudio/backend/pkg/auth"
 	"github.com/IREAKING/tientonaudio/backend/pkg/utils"
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 )
 
 type StoryHandler struct {
@@ -44,7 +46,13 @@ func (h *StoryHandler) GetStoryBySlug(w http.ResponseWriter, r *http.Request) {
 
 	story, err := h.storyService.GetStoryBySlug(r.Context(), slug)
 	if err != nil {
-		utils.ErrorResponse(w, http.StatusNotFound, err.Error())
+		status := http.StatusInternalServerError
+		message := "Không thể tải truyện. Vui lòng thử lại."
+		if errors.Is(err, pgx.ErrNoRows) {
+			status = http.StatusNotFound
+			message = "Không tìm thấy truyện"
+		}
+		utils.ErrorResponse(w, status, message)
 		return
 	}
 
@@ -175,7 +183,17 @@ func (h *StoryHandler) SaveListeningProgress(w http.ResponseWriter, r *http.Requ
 	}
 
 	if err := h.storyService.SaveListeningProgress(r.Context(), claims.UserID, req); err != nil {
-		utils.ErrorResponse(w, http.StatusInternalServerError, err.Error())
+		status := http.StatusInternalServerError
+		if errors.Is(err, domain.ErrInvalidListeningProgress) {
+			status = http.StatusBadRequest
+		}
+		if errors.Is(err, domain.ErrProgressChapterNotFound) {
+			status = http.StatusNotFound
+		}
+		if errors.Is(err, domain.ErrProgressPremiumRequired) {
+			status = http.StatusForbidden
+		}
+		utils.ErrorResponse(w, status, err.Error())
 		return
 	}
 

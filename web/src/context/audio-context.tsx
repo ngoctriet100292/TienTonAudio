@@ -1,4 +1,6 @@
 'use client';
+import { useAuth } from '@/context/auth-context';
+import { platform } from '@/lib/platform';
 import { useStoredState } from '@/lib/use-stored-state';
 
 import { api } from '@/lib/api';
@@ -53,7 +55,14 @@ interface AudioContextType {
 
 const AudioContext = createContext<AudioContextType | undefined>(undefined);
 
-export function AudioProvider({ children }: { children: React.ReactNode }) {
+export function AudioProvider({children}:{children:React.ReactNode}) {
+ const {user}=useAuth();
+ return <AudioSession key={user?.id||'guest'}>{children}</AudioSession>;
+}
+function AudioSession({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  const accountId = user?.id || 'guest';
+  const playRequest = useRef({id:0});
   const [currentStory, setCurrentStory] = useState<Story | null>(null);
   const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null);
   const [playlist, setPlaylist] = useState<Chapter[]>([]);
@@ -61,7 +70,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [playbackSpeed, setPlaybackSpeedState] = useStoredState<number>('tienton_audio_speed', 1, (raw) => { const speed = Number(raw); return PLAYBACK_SPEEDS.includes(speed) ? speed : 1; });
-  const [lastPlayedSession, setLastPlayedSession] = useStoredState<LastPlayedSession | null>('tienton_last_played', null);
+  const [lastPlayedSession, setLastPlayedSession] = useStoredState<LastPlayedSession | null>(`tienton_last_played:${accountId}`, null);
 
   // Sleep Timer state
   const [sleepTimer, setSleepTimerState] = useState<SleepTimerState | null>(null);
@@ -139,6 +148,15 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     chapterList?: Chapter[],
     startTime?: number
   ) => {
+    const requestId = ++playRequest.current.id;
+    const playbackAccount = localStorage.getItem('access_token');
+    if (startTime === undefined && playbackAccount) {
+      try {
+        const saved = await platform<{position_seconds?:number;is_completed?:boolean}>(`/users/chapters/${chapter.id}/progress`);
+        startTime = saved.is_completed ? 0 : saved.position_seconds || 0;
+      } catch (error) { console.warn('Không tải được tiến độ nghe',error); }
+    }
+    if (requestId !== playRequest.current.id) return;
     setCurrentStory(story);
     setCurrentChapter(chapter);
     if (chapterList && chapterList.length > 0) {
@@ -166,6 +184,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       targetUrl = getStreamUrl(chapter.id, playbackSpeedRef.current);
     }
 
+    if (requestId !== playRequest.current.id) return;
     audioRef.current.src = targetUrl;
     audioRef.current.playbackRate = playbackSpeedRef.current;
 
@@ -192,6 +211,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
     try {
       await audioRef.current.play();
+      if (requestId !== playRequest.current.id) return;
       applyStartTime();
       setIsPlaying(true);
       saveSession(
@@ -323,6 +343,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   }, [currentChapter, currentStory, playlist, playbackSpeed, sleepTimer]);
 
   useEffect(() => {
+    const requests = playRequest.current;
     const audio = new Audio();
     audioRef.current = audio;
 
@@ -365,10 +386,24 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     };
 
     return () => {
+      ++requests.id;
       audio.pause();
       audio.src = '';
     };
   }, []);
+
+  useEffect(() => {
+    const flush = () => {
+      const chapter = currentChapterRef.current; const audio = audioRef.current;
+      const token=localStorage.getItem('access_token');
+      if(!token || !chapter || !audio || !Number.isFinite(audio.currentTime) || audio.currentTime<=0)return;
+      const base=process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+      void fetch(`${base}/chapters/progress`,{method:'POST',keepalive:true,headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({chapter_id:chapter.id,story_id:currentStoryRef.current?.id,last_position_seconds:Math.floor(audio.currentTime),is_completed:audio.ended,playback_speed:playbackSpeedRef.current})}).catch(()=>{});
+    };
+    const hidden=()=>{if(document.visibilityState==='hidden')flush();};
+    window.addEventListener('pagehide',flush);document.addEventListener('visibilitychange',hidden);
+    return ()=>{window.removeEventListener('pagehide',flush);document.removeEventListener('visibilitychange',hidden);};
+  },[]);
 
   // Sleep Timer Countdown Ticker
   useEffect(() => {

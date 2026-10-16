@@ -172,17 +172,22 @@ func (s *chapterService) CreateChapter(ctx context.Context, req domain.CreateCha
 		timelineData, _ = json.Marshal(req.TimelineMarkers)
 	}
 
+	publicationStatus := "draft"
+	if claims, ok := auth.GetClaimsFromContext(ctx); ok && claims.Role == "admin" {
+		publicationStatus = "published"
+	}
 	row, err := s.repo.CreateChapter(ctx, db.CreateChapterParams{
-		StoryID:         req.StoryID,
-		NarratorID:      req.NarratorID,
-		ChapterNumber:   chapterNum,
-		Title:           req.Title,
-		Content:         dbContent,
-		ContentUrl:      contentURL,
-		IsPremium:       req.IsPremium,
-		DurationSeconds: dur,
-		WaveformData:    req.WaveformData,
-		TimelineMarkers: timelineData,
+		PublicationStatus: publicationStatus,
+		StoryID:           req.StoryID,
+		NarratorID:        req.NarratorID,
+		ChapterNumber:     chapterNum,
+		Title:             req.Title,
+		Content:           dbContent,
+		ContentUrl:        contentURL,
+		IsPremium:         req.IsPremium,
+		DurationSeconds:   dur,
+		WaveformData:      req.WaveformData,
+		TimelineMarkers:   timelineData,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create chapter error: %w", err)
@@ -245,16 +250,17 @@ func (s *chapterService) BulkCreateChapters(ctx context.Context, req domain.Bulk
 		}
 
 		_, err := s.repo.UpsertChapter(ctx, db.UpsertChapterParams{
-			StoryID:         storyID,
-			NarratorID:      c.NarratorID,
-			ChapterNumber:   chapterNum,
-			Title:           c.Title,
-			Content:         dbContent,
-			ContentUrl:      contentURL,
-			IsPremium:       c.IsPremium,
-			DurationSeconds: dur,
-			WaveformData:    c.WaveformData,
-			TimelineMarkers: timelineData,
+			PublicationStatus: "published",
+			StoryID:           storyID,
+			NarratorID:        c.NarratorID,
+			ChapterNumber:     chapterNum,
+			Title:             c.Title,
+			Content:           dbContent,
+			ContentUrl:        contentURL,
+			IsPremium:         c.IsPremium,
+			DurationSeconds:   dur,
+			WaveformData:      c.WaveformData,
+			TimelineMarkers:   timelineData,
 		})
 		if err != nil {
 			failedCount++

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -55,6 +56,10 @@ func (h *PaymentHandler) CreatePayment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, err := h.paymentService.CreatePayment(r.Context(), claims.UserID, req)
+	if errors.Is(err, service.ErrCheckoutUnavailable) {
+		utils.ErrorResponse(w, http.StatusServiceUnavailable, err.Error())
+		return
+	}
 	if err != nil {
 		utils.ErrorResponse(w, http.StatusBadRequest, err.Error())
 		return

@@ -2,9 +2,12 @@ package router_test
 
 import (
 	"encoding/json"
+	"github.com/IREAKING/tientonaudio/backend/internal/handler"
+	"github.com/google/uuid"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/IREAKING/tientonaudio/backend/config"
 	"github.com/IREAKING/tientonaudio/backend/internal/router"
@@ -121,5 +124,38 @@ func TestCORSVaryOrigin(t *testing.T) {
 
 	if rrOptions.Code != http.StatusForbidden {
 		t.Fatalf("expected 403 Forbidden for unauthorized CORS preflight, got %d", rrOptions.Code)
+	}
+}
+
+func TestPlatformRoutesRequireAuthentication(t *testing.T) {
+	cfg := &config.Config{Environment: "test"}
+	jwt := auth.NewJWTService("test-secret", "test", time.Hour, time.Hour)
+	r := router.NewRouter(router.RouterOptions{Config: cfg, JWTService: jwt, PlatformHandler: handler.NewPlatformHandler(nil)})
+	for _, route := range []struct{ method, path string }{
+		{"GET", "/users/continue-listening"}, {"GET", "/users/chapters/00000000-0000-0000-0000-000000000001/progress"},
+		{"GET", "/users/achievements"}, {"GET", "/users/oauth/accounts"}, {"PUT", "/stories/00000000-0000-0000-0000-000000000001/follow"},
+		{"PUT", "/stories/00000000-0000-0000-0000-000000000001/reviews"}, {"GET", "/partner/publications"},
+		{"GET", "/partner/analytics"}, {"POST", "/support/tickets"}, {"GET", "/admin/cultivation/realms"}, {"GET", "/admin/subscription-plans"},
+	} {
+		t.Run(route.method+route.path, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, httptest.NewRequest(route.method, "/api/v1"+route.path, nil))
+			if w.Code != 401 {
+				t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+			}
+		})
+	}
+	token, _, err := jwt.GenerateAccessToken(uuid.New(), "verify@example.invalid", false, []string{"user"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"/admin/cultivation/realms", "/admin/subscription-plans", "/partner/publications", "/partner/analytics"} {
+		req := httptest.NewRequest("GET", "/api/v1"+path, nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != 403 {
+			t.Errorf("%s status=%d want=403", path, w.Code)
+		}
 	}
 }

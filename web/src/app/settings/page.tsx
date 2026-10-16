@@ -7,7 +7,8 @@ import { useAsyncResource } from '@/lib/use-async-resource';
 import { getErrorMessage } from '@/lib/errors';
 
 import { CultivationSpinner } from '@/components/cultivation-spinner';
-import { ALL_REALMS } from '@/components/cultivation-view';
+import { type RealmTier } from '@/lib/cultivation';
+import { useCultivationCatalogue } from '@/context/cultivation-context';
 import { useAuth } from '@/context/auth-context';
 import { api } from '@/lib/api';
 import {
@@ -62,7 +63,8 @@ export default function SettingsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState<TabType>('profile');
-  const [cultivationTierFilter, setCultivationTierFilter] = useState<'all' | 'pham' | 'tien' | 'chiton'>('all');
+  const { realms: ALL_REALMS, count: REALM_COUNT, groups: REALM_GROUPS, loading: realmsLoading, error: realmsError, reload: reloadRealms } = useCultivationCatalogue();
+  const [cultivationTierFilter, setCultivationTierFilter] = useState<'all' | RealmTier>('all');
 
   // Tu vi state
   const { data: cultivationData } = useAsyncResource<UserCultivation | null>(isAuthenticated && activeTab === 'cultivation' ? `settings-cultivation:${user?.id}` : null, () => api.getCultivation(), null);
@@ -289,7 +291,7 @@ export default function SettingsPage() {
           {/* User Info */}
           <div className="text-center sm:text-left space-y-1.5 flex-1">
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
-              <h1 className="text-2xl sm:text-3xl font-black text-white">{user.username}</h1>
+              <h1 className="text-2xl sm:text-3xl font-black text-white">{user.username}</h1><nav className="flex flex-wrap gap-3 mt-3 text-sm text-amber-300" aria-label="Chức năng bổ sung"><Link href="/account">Khu vực cá nhân & thành tựu</Link><Link href="/support">Yêu cầu hỗ trợ</Link></nav>
               {user.is_premium ? (
                 <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black bg-gradient-to-r from-[#ffd166] to-[#ffb703] text-black shadow-md shadow-amber-500/20">
                   <Crown className="w-3.5 h-3.5 fill-black" /> HỘI VIÊN VIP
@@ -306,7 +308,7 @@ export default function SettingsPage() {
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 pt-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs font-bold text-[#ffd166]">
                 <Flame className="w-3.5 h-3.5 text-amber-400" />
-                {user.cultivation_realm || 'Luyện Khí'} Cảnh (Cấp {user.cultivation_level || 1})
+                {user.cultivation_realm || 'Phàm Nhân'} Cảnh (Cấp {user.cultivation_level || 1})
               </span>
               <span className="text-xs text-slate-400 font-mono">
                 Linh lực: <strong className="text-white">{user.cultivation_exp ?? 0} EXP</strong>
@@ -872,13 +874,13 @@ export default function SettingsPage() {
                 <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-200 text-black shadow-lg shadow-amber-500/30">
                   <Flame className="w-8 h-8" />
                   <span className="absolute -top-2 -right-2 px-2 py-0.5 rounded-full bg-slate-900 border border-amber-400/40 text-[11px] font-black text-amber-300">
-                    Cấp {cultivationData?.level || user.cultivation_level || 1}
+                    Cấp {(cultivationData?.level ?? user.cultivation_level ?? 1)}
                   </span>
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-2xl font-black text-white">
-                      {cultivationData?.current_realm || user.cultivation_realm || 'Luyện Khí'} Cảnh
+                      {cultivationData?.current_realm || user.cultivation_realm || 'Phàm Nhân'} Cảnh
                     </h3>
                     <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-[#ffd166] border border-amber-500/40">
                       Chính Đạo
@@ -910,7 +912,7 @@ export default function SettingsPage() {
                 <span className="text-amber-400 font-bold">
                   {cultivationData?.next_realm_exp === -1
                     ? 'Đỉnh Phong Viên Mãn'
-                    : `Cần ${cultivationData?.next_realm_exp || 60} để Đột Phá (${(cultivationData?.progress_pct || 0).toFixed(1)}%)`}
+                    : `Cần ${cultivationData?.next_realm_exp ?? ALL_REALMS[0]?.max_exp ?? '…'} để Đột Phá (${(cultivationData?.progress_pct || 0).toFixed(1)}%)`}
                 </span>
               </div>
 
@@ -941,70 +943,33 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Lộ Trình 17 Cảnh Giới Tu Tiên Chính Thống */}
+          {/* Lộ trình {REALM_COUNT} cảnh giới Chính Thống */}
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2">
                   <Award className="w-5 h-5 text-amber-400" />
-                  <h4 className="text-xl font-black text-white">Lộ Trình 17 Cảnh Giới Tu Tiên</h4>
+                  <h4 className="text-xl font-black text-white">Lộ trình {REALM_COUNT} cảnh giới</h4>
                 </div>
                 <p className="text-xs text-slate-400 mt-1">
-                  Khám phá toàn bộ 17 tầng cảnh giới từ Phàm Giới sơ nhập đến Tiên Đế chí tôn cùng các đặc quyền tương ứng.
+                  Lộ trình Võ Đạo, Tu Tiên và Tiên Giới với ngưỡng tu vi tăng dần; Kết Đan nằm giữa Trúc Cơ và Nguyên Anh.
                 </p>
               </div>
 
               {/* Bộ lọc phân tầng cảnh giới */}
               <div className="flex items-center gap-1.5 p-1 bg-slate-900/80 rounded-2xl border border-white/10 overflow-x-auto">
-                <button
-                  type="button"
-                  onClick={() => setCultivationTierFilter('all')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${cultivationTierFilter === 'all'
-                      ? 'bg-amber-400 text-black shadow-md shadow-amber-500/20'
-                      : 'text-slate-400 hover:text-white'
-                    }`}
-                >
-                  Tất Cả (17)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCultivationTierFilter('pham')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${cultivationTierFilter === 'pham'
-                      ? 'bg-sky-400 text-black shadow-md shadow-sky-500/20'
-                      : 'text-slate-400 hover:text-white'
-                    }`}
-                >
-                  Phàm Giới (7)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCultivationTierFilter('tien')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${cultivationTierFilter === 'tien'
-                      ? 'bg-purple-400 text-black shadow-md shadow-purple-500/20'
-                      : 'text-slate-400 hover:text-white'
-                    }`}
-                >
-                  Tiên Giới (6)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCultivationTierFilter('chiton')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${cultivationTierFilter === 'chiton'
-                      ? 'bg-rose-400 text-black shadow-md shadow-rose-500/20'
-                      : 'text-slate-400 hover:text-white'
-                    }`}
-                >
-                  Chí Tôn (4)
-                </button>
+                {[{ key: 'all' as const, label: `Tất cả (${REALM_COUNT})` }, ...REALM_GROUPS.map(group => ({ key: group.key, label: `${group.label} (${group.count})` }))].map(group => <button key={group.key} type="button" aria-pressed={cultivationTierFilter === group.key} onClick={() => setCultivationTierFilter(group.key)} className={`whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors ${cultivationTierFilter === group.key ? 'bg-amber-400 text-black' : 'text-slate-400 hover:text-white'}`}>{group.label}</button>)}
               </div>
             </div>
 
-            {/* Danh sách thẻ chi tiết 17 Cảnh Giới */}
+            {realmsLoading && <p role="status" className="text-slate-400">Đang tải cảnh giới…</p>}
+            {!!realmsError && <p role="alert" className="text-slate-300">Không tải được cảnh giới. <button type="button" onClick={reloadRealms} className="text-amber-400">Thử lại</button></p>}
+            {/* Danh sách cảnh giới từ database */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {ALL_REALMS.filter(
                 (r) => cultivationTierFilter === 'all' || r.tier === cultivationTierFilter
               ).map((realm) => {
-                const currentLevel = cultivationData?.level || user.cultivation_level || 1;
+                const currentLevel = (cultivationData?.level ?? user.cultivation_level ?? 1);
                 const isCurrent = realm.level === currentLevel;
                 const isPassed = realm.level < currentLevel;
 

@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -27,14 +29,34 @@ type PaymentService interface {
 	ListUserPayments(ctx context.Context, userID uuid.UUID) ([]domain.UserPaymentResp, error)
 }
 
+type PaymentSettings struct {
+	Enabled                                                     bool
+	BankCode, BankName, BankAccount, AccountName, WebhookSecret string
+}
+
+var bankCodePattern = regexp.MustCompile(`^[A-Za-z0-9-]{2,30}$`)
+var bankAccountPattern = regexp.MustCompile(`^[0-9]{4,30}$`)
+
+func (p PaymentSettings) Ready() bool {
+	return p.Enabled && bankCodePattern.MatchString(p.BankCode) && bankAccountPattern.MatchString(p.BankAccount) && strings.TrimSpace(p.BankName) != "" && strings.TrimSpace(p.AccountName) != "" && len(p.WebhookSecret) >= 32
+}
+
+var ErrCheckoutUnavailable = errors.New("thanh toán đang được thiết lập; vui lòng thử lại sau")
+
 type paymentService struct {
+	settings         PaymentSettings
 	repo             repository.PaymentRepository
 	userRepo         repository.UserRepository
 	notificationRepo repository.NotificationRepository
 }
 
-func NewPaymentService(repo repository.PaymentRepository, userRepo repository.UserRepository, notificationRepo repository.NotificationRepository) PaymentService {
+func NewPaymentService(repo repository.PaymentRepository, userRepo repository.UserRepository, notificationRepo repository.NotificationRepository, settings ...PaymentSettings) PaymentService {
+	var paymentSettings PaymentSettings
+	if len(settings) > 0 {
+		paymentSettings = settings[0]
+	}
 	return &paymentService{
+		settings:         paymentSettings,
 		repo:             repo,
 		userRepo:         userRepo,
 		notificationRepo: notificationRepo,
@@ -50,22 +72,33 @@ func (s *paymentService) ListSubscriptionPlans(ctx context.Context) ([]domain.Su
 	result := make([]domain.SubscriptionPlanResp, len(plans))
 	for i, p := range plans {
 		result[i] = domain.SubscriptionPlanResp{
-			ID:           p.ID,
-			Name:         p.Name,
-			Price:        utils.NumericToFloat64(p.Price),
-			DurationDays: p.DurationDays,
-			Description:  p.Description,
+			ID:                p.ID,
+			CheckoutAvailable: s.settings.Ready(),
+			Name:              p.Name,
+			Price:             utils.NumericToFloat64(p.Price),
+			DurationDays:      p.DurationDays,
+			Description:       p.Description,
 		}
 	}
 	return result, nil
 }
 
 func (s *paymentService) CreatePayment(ctx context.Context, userID uuid.UUID, req domain.CreatePaymentReq) (*domain.CreatePaymentResp, error) {
+	if !s.settings.Ready() {
+		return nil, ErrCheckoutUnavailable
+	}
+	if req.Provider != "" && req.Provider != "vietqr" {
+		return nil, errors.New("phương thức thanh toán không được hỗ trợ")
+	}
 	plan, err := s.repo.GetSubscriptionPlanByID(ctx, req.PlanID)
 	if err != nil {
 		return nil, errors.New("subscription plan not found")
 	}
 
+	amount := utils.NumericToFloat64(plan.Price)
+	if math.IsNaN(amount) || math.IsInf(amount, 0) || amount <= 0 || math.Trunc(amount) != amount {
+		return nil, errors.New("giá gói không hợp lệ; cần số nguyên VND dương")
+	}
 	planID := req.PlanID
 	status := "pending"
 	provider := req.Provider
@@ -76,7 +109,7 @@ func (s *paymentService) CreatePayment(ctx context.Context, userID uuid.UUID, re
 	payment, err := s.repo.CreatePayment(ctx, db.CreatePaymentParams{
 		UserID:   userID,
 		PlanID:   &planID,
-		Amount:   plan.Price,
+		Price:    plan.Price,
 		Provider: provider,
 		Status:   &status,
 	})
@@ -84,25 +117,24 @@ func (s *paymentService) CreatePayment(ctx context.Context, userID uuid.UUID, re
 		return nil, fmt.Errorf("create payment error: %w", err)
 	}
 
-	// 1. Sinh mã đơn hàng rút gọn 8 ký tự viết hoa
-	orderCode := strings.ToUpper(strings.ReplaceAll(payment.ID.String(), "-", "")[:8])
+	// Full UUID avoids collisions when matching bank transfers.
+	orderCode := strings.ToUpper(strings.ReplaceAll(payment.ID.String(), "-", ""))
 	transferContent := fmt.Sprintf("TT %s", orderCode)
-	bankName := "Ngân hàng Quân Đội (MBBank)"
-	bankAccount := "0348788888"
-	accountName := "TIEN TON AUDIO"
+	bankName := s.settings.BankName
+	bankAccount := s.settings.BankAccount
+	accountName := s.settings.AccountName
 	amountFloat := utils.NumericToFloat64(payment.Amount)
 
 	// 2. Tạo link VietQR chuẩn Napas 24/7 tự động điền tiền và nội dung
 	qrCodeURL := fmt.Sprintf(
-		"https://img.vietqr.io/image/MB-%s-compact2.png?amount=%.0f&addInfo=%s&accountName=%s",
+		"https://img.vietqr.io/image/%s-%s-compact2.png?amount=%.0f&addInfo=%s&accountName=%s",
+		s.settings.BankCode,
 		bankAccount,
 		amountFloat,
 		url.QueryEscape(transferContent),
 		url.QueryEscape(accountName),
 	)
 
-	// Gateway checkout URL fallback
-	checkoutURL := fmt.Sprintf("https://payment-gateway.tientonaudio.com/checkout?payment_id=%s&provider=%s", payment.ID, provider)
 	expiresAt := time.Now().Add(15 * time.Minute)
 
 	return &domain.CreatePaymentResp{
@@ -111,7 +143,7 @@ func (s *paymentService) CreatePayment(ctx context.Context, userID uuid.UUID, re
 		Amount:          amountFloat,
 		Provider:        payment.Provider,
 		Status:          getStr(payment.Status),
-		CheckoutURL:     checkoutURL,
+		CheckoutURL:     "",
 		QRCodeURL:       qrCodeURL,
 		BankName:        bankName,
 		BankAccount:     bankAccount,
@@ -145,6 +177,12 @@ func (s *paymentService) GetPaymentStatus(ctx context.Context, paymentID uuid.UU
 		}
 	}
 
+	if payment.PlanName != nil {
+		planName = *payment.PlanName
+	}
+	if payment.DurationDays != nil {
+		planDuration = *payment.DurationDays
+	}
 	isCompleted := getStr(payment.Status) == "completed"
 
 	return &domain.PaymentStatusResp{
@@ -205,8 +243,8 @@ func (s *paymentService) ListUserPayments(ctx context.Context, userID uuid.UUID)
 		result[i] = domain.UserPaymentResp{
 			ID:            r.ID,
 			PlanID:        r.PlanID,
-			PlanName:      r.PlanName,
-			DurationDays:  r.DurationDays,
+			PlanName:      &r.PlanName,
+			DurationDays:  &r.DurationDays,
 			Amount:        utils.NumericToFloat64(r.Amount),
 			Provider:      r.Provider,
 			Status:        statusStr,

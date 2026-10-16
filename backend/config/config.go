@@ -10,6 +10,20 @@ import (
 )
 
 type Config struct {
+	PaymentCheckoutEnabled     bool          `json:"payment_checkout_enabled"`
+	PaymentBankCode            string        `json:"payment_bank_code"`
+	PaymentBankName            string        `json:"payment_bank_name"`
+	PaymentBankAccount         string        `json:"-"`
+	PaymentAccountName         string        `json:"-"`
+	OAuthPublicURL             string        `json:"oauth_public_url"`
+	GoogleClientID             string        `json:"-"`
+	GoogleClientSecret         string        `json:"-"`
+	FacebookClientID           string        `json:"-"`
+	FacebookClientSecret       string        `json:"-"`
+	AppleClientID              string        `json:"-"`
+	AppleTeamID                string        `json:"-"`
+	AppleKeyID                 string        `json:"-"`
+	ApplePrivateKeyFile        string        `json:"-"`
 	TrustedProxyCIDRs          []string      `json:"trusted_proxy_cidrs"`
 	ServerAddress              string        `json:"server_address"`
 	Environment                string        `json:"environment"`
@@ -71,6 +85,20 @@ func LoadConfig(path string) (*Config, error) {
 	smtpPort, _ := strconv.Atoi(getEnv("SMTP_PORT", "587"))
 
 	cfg := &Config{
+		PaymentCheckoutEnabled:     getEnv("PAYMENT_CHECKOUT_ENABLED", "false") == "true",
+		PaymentBankCode:            getEnv("PAYMENT_BANK_CODE", ""),
+		PaymentBankName:            getEnv("PAYMENT_BANK_NAME", ""),
+		PaymentBankAccount:         getEnv("PAYMENT_BANK_ACCOUNT", ""),
+		PaymentAccountName:         getEnv("PAYMENT_ACCOUNT_NAME", ""),
+		OAuthPublicURL:             getEnv("OAUTH_PUBLIC_URL", "http://localhost:8080"),
+		GoogleClientID:             getEnv("GOOGLE_CLIENT_ID", ""),
+		GoogleClientSecret:         getEnv("GOOGLE_CLIENT_SECRET", ""),
+		FacebookClientID:           getEnv("FACEBOOK_CLIENT_ID", ""),
+		FacebookClientSecret:       getEnv("FACEBOOK_CLIENT_SECRET", ""),
+		AppleClientID:              getEnv("APPLE_CLIENT_ID", ""),
+		AppleTeamID:                getEnv("APPLE_TEAM_ID", ""),
+		AppleKeyID:                 getEnv("APPLE_KEY_ID", ""),
+		ApplePrivateKeyFile:        getEnv("APPLE_PRIVATE_KEY_FILE", ""),
 		TrustedProxyCIDRs:          strings.FieldsFunc(getEnv("TRUSTED_PROXY_CIDRS", ""), func(r rune) bool { return r == ',' }),
 		ServerAddress:              getEnv("SERVER_ADDRESS", "0.0.0.0:8080"),
 		Environment:                getEnv("ENVIRONMENT", "development"),
@@ -96,7 +124,7 @@ func LoadConfig(path string) (*Config, error) {
 		SMTPUsername:               getEnv("SMTP_USERNAME", ""),
 		SMTPPassword:               getEnv("SMTP_PASSWORD", ""),
 		SMTPFromEmail:              getEnv("SMTP_FROM_EMAIL", "noreply@tientonaudio.com"),
-		AppBaseURL:                 getEnv("APP_BASE_URL", "http://localhost:8080"),
+		AppBaseURL:                 getEnv("APP_BASE_URL", "http://localhost:3000"),
 		PaymentWebhookSecret:       getEnv("PAYMENT_WEBHOOK_SECRET", ""),
 	}
 

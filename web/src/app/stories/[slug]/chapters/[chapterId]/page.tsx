@@ -1,7 +1,9 @@
 
 import { serializeJsonLd } from '@/lib/json-ld';
 import { api } from '@/lib/api';
-import { Chapter } from '@/types';
+import { resolveChapterRoute } from '@/lib/chapter-route';
+import { cache } from 'react';
+import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -23,21 +25,17 @@ function formatIsoDuration(seconds: number): string {
   return res;
 }
 
+const getChapterRoute = cache((slug: string, selector: string) => resolveChapterRoute(api, slug, selector));
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, chapterId } = await params;
-  const story = await api.getStoryBySlug(slug);
-  let chapterTitle = `Chương ${chapterId}`;
-  const storyTitle = story?.title || slug.replace(/-/g, ' ').toUpperCase();
-
-  try {
-    const ch = await api.getChapter(chapterId);
-    if (ch) {
-      chapterTitle = ch.title;
-    }
-  } catch { }
-
+  const data = await getChapterRoute(slug, chapterId);
+  if (!data) return { title: 'Không tìm thấy chương', robots: { index: false } };
+  const { story, chapter } = data;
+  const chapterTitle = chapter.title;
+  const storyTitle = story.title;
   const title = `${chapterTitle} - ${storyTitle} Audio & Truyện Chữ Chuẩn 320kbps | Tiên Tôn Audio`;
-  const description = `Nghe audio và đọc ${chapterTitle} truyện ${storyTitle} của tác giả ${story?.author_name || 'Đang cập nhật'}. Chất lượng âm thanh chuẩn phòng thu 320kbps.`;
+  const description = `Nghe audio và đọc ${chapterTitle} truyện ${storyTitle} của tác giả ${story.author_name || 'Đang cập nhật'}. Chất lượng âm thanh chuẩn phòng thu 320kbps.`;
 
   return {
     title,
@@ -62,58 +60,9 @@ export default async function ChapterPage({ params }: Props) {
   const { slug, chapterId } = await params;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://tientonaudio.com';
 
-  let story = await api.getStoryBySlug(slug);
-  let chapters: Chapter[] = [];
-  if (story) {
-    chapters = await api.getStoryChapters(story.id, 1, 1000);
-  }
-
-  let chapter = await api.getChapter(chapterId);
-
-  // Nếu không tìm thấy theo ID, có thể chapterId là số thứ tự chương (VD: /chapters/1)
-  if (story && !chapter && chapters.length > 0) {
-    const found = chapters.find(
-      (c) => c.id === chapterId || c.chapter_number.toString() === chapterId
-    );
-    if (found) {
-      chapter = (await api.getChapter(found.id)) || found;
-    }
-  }
-
-  // Fallback nếu offline hoặc dữ liệu mẫu
-  if (!story) {
-    story = {
-      id: 'story-1',
-      title: slug === 'pham-nhan-tu-tien' ? 'Phàm Nhân Tu Tiên' : slug,
-      slug: slug,
-      status: 'completed' as const,
-      view_count: 125000,
-      total_chapters: 1395,
-      rating_avg: 4.9,
-      rating_count: 1400,
-      favorite_count: 900,
-      categories: ['Tiên Hiệp'],
-    };
-  }
-
-  if (!chapter) {
-    chapter = {
-      id: chapterId,
-      story_id: story.id,
-      chapter_number: 1,
-      title: `Chương ${chapterId}`,
-      content: `Nội dung chương đang được cập nhật...`,
-      content_text: `Nội dung chương đang được cập nhật...`,
-      is_premium: false,
-      duration_seconds: 0,
-      listen_count: 0,
-      narrator_name: 'Hệ Thống',
-      created_at: new Date().toISOString(),
-    };
-  } else {
-    chapter.content_text = chapter.content || chapter.content_text || '';
-  }
-
+  const data = await getChapterRoute(slug, chapterId);
+  if (!data) notFound();
+  const { story, chapter, chapters } = data;
   // Google Schema: AudioObject + BreadcrumbList
   const jsonLd = {
     '@context': 'https://schema.org',

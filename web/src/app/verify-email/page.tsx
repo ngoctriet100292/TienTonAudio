@@ -7,19 +7,19 @@ import { api } from '@/lib/api';
 import { AlertCircle, ArrowRight, CheckCircle2, Mail, MailCheck, Send } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useState } from 'react';
 
 function VerifyEmailContent() {
 
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
 
-  const [verifying, setVerifying] = useState(!!token);
+  const [verifying, setVerifying] = useState(false);
   const [success, setSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Form gửi lại email
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(searchParams.get('email') || '');
   const [resending, setResending] = useState(false);
   const [resendStatus, setResendStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -34,7 +34,7 @@ function VerifyEmailContent() {
       await api.resendVerificationEmail(email.trim());
       setResendStatus({
         type: 'success',
-        text: 'Thần thư xác thực mới đã được gửi tới hòm thư của Đạo Hữu. Vui lòng kiểm tra hộp thư!',
+        text: 'Nếu tài khoản cần xác thực, email đã được gửi. Vui lòng kiểm tra hộp thư và mục thư rác.',
       });
       setEmail('');
     } catch (err: unknown) {
@@ -47,30 +47,16 @@ function VerifyEmailContent() {
     }
   };
 
-  useEffect(() => {
-    if (!token) return;
-
-    let isMounted = true;
-    api.verifyEmail(token)
-      .then(() => {
-        if (isMounted) {
-          setSuccess(true);
-          setErrorMsg(null);
-        }
-      })
-      .catch((err: unknown) => {
-        if (isMounted) {
-          setErrorMsg(getErrorMessage(err) || 'Mã ấn chú xác thực không hợp lệ hoặc đã quá hạn.');
-        }
-      })
-      .finally(() => {
-        if (isMounted) setVerifying(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [token]);
+  const handleVerify = async () => {
+    if (!token || verifying) return;
+    setVerifying(true); setErrorMsg(null);
+    try {
+      await api.verifyEmail(token);
+      setSuccess(true);
+      window.history.replaceState(null, '', '/verify-email');
+    } catch (err) { setErrorMsg(getErrorMessage(err) || 'Mã xác thực không hợp lệ hoặc đã hết hạn.'); }
+    finally { setVerifying(false); }
+  };
 
   return (
     <div className="w-full max-w-md space-y-6">
@@ -80,7 +66,7 @@ function VerifyEmailContent() {
           <MailCheck className="w-7 h-7" />
         </div>
         <h1 className="text-2xl sm:text-3xl font-black text-white">
-          Xác Thực <span className="gold-text">Hồn Ấn Email</span>
+          Xác Thực <span className="gold-text">Email</span>
         </h1>
         <p className="text-xs text-slate-400 max-w-xs mx-auto">
           Hoàn tất chứng thực hòm thư để khai mở đầy đủ đặc quyền đàm đạo và tu vi tại Tiên Tôn Các.
@@ -117,6 +103,7 @@ function VerifyEmailContent() {
           </div>
         ) : (
           <div className="space-y-5">
+            {token && <div className="space-y-3"><p className="text-sm leading-relaxed text-slate-300">Nhấn xác thực để kích hoạt email của tài khoản. Đường dẫn có hiệu lực trong 24 giờ.</p><button type="button" onClick={handleVerify} disabled={verifying} className="w-full rounded-2xl bg-[#ffb703] py-3 text-sm font-semibold text-black">Xác thực email</button></div>}
             {errorMsg && (
               <div className="p-4 rounded-2xl bg-rose-950/80 text-rose-300 border border-rose-500/30 text-xs font-bold flex items-start gap-2.5">
                 <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />

@@ -13,30 +13,17 @@ export const metadata: Metadata = {
 };
 
 interface Props {
-  searchParams: Promise<{ q?: string; status?: string; sort?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; sort?: string; narrator?:string; min_chapters?:string; min_minutes?:string }>;
 }
 
 export default async function SearchPage({ searchParams }: Props) {
-  const { q, status, sort } = await searchParams;
+  const { q, status, sort, narrator, min_chapters, min_minutes } = await searchParams;
   const query = q || '';
   const currentStatus = status || '';
   const currentSort = sort || 'views';
 
-  const rawResults = query ? await api.searchStories(query) : await api.getStories(1, 24);
-
-  // Lọc theo trạng thái
-  const results = currentStatus
-    ? rawResults.filter((s) => s.status === currentStatus)
-    : [...rawResults];
-
-  // Sắp xếp
-  if (currentSort === 'views') {
-    results.sort((a, b) => b.view_count - a.view_count);
-  } else if (currentSort === 'rating') {
-    results.sort((a, b) => b.rating_avg - a.rating_avg);
-  } else if (currentSort === 'chapters') {
-    results.sort((a, b) => b.total_chapters - a.total_chapters);
-  }
+  const filters = new URLSearchParams({q:query,status:currentStatus,sort:currentSort,narrator:narrator||'',min_chapters:min_chapters||'0',min_minutes:min_minutes||'0'});
+  const results = await api.searchCatalogue(filters);
 
   const statusFilters: { label: string; value: string }[] = [
     { label: 'Tất cả trạng thái', value: '' },
@@ -52,7 +39,7 @@ export default async function SearchPage({ searchParams }: Props) {
   ];
 
   const buildFilterUrl = (newStatus?: string, newSort?: string) => {
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(filters);
     if (query) params.set('q', query);
     const s = newStatus !== undefined ? newStatus : currentStatus;
     if (s) params.set('status', s);
@@ -73,11 +60,15 @@ export default async function SearchPage({ searchParams }: Props) {
             {query ? `Kết quả tìm kiếm cho: "${query}"` : 'Khám Phá Toàn Bộ Kho Truyện'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Tìm thấy <span className="text-amber-400 font-bold">{results.length}</span> tác phẩm phù hợp
+            Hiển thị tối đa 100 kết quả: <span className="text-amber-400 font-bold">{results.length}</span> tác phẩm phù hợp
           </p>
         </div>
 
-        {/* Thanh công cụ lọc & sắp xếp */}
+        <form action="/search" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+ {[["q","Tên truyện / tác giả",query],["narrator","Giọng đọc",narrator||''],["min_chapters","Số chương tối thiểu",min_chapters||''],["min_minutes","Thời lượng tối thiểu (phút)",min_minutes||'']].map(([name,label,value])=><label className="text-sm text-slate-300" key={name}>{label}<input name={name} defaultValue={value} type={name.startsWith('min_')?'number':'text'} min={0} className="mt-1 w-full rounded-xl border border-white/15 bg-slate-950 p-3"/></label>)}
+ <input type="hidden" name="status" value={currentStatus}/><input type="hidden" name="sort" value={currentSort}/><button className="rounded-xl bg-amber-400 px-4 py-2 font-semibold text-slate-950">Tìm kiếm</button>
+ </form>
+ {/* Thanh công cụ lọc & sắp xếp */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t border-white/5">
           {/* Bộ lọc trạng thái truyện */}
           <div className="flex flex-wrap items-center gap-2">

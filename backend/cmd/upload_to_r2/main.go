@@ -73,17 +73,17 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 
-	// 2. Kết nối PostgreSQL Supabase
+	// 2. Kết nối PostgreSQL
 	dbPool, err := pgxpool.New(ctx, cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("❌ Lỗi kết nối Supabase Database: %v", err)
+		log.Fatalf("❌ Lỗi kết nối PostgreSQL: %v", err)
 	}
 	defer dbPool.Close()
 
 	if err := dbPool.Ping(ctx); err != nil {
-		log.Fatalf("❌ Ping Supabase thất bại: %v", err)
+		log.Fatalf("❌ Ping PostgreSQL thất bại: %v", err)
 	}
-	log.Println("✅ Kết nối Database Supabase thành công!")
+	log.Println("✅ Kết nối PostgreSQL thành công!")
 
 	// 3. Khởi tạo Storage Service
 	storageSvc, err := storage.NewR2Storage(

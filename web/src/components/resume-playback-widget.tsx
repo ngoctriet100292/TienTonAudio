@@ -2,6 +2,9 @@
 
 import { MediaImage } from '@/components/media-image';
 
+import {useAuth} from '@/context/auth-context';
+import {useAsyncResource} from '@/lib/use-async-resource';
+import {platform,ResumeItem} from '@/lib/platform';
 import { useAudio } from '@/context/audio-context';
 import { formatAudioTime } from '@/lib/timeline';
 import { Headphones, Pause, Play, X } from 'lucide-react';
@@ -9,6 +12,17 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 export function ResumePlaybackWidget() {
+ const {user}=useAuth();
+ return user ? <ServerResume key={user.id} userId={user.id}/> : <LocalResume/>;
+}
+function ServerResume({userId}:{userId:string}) {
+ const {data,error,reload}=useAsyncResource(`resume:${userId}`,()=>platform<ResumeItem[]>('/users/continue-listening'),[]);
+ if(error)return <p className="text-sm text-slate-400">Chưa đồng bộ được tiến độ. <button className="text-amber-300" onClick={reload}>Thử lại</button></p>;
+ if(!data.length)return null;
+ const item=data[0];
+ return <section className="rounded-2xl border border-amber-400/30 bg-slate-900 p-5 space-y-3"><div className="flex justify-between gap-3"><h2 className="font-semibold text-amber-300">Tiếp tục nghe</h2><Link className="text-sm text-slate-400" href="/account">Lịch sử & thành tựu</Link></div><p className="font-bold">{item.story_title}</p><p className="text-sm text-slate-400">{item.chapter_title} · {Math.floor(item.position_seconds/60)} phút</p><Link className="inline-flex rounded-xl bg-amber-400 px-4 py-2 font-semibold text-slate-950" href={`/stories/${item.story_slug}/chapters/${item.chapter_id}`}>Tiếp tục</Link></section>;
+}
+function LocalResume() {
   const {
     lastPlayedSession,
     resumeLastPlayed,

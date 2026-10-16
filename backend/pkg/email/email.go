@@ -1,19 +1,24 @@
 package email
 
 import (
+	"crypto/tls"
 	"fmt"
-	"log/slog"
+	"mime"
+	"net"
+	"net/mail"
 	"net/smtp"
+	"net/url"
 	"strings"
+	"time"
 )
 
 type Config struct {
-	Host        string
-	Port        int
-	Username    string
-	Password    string
-	FromEmail   string
-	AppBaseURL  string
+	Host       string
+	Port       int
+	Username   string
+	Password   string
+	FromEmail  string
+	AppBaseURL string
 }
 
 type EmailService interface {
@@ -32,11 +37,11 @@ func NewEmailService(cfg Config) EmailService {
 func (s *emailService) SendVerificationEmail(toEmail, username, token string) error {
 	baseURL := s.cfg.AppBaseURL
 	if baseURL == "" {
-		baseURL = "http://localhost:8080"
+		baseURL = "http://localhost:3000"
 	}
 	baseURL = strings.TrimRight(baseURL, "/")
 
-	verifyURL := fmt.Sprintf("%s/api/v1/auth/verify-email?token=%s", baseURL, token)
+	verifyURL := fmt.Sprintf("%s/verify-email?token=%s", baseURL, url.QueryEscape(token))
 
 	subject := "Xác thực tài khoản TienTonAudio"
 	body := fmt.Sprintf(
@@ -50,17 +55,17 @@ func (s *emailService) SendVerificationEmail(toEmail, username, token string) er
 		username, verifyURL, token,
 	)
 
-	return s.sendMail(toEmail, subject, body, "Verification email", token, verifyURL)
+	return s.sendMail(toEmail, subject, body)
 }
 
 func (s *emailService) SendPasswordResetEmail(toEmail, username, token string) error {
 	baseURL := s.cfg.AppBaseURL
 	if baseURL == "" {
-		baseURL = "http://localhost:8080"
+		baseURL = "http://localhost:3000"
 	}
 	baseURL = strings.TrimRight(baseURL, "/")
 
-	resetURL := fmt.Sprintf("%s/reset-password?token=%s", baseURL, token)
+	resetURL := fmt.Sprintf("%s/reset-password?token=%s", baseURL, url.QueryEscape(token))
 
 	subject := "Yêu cầu đặt lại mật khẩu TienTonAudio"
 	body := fmt.Sprintf(
@@ -74,42 +79,109 @@ func (s *emailService) SendPasswordResetEmail(toEmail, username, token string) e
 		username, resetURL, token,
 	)
 
-	return s.sendMail(toEmail, subject, body, "Password reset email", token, resetURL)
+	return s.sendMail(toEmail, subject, body)
 }
 
-func (s *emailService) sendMail(toEmail, subject, body, tag, token, actionURL string) error {
-	// Nếu không cấu hình SMTP host, dùng mock logger (rất tiện lợi cho môi trường dev & test)
+func (s *emailService) sendMail(toEmail, subject, body string) error {
 	if s.cfg.Host == "" || s.cfg.Port == 0 {
-		slog.Info(fmt.Sprintf("📧 [EMAIL SERVICE - DEV MOCK] %s queued", tag),
-			"to", toEmail,
-			"action_url", actionURL,
-			"token", token,
-		)
-		return nil
+		return fmt.Errorf("SMTP is not configured")
 	}
-
-	// Gửi qua SMTP
 	from := s.cfg.FromEmail
 	if from == "" {
 		from = s.cfg.Username
 	}
-
-	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n%s",
-		from, toEmail, subject, body,
-	)
-
-	addr := fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.Port)
-	var auth smtp.Auth
-	if s.cfg.Username != "" && s.cfg.Password != "" {
-		auth = smtp.PlainAuth("", s.cfg.Username, s.cfg.Password, s.cfg.Host)
+	for _, address := range []string{from, toEmail} {
+		parsed, err := mail.ParseAddress(address)
+		if err != nil || parsed.Address != address || strings.ContainsAny(address, "\r\n") {
+			return fmt.Errorf("invalid mail address")
+		}
 	}
-
-	if err := smtp.SendMail(addr, auth, from, []string{toEmail}, []byte(msg)); err != nil {
-		slog.Error(fmt.Sprintf("failed to send %s via SMTP", tag), "to", toEmail, "error", err)
-		return fmt.Errorf("send mail error: %w", err)
+	client, err := s.connect()
+	if err != nil {
+		return err
 	}
-
-	slog.Info(fmt.Sprintf("📧 %s sent successfully via SMTP", tag), "to", toEmail)
+	defer client.Close()
+	if err = client.Mail(from); err != nil {
+		return fmt.Errorf("SMTP sender rejected")
+	}
+	if err = client.Rcpt(toEmail); err != nil {
+		return fmt.Errorf("SMTP recipient rejected")
+	}
+	data, err := client.Data()
+	if err != nil {
+		return fmt.Errorf("SMTP data rejected")
+	}
+	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n%s", from, toEmail, mime.QEncoding.Encode("UTF-8", subject), body)
+	if _, err = data.Write([]byte(msg)); err != nil {
+		return fmt.Errorf("SMTP message failed")
+	}
+	if err = data.Close(); err != nil {
+		return fmt.Errorf("SMTP message not accepted")
+	}
+	_ = client.Quit()
 	return nil
 }
 
+func (s *emailService) connect() (*smtp.Client, error) {
+	if s.cfg.Host == "" || s.cfg.Port == 0 {
+		return nil, fmt.Errorf("SMTP is not configured")
+	}
+	addr := net.JoinHostPort(s.cfg.Host, fmt.Sprint(s.cfg.Port))
+	dialer := &net.Dialer{Timeout: 10 * time.Second}
+	var conn net.Conn
+	var err error
+	tlsConfig := &tls.Config{ServerName: s.cfg.Host, MinVersion: tls.VersionTLS12}
+	if s.cfg.Port == 465 {
+		conn, err = tls.DialWithDialer(dialer, "tcp", addr, tlsConfig)
+	} else {
+		conn, err = dialer.Dial("tcp", addr)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("SMTP connection failed")
+	}
+	_ = conn.SetDeadline(time.Now().Add(20 * time.Second))
+	client, err := smtp.NewClient(conn, s.cfg.Host)
+	if err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("SMTP handshake failed")
+	}
+	if s.cfg.Port != 465 {
+		if ok, _ := client.Extension("STARTTLS"); ok {
+			if err = client.StartTLS(tlsConfig); err != nil {
+				client.Close()
+				return nil, fmt.Errorf("SMTP TLS failed")
+			}
+		} else if s.cfg.Host != "localhost" && net.ParseIP(s.cfg.Host) != nil && !net.ParseIP(s.cfg.Host).IsLoopback() {
+			client.Close()
+			return nil, fmt.Errorf("SMTP server requires TLS")
+		} else if s.cfg.Host != "localhost" && net.ParseIP(s.cfg.Host) == nil {
+			client.Close()
+			return nil, fmt.Errorf("SMTP server requires TLS")
+		}
+	}
+	if s.cfg.Username != "" {
+		if s.cfg.Password == "" {
+			client.Close()
+			return nil, fmt.Errorf("SMTP password missing")
+		}
+		if err = client.Auth(smtp.PlainAuth("", s.cfg.Username, s.cfg.Password, s.cfg.Host)); err != nil {
+			client.Close()
+			return nil, fmt.Errorf("SMTP authentication failed")
+		}
+	}
+	return client, nil
+}
+
+// CheckSMTP verifies transport and credentials without sending an email.
+func CheckSMTP(cfg Config) error {
+	client, err := (&emailService{cfg: cfg}).connect()
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	if err = client.Noop(); err != nil {
+		return fmt.Errorf("SMTP check failed")
+	}
+	_ = client.Quit()
+	return nil
+}

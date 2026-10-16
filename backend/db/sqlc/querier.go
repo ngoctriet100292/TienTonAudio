@@ -19,6 +19,7 @@ type Querier interface {
 	AddStoryCategory(ctx context.Context, arg AddStoryCategoryParams) error
 	AddUserCultivationExp(ctx context.Context, arg AddUserCultivationExpParams) (AddUserCultivationExpRow, error)
 	AdvancedSearchStories(ctx context.Context, arg AdvancedSearchStoriesParams) ([]AdvancedSearchStoriesRow, error)
+	ConsumeEmailVerificationToken(ctx context.Context, arg ConsumeEmailVerificationTokenParams) (uuid.UUID, error)
 	CreateAuthor(ctx context.Context, arg CreateAuthorParams) (Author, error)
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error)
 	CreateChapter(ctx context.Context, arg CreateChapterParams) (Chapter, error)

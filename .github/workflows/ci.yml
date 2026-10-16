@@ -1,0 +1,92 @@
+name: Backend and web
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: tienton_ci
+          POSTGRES_PASSWORD: ci_ephemeral_only
+          POSTGRES_DB: tienton_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U tienton_ci -d tienton_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      ENVIRONMENT: test
+      DATABASE_URL: postgres://tienton_ci:ci_ephemeral_only@127.0.0.1:5432/tienton_ci?sslmode=disable
+      REDIS_URL: redis://127.0.0.1:6379/0
+      JWT_SECRET_KEY: ci_fixture_key_not_used_outside_ephemeral_tests
+      PAYMENT_CHECKOUT_ENABLED: 'false'
+      APP_BASE_URL: http://localhost:3000
+      OAUTH_PUBLIC_URL: http://localhost:8080
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:8080/api/v1
+      API_INTERNAL_ORIGIN: http://127.0.0.1:8080
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Test backend
+        working-directory: backend
+        run: go test -race ./...
+      - name: Vet backend
+        working-directory: backend
+        run: go vet ./...
+      - name: Start temporary API for web build
+        working-directory: backend
+        shell: bash
+        run: |
+          go build -o /tmp/tienton-ci-api ./cmd/server
+          /tmp/tienton-ci-api > /tmp/tienton-ci-api.log 2>&1 &
+          echo "TIENTON_CI_PID=$!" >> "$GITHUB_ENV"
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8080/readyz; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/tienton-ci-api.log
+          exit 1
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci
+      - name: Test web
+        working-directory: web
+        run: npm test
+      - name: Lint web
+        working-directory: web
+        run: npm run lint
+      - name: Build web
+        working-directory: web
+        run: npm run build
+      - name: Stop temporary API
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${TIENTON_CI_PID:-}" ]; then kill "$TIENTON_CI_PID" || true; fi
