@@ -14,6 +14,7 @@ import (
 	"github.com/IREAKING/tientonaudio/backend/pkg/auth"
 	"github.com/IREAKING/tientonaudio/backend/pkg/email"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -90,7 +91,7 @@ func (s *authService) issueTokenPair(ctx context.Context, userID uuid.UUID, emai
 	}
 
 	tokenHash := s.jwtService.HashToken(tokenPair.RefreshToken)
-	expiresAt := time.Now().Add(auth.RefreshTokenTTL)
+	expiresAt := time.Now().Add(s.jwtService.RefreshLifetime())
 
 	_, err = s.userRepo.CreateRefreshToken(ctx, db.CreateRefreshTokenParams{
 		UserID:    userID,
@@ -541,34 +542,54 @@ func (s *authService) ResetPassword(ctx context.Context, req domain.ResetPasswor
 
 func (s *authService) RefreshToken(ctx context.Context, req domain.RefreshTokenReq) (*domain.TokenResp, error) {
 	if req.RefreshToken == "" {
-		return nil, errors.New("refresh token is required")
+		return nil, domain.ErrInvalidSession
 	}
-
-	tokenHash := s.jwtService.HashToken(req.RefreshToken)
-	record, err := s.userRepo.GetRefreshTokenByHash(ctx, tokenHash)
+	if atomic, ok := s.userRepo.(interface {
+		WithRefreshTransaction(context.Context, string, func(repository.UserRepository) error) error
+	}); ok {
+		var tokens *domain.TokenResp
+		err := atomic.WithRefreshTransaction(ctx, s.jwtService.HashToken(req.RefreshToken), func(repo repository.UserRepository) error {
+			copy := *s
+			copy.userRepo = repo
+			var err error
+			tokens, err = copy.rotateRefresh(ctx, req)
+			return err
+		})
+		return tokens, err
+	}
+	return s.rotateRefresh(ctx, req)
+}
+func (s *authService) rotateRefresh(ctx context.Context, req domain.RefreshTokenReq) (*domain.TokenResp, error) {
+	hash := s.jwtService.HashToken(req.RefreshToken)
+	record, err := s.userRepo.GetRefreshTokenByHash(ctx, hash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, domain.ErrInvalidSession
+	}
 	if err != nil {
-		return nil, errors.New("invalid or expired refresh token")
+		return nil, fmt.Errorf("load session: %w", err)
 	}
-
 	if record.Revoked {
-		// Phát hiện token đã bị thu hồi: revoke toàn bộ token của user để phòng chống rò rỉ token
-		_ = s.userRepo.RevokeAllUserRefreshTokens(ctx, record.UserID)
-		return nil, errors.New("refresh token has been revoked, please login again")
+		if err = s.userRepo.RevokeAllUserRefreshTokens(ctx, record.UserID); err != nil {
+			return nil, fmt.Errorf("revoke session family: %w", err)
+		}
+		return nil, domain.ErrInvalidSession
 	}
-
-	if record.ExpiresAt.Valid && time.Now().After(record.ExpiresAt.Time) {
-		return nil, errors.New("refresh token has expired, please login again")
+	if !record.ExpiresAt.Valid || time.Now().After(record.ExpiresAt.Time) {
+		return nil, domain.ErrInvalidSession
 	}
-
 	user, err := s.userRepo.GetUserByID(ctx, record.UserID)
-	if err != nil {
-		return nil, errors.New("user not found")
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, domain.ErrInvalidSession
 	}
-
-	// Xoay vòng (Rotate): Đánh dấu token cũ là revoked
-	_ = s.userRepo.RevokeRefreshToken(ctx, tokenHash)
-
-	// Cấp cặp token mới
+	if err != nil {
+		return nil, fmt.Errorf("load session user: %w", err)
+	}
+	if !user.IsEmailVerified {
+		return nil, domain.ErrInvalidSession
+	}
+	if err = s.userRepo.RevokeRefreshToken(ctx, hash); err != nil {
+		return nil, fmt.Errorf("rotate session: %w", err)
+	}
 	return s.issueTokenPair(ctx, user.ID, user.Email, user.Role)
 }
 

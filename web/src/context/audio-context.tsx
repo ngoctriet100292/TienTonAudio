@@ -84,9 +84,7 @@ function AudioSession({ children }: { children: React.ReactNode }) {
 
   const getStreamUrl = (chapterId: string, speed: number) => {
     const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-    const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
-    return `${base}/chapters/${chapterId}/stream?speed=${speed}${tokenParam}`;
+    return `${base}/chapters/${chapterId}/stream?speed=${speed}`;
   };
 
   // Hàm lưu phiên nghe dở vào localStorage
@@ -149,8 +147,7 @@ function AudioSession({ children }: { children: React.ReactNode }) {
     startTime?: number
   ) => {
     const requestId = ++playRequest.current.id;
-    const playbackAccount = localStorage.getItem('access_token');
-    if (startTime === undefined && playbackAccount) {
+    if (startTime === undefined && user) {
       try {
         const saved = await platform<{position_seconds?:number;is_completed?:boolean}>(`/users/chapters/${chapter.id}/progress`);
         startTime = saved.is_completed ? 0 : saved.position_seconds || 0;
@@ -395,10 +392,8 @@ function AudioSession({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const flush = () => {
       const chapter = currentChapterRef.current; const audio = audioRef.current;
-      const token=localStorage.getItem('access_token');
-      if(!token || !chapter || !audio || !Number.isFinite(audio.currentTime) || audio.currentTime<=0)return;
-      const base=process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
-      void fetch(`${base}/chapters/progress`,{method:'POST',keepalive:true,headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({chapter_id:chapter.id,story_id:currentStoryRef.current?.id,last_position_seconds:Math.floor(audio.currentTime),is_completed:audio.ended,playback_speed:playbackSpeedRef.current})}).catch(()=>{});
+      if(!chapter || !audio || !Number.isFinite(audio.currentTime) || audio.currentTime<=0)return;
+      api.flushListeningProgress(chapter.id,Math.floor(audio.currentTime),audio.ended,playbackSpeedRef.current,currentStoryRef.current?.id);
     };
     const hidden=()=>{if(document.visibilityState==='hidden')flush();};
     window.addEventListener('pagehide',flush);document.addEventListener('visibilitychange',hidden);

@@ -64,6 +64,8 @@ type Chapter struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	PublicationStatus string             `json:"publication_status"`
 	ScheduledAt       pgtype.Timestamptz `json:"scheduled_at"`
+	ReviewReason      string             `json:"review_reason"`
+	EditVersion       int64              `json:"edit_version"`
 }
 
 type ChapterAnnouncement struct {
@@ -309,6 +311,7 @@ type Story struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	CreatedBy         uuid.NullUUID      `json:"created_by"`
 	PublicationStatus string             `json:"publication_status"`
+	ReviewReason      string             `json:"review_reason"`
 }
 
 type StoryCategory struct {

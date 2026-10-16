@@ -1,6 +1,7 @@
+import type {Page} from './pagination';
 import type { AuthenticatedResponse, ChapterAudioFile, ChapterComment, CommentReactionResponse, LoginResponse, PlaybackSpeedsResponse, SignedStreamResponse, StoryRealmsResponse, TwoFactorSetupResponse, OAuthLoginResponse, OAuthProvider } from '@/types';
 import { AdminReport, AdminStats, AdminUser, Category, Chapter, CommunityComment, CommunityPost, CreateCommunityPostReq, CreatePartnerChapterReq, CreatePartnerStoryReq, CreatePaymentResp, CreatePlaylistReq, CreateReportReq, CultivationRealmInfo, FavoriteStoryItem, FollowedAuthor, FollowedNarrator, ListeningHistoryItem, NotificationItem, PartnerStats, PartnerStoryItem, PaymentHistoryItem, PaymentStatusResp, Playlist, PlaylistDetail, Story, SubscriptionPlan, User, UserCultivation, UserSubscription } from '@/types';
-import { ApiError, getErrorMessage } from './errors';
+import { ApiError } from './errors';
 
 const API_BASE_URL = (typeof window === 'undefined' ? process.env.API_INTERNAL_ORIGIN && `${process.env.API_INTERNAL_ORIGIN}/api/v1` : undefined) || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
 
@@ -23,91 +24,104 @@ export class ApiClient {
     this.baseUrl = baseUrl;
   }
 
-  private getToken(): string | null {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('access_token');
-    }
-    return null;
+  private csrfToken: string | null = null;
+  private csrfPromise: Promise<string> | null = null;
+  private refreshPromise: Promise<boolean> | null = null;
+  private sessionQueue: Promise<unknown> = Promise.resolve();
+
+  private sessionState(): { authenticated: boolean; stamp: string } | null {
+    if (typeof window === 'undefined') return null;
+    try { return JSON.parse(localStorage.getItem('tienton_session_revision') || 'null'); } catch { return null; }
   }
-
-  private refreshPromise: Promise<string | null> | null = null;
-
-  private refreshToken(): Promise<string | null> {
+  private markSession(authenticated: boolean, force = false) {
+    if (typeof window === 'undefined') return;
+    if (force || this.sessionState()?.authenticated !== authenticated) {
+      localStorage.setItem('tienton_session_revision', JSON.stringify({authenticated, stamp: `${Date.now()}:${Math.random()}`}));
+    }
+  }
+  private async withSessionLock<T>(work: () => Promise<T>): Promise<T> {
+    if (typeof navigator !== 'undefined' && navigator.locks) {
+      return await navigator.locks.request(`tienton-session:${this.baseUrl}`, work);
+    }
+    const next = this.sessionQueue.then(work, work);
+    this.sessionQueue = next.catch(() => {});
+    return next;
+  }
+  async prepareBrowserSession(): Promise<string> {
+    if (this.csrfToken) return this.csrfToken;
+    if (this.csrfPromise) return this.csrfPromise;
+    this.csrfPromise = (async () => {
+      const res = await fetch(`${this.baseUrl}/auth/csrf`, {credentials:'include',cache:'no-store',signal:AbortSignal.timeout(15000)});
+      const data = await res.json();
+      if (!res.ok || !data.data?.csrf_token) throw new ApiError('Không khởi tạo được phiên bảo vệ. Vui lòng thử lại.', res.status);
+      this.csrfToken = data.data.csrf_token;
+      return this.csrfToken as string;
+    })().finally(() => {this.csrfPromise = null;});
+    return this.csrfPromise;
+  }
+  private refreshToken(force = false): Promise<boolean> {
     if (this.refreshPromise) return this.refreshPromise;
-    this.refreshPromise = this.rotateRefreshToken().finally(() => { this.refreshPromise = null; });
+    const before = this.sessionState()?.stamp;
+    this.refreshPromise = this.withSessionLock(async () => {
+      const current = this.sessionState();
+      if (!force && current?.stamp !== before) return current?.authenticated === true;
+      const send = async () => {
+        const csrf = await this.prepareBrowserSession();
+        return fetch(`${this.baseUrl}/auth/refresh`, {method:'POST',credentials:'include',headers:{'Content-Type':'application/json','X-Session-Mode':'cookie','X-CSRF-Token':csrf},body:'{}',signal:AbortSignal.timeout(15000)});
+      };
+      let res = await send();
+      if (res.status === 403) {
+        const failure = await res.clone().json().catch(() => ({}));
+        if (failure.code === 'csrf_failed') {this.csrfToken = null;res = await send();}
+      }
+      if (res.status === 401) {
+        this.markSession(false);
+        if(current?.authenticated)window.dispatchEvent(new Event('tienton-session-change'));
+        return false;
+      }
+      if (!res.ok) throw new ApiError('Không thể làm mới phiên đăng nhập. Vui lòng thử lại.',res.status);
+      this.markSession(true,true);
+      return true;
+    }).finally(() => {this.refreshPromise = null;});
     return this.refreshPromise;
   }
-
-  private async rotateRefreshToken(): Promise<string | null> {
-    if (typeof window === 'undefined') return null;
-    const refreshToken = localStorage.getItem('refresh_token');
-    if (!refreshToken) return null;
-    const res = await fetch(`${this.baseUrl}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    });
+  private async request<T>(endpoint: string, options: RequestInit = {}, isRetry = false, locked = false, csrfRetried = false): Promise<T> {
+    const browser = typeof window !== 'undefined';
+    const sessionMutation = ['/auth/login','/auth/logout','/auth/2fa/verify','/auth/oauth/exchange'].includes(endpoint);
+    if (browser && sessionMutation && !locked) return this.withSessionLock(() => this.request<T>(endpoint,options,isRetry,true,csrfRetried));
+    const multipart = typeof FormData !== 'undefined' && options.body instanceof FormData;
+    const headers: Record<string,string> = {...(multipart ? {} : {'Content-Type':'application/json'}), ...((options.headers as Record<string,string>) || {})};
+    if (browser) {
+      headers['X-Session-Mode']='cookie';
+      if (!['GET','HEAD','OPTIONS'].includes(options.method || 'GET')) headers['X-CSRF-Token']=await this.prepareBrowserSession();
+    }
+    const stamp = this.sessionState()?.stamp;
+    const res = await fetch(`${this.baseUrl}${endpoint}`, {...options,credentials:browser?'include':options.credentials,headers,signal:options.signal || AbortSignal.timeout(15000)});
+    if (res.status===401 && browser && !isRetry && (!endpoint.startsWith('/auth/') || /^\/auth\/oauth\/(google|facebook|apple)\/link$/.test(endpoint))) {
+      const current=this.sessionState();
+      const renewed=current?.stamp!==stamp ? current?.authenticated===true : await this.refreshToken();
+      if(renewed)return this.request<T>(endpoint,options,true,locked,csrfRetried);
+    }
     if (!res.ok) {
-      if ((res.status === 401 || res.status === 403) && localStorage.getItem('refresh_token') === refreshToken) {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user_profile');
-        window.dispatchEvent(new Event('tienton-session-change'));
-        return null;
-      }
-      throw new ApiError('Không thể làm mới phiên đăng nhập. Vui lòng thử lại.', res.status);
+      const errorData=await res.json().catch(()=>({}));
+      if(browser && res.status===403 && errorData.code==='csrf_failed' && !csrfRetried){this.csrfToken=null;return this.request<T>(endpoint,options,isRetry,locked,true);}
+      throw new ApiError(errorData.error || errorData.message || `Lỗi yêu cầu: ${res.status}`,res.status,errorData.code);
     }
-    const json = await res.json();
-    const tokens = json.data || json;
-    if (!tokens?.access_token || !tokens?.refresh_token) throw new ApiError('Phản hồi làm mới phiên không hợp lệ', 502);
-    // A logout or new login while this request was pending must not resurrect the old session.
-    if (localStorage.getItem('refresh_token') !== refreshToken) return this.getToken();
-    localStorage.setItem('access_token', tokens.access_token);
-    localStorage.setItem('refresh_token', tokens.refresh_token);
-    return tokens.access_token;
-  }
-
-  private async request<T>(endpoint: string, options: RequestInit = {}, isRetry = false): Promise<T> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...((options.headers as Record<string, string>) || {}),
-    };
-
-    const token = this.getToken();
-    if (token && !headers['Authorization']) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const res = await fetch(`${this.baseUrl}${endpoint}`, {
-      ...options,
-      headers,
-      signal: options.signal || AbortSignal.timeout(15000),
-    });
-
-    if (res.status === 401 && !isRetry && token && (!endpoint.startsWith('/auth/') || /^\/auth\/oauth\/(google|facebook|apple)\/link$/.test(endpoint))) {
-      const currentToken = this.getToken();
-      const newToken = currentToken && currentToken !== token ? currentToken : await this.refreshToken();
-      if (newToken) {
-        headers['Authorization'] = `Bearer ${newToken}`;
-        return this.request<T>(endpoint, { ...options, headers }, true);
-      }
-    }
-
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      throw new ApiError(errorData.error || errorData.message || `Lỗi yêu cầu: ${res.status}`, res.status);
-    }
-
-    if (res.status === 204) return undefined as T;
-    const data = await res.json();
-    return data.data !== undefined ? data.data : data;
+    if (res.status===204){if(browser&&endpoint==='/auth/logout')this.markSession(false,true);return undefined as T;}
+    const data=await res.json();const result=data.data!==undefined?data.data:data;
+    if(browser && sessionMutation && (endpoint==='/auth/logout' || result.cookie_session===true))this.markSession(endpoint!=='/auth/logout',true);
+    return result;
   }
 
   platformRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     return this.request<T>(endpoint, options);
   }
   async searchCatalogue(params: URLSearchParams): Promise<Story[]> {
-    return (await this.request<Story[]>(`/catalogue/search?${params}`, {cache:'no-store'})).map(normalizeStory);
+    return toList(await this.request<ListResponse<Story>>(`/catalogue/search?${params}`, {cache:'no-store'})).map(normalizeStory);
+  }
+  async searchCataloguePage(params:URLSearchParams):Promise<Page<Story>>{
+    const data=await this.request<Page<Story>>(`/catalogue/search?${params}`,{cache:'no-store'});
+    return {...data,items:data.items.map(normalizeStory)};
   }
   // ---- STORIES ----
   async getStories(page = 1, limit = 20): Promise<Story[]> {
@@ -177,6 +191,7 @@ export class ApiClient {
   // ---- CHAPTERS & STREAMING ----
   async getChapter(id: string): Promise<Chapter | null> {
     try {
+      if(typeof window!=='undefined' && this.sessionState()?.authenticated)await this.getMe();
       return await this.request<Chapter>(`/chapters/${encodeURIComponent(id)}`, { cache: 'no-store' });
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) return null;
@@ -189,6 +204,7 @@ export class ApiClient {
     quality = '320kbps',
     speed = 1.0
   ): Promise<SignedStreamResponse> {
+    if(typeof window!=='undefined' && this.sessionState()?.authenticated)await this.getMe();
     return this.request<SignedStreamResponse>(`/chapters/${chapterId}/stream?quality=${quality}&speed=${speed}&format=json`);
   }
 
@@ -218,7 +234,7 @@ export class ApiClient {
     speed = 1.0,
     storyId?: string
   ): Promise<void> {
-    if (!this.getToken()) return;
+    if (!this.sessionState()?.authenticated) return;
     try {
       await this.request('/chapters/progress', {
         method: 'POST',
@@ -233,6 +249,11 @@ export class ApiClient {
     } catch (e) {
       console.warn('Cannot save progress:', e);
     }
+  }
+
+  flushListeningProgress(chapterId:string,position:number,completed:boolean,speed:number,storyId?:string):void{
+    if(!this.csrfToken || !this.sessionState()?.authenticated)return;
+    void fetch(`${this.baseUrl}/chapters/progress`,{method:'POST',credentials:'include',keepalive:true,headers:{'Content-Type':'application/json','X-Session-Mode':'cookie','X-CSRF-Token':this.csrfToken},body:JSON.stringify({chapter_id:chapterId,story_id:storyId,last_position_seconds:position,is_completed:completed,playback_speed:speed})}).catch(()=>{});
   }
 
   // ---- COMMENTS ----
@@ -313,24 +334,21 @@ export class ApiClient {
   }
 
   // ---- USER PROFILE ----
-  async getMe(): Promise<User | null> {
-    if (typeof window !== 'undefined' && !this.getToken()) return null;
+  async getMe(attempt=0): Promise<User | null> {
+    const stamp=this.sessionState()?.stamp;
     try {
-      return await this.request<User>('/users/me', { cache: 'no-store' });
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 401) {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user_profile');
-        window.dispatchEvent(new Event('tienton-session-change'));
-        return null;
-      }
+      const me = await this.request<User>('/users/me',{cache:'no-store'});
+      const current=this.sessionState();
+      if(current?.stamp!==stamp){if(current?.authenticated===false)return null;if(attempt<1)return this.getMe(attempt+1);return null;}
+      this.markSession(true);
+      return me;
+    } catch(error) {
+      if(error instanceof ApiError && error.status===401)return null;
       throw error;
     }
   }
-
-  async logout(refreshToken: string): Promise<void> {
-    await this.request('/auth/logout', { method: 'POST', body: JSON.stringify({ refresh_token: refreshToken }) });
+  async logout(): Promise<void> {
+    await this.request('/auth/logout',{method:'POST',body:'{}'});
   }
 
   // ---- CULTIVATION (TU VI) ----
@@ -348,35 +366,9 @@ export class ApiClient {
   }
 
   // ---- USER ACTIONS (AVATAR, FAVORITES, HISTORY, PAYMENTS) ----
-  async uploadAvatar(file: File, isRetry = false): Promise<{ avatar_url: string; user?: User }> {
-    const token = this.getToken();
-    const formData = new FormData();
-    formData.append('avatar', file);
-
-    const headers: Record<string, string> = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const res = await fetch(`${this.baseUrl}/users/avatar`, {
-      method: 'POST',
-      headers,
-      body: formData,
-    });
-
-    if (res.status === 401 && !isRetry) {
-      const newToken = await this.refreshToken();
-      if (newToken) {
-        return this.uploadAvatar(file, true);
-      }
-      throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
-    }
-
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || data.message || 'Lỗi tải ảnh đại diện lên');
-    }
-    return data.data || data;
+  async uploadAvatar(file: File): Promise<{avatar_url:string;user?:User}> {
+    const body=new FormData();body.append('avatar',file);
+    return this.request('/users/avatar',{method:'POST',body});
   }
 
   async updateProfile(body: { username?: string; avatar_url?: string }): Promise<User> {
@@ -492,8 +484,8 @@ export class ApiClient {
   async becomePartner(): Promise<{ user_id: string; role: string }> {
     const result = await this.request<{ user_id: string; role: string }>('/partner/become-partner', { method: 'POST' });
     // The current access token still contains the old role after activation.
-    const token = await this.refreshToken();
-    if (!token) throw new ApiError('Vui lòng đăng nhập lại để sử dụng quyền đối tác.', 401);
+    const renewed = await this.refreshToken(true);
+    if (!renewed) throw new ApiError('Vui lòng đăng nhập lại để sử dụng quyền đối tác.', 401);
     return result;
   }
 
@@ -574,54 +566,24 @@ export class ApiClient {
     });
   }
 
-  async uploadPartnerCover(file: File): Promise<string> {
-    const token = this.getToken();
-    if (!token) {
-      throw new Error('Vui lòng đăng nhập lại tài khoản để tải ảnh bìa');
-    }
-
-    const formData = new FormData();
-    formData.append('cover', file);
-
-    let res: Response;
-    try {
-      res = await fetch(`${this.baseUrl}/partner/upload-cover`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
-    } catch (networkErr: unknown) {
-      throw new Error(
-        getErrorMessage(networkErr) === 'Load failed' || getErrorMessage(networkErr) === 'Failed to fetch'
-          ? 'Không thể kết nối đến máy chủ backend (http://localhost:8080). Hãy đảm bảo backend đang chạy.'
-          : (getErrorMessage(networkErr) || 'Lỗi mạng khi tải ảnh bìa')
-      );
-    }
-
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.error || errData.message || `Lỗi tải ảnh bìa lên (mã lỗi: ${res.status})`);
-    }
-
-    const data = await res.json();
-    return data.data?.url || data.url || '';
+  async uploadPartnerCover(file:File):Promise<string>{
+    const body=new FormData();body.append('cover',file);
+    const result=await this.request<{url:string}>('/partner/upload-cover',{method:'POST',body});return result.url;
   }
 
   async uploadPartnerAudio(
     file: File,
     onProgress?: (percent: number, loadedBytes: number, totalBytes: number) => void
   ): Promise<string> {
-    const token = this.getToken();
-    if (!token) {
-      throw new Error('Vui lòng đăng nhập lại tài khoản để có quyền tải file audio');
-    }
+    const me=await this.getMe();if(!me)throw new ApiError('Vui lòng đăng nhập để tải audio.',401);
+    const csrf = await this.prepareBrowserSession();
 
     return new Promise<string>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', `${this.baseUrl}/partner/upload-audio`);
-      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.withCredentials = true;
+      xhr.setRequestHeader('X-Session-Mode','cookie');
+      xhr.setRequestHeader('X-CSRF-Token',csrf);
 
       if (xhr.upload && onProgress) {
         xhr.upload.onprogress = (event) => {

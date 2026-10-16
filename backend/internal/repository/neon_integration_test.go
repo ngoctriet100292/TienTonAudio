@@ -15,6 +15,7 @@ import (
 	"github.com/IREAKING/tientonaudio/backend/pkg/auth"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -115,6 +116,58 @@ func TestNeonListeningIntegration(t *testing.T) {
 		}
 		if err = linkOAuthIdentity(ctx, second, identity, tx); !errors.Is(err, ErrOAuthEmailConflict) {
 			t.Fatalf("expected link conflict: %v", err)
+		}
+	})
+
+	t.Run("refresh rotation rolls back on failure and commits replay revocation", func(t *testing.T) {
+		tx, err := begin()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer tx.Rollback(context.Background())
+		id := uuid.New()
+		if _, err = tx.Exec(ctx, `INSERT INTO users(id,username,email,is_email_verified)VALUES($1,$2,$3,TRUE)`, id, id.String(), id.String()+"@example.invalid"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = tx.Exec(ctx, `INSERT INTO refresh_tokens(user_id,token_hash,expires_at)VALUES($1,'old-refresh-fixture',CURRENT_TIMESTAMP+INTERVAL '1 day')`, id); err != nil {
+			t.Fatal(err)
+		}
+		repo := NewUserRepository(db.New(tx), tx).(*userRepo)
+		fail := errors.New("simulated replacement persistence failure")
+		err = repo.WithRefreshTransaction(ctx, "old-refresh-fixture", func(r UserRepository) error {
+			if e := r.RevokeRefreshToken(ctx, "old-refresh-fixture"); e != nil {
+				return e
+			}
+			return fail
+		})
+		if !errors.Is(err, fail) {
+			t.Fatal(err)
+		}
+		var revoked bool
+		if err = tx.QueryRow(ctx, `SELECT revoked FROM refresh_tokens WHERE token_hash='old-refresh-fixture'`).Scan(&revoked); err != nil || revoked {
+			t.Fatal("failed rotation revoked valid session")
+		}
+		err = repo.WithRefreshTransaction(ctx, "old-refresh-fixture", func(r UserRepository) error {
+			if e := r.RevokeRefreshToken(ctx, "old-refresh-fixture"); e != nil {
+				return e
+			}
+			_, e := r.CreateRefreshToken(ctx, db.CreateRefreshTokenParams{UserID: id, TokenHash: "new-refresh-fixture", ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Hour), Valid: true}})
+			return e
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = repo.WithRefreshTransaction(ctx, "old-refresh-fixture", func(r UserRepository) error {
+			if e := r.RevokeAllUserRefreshTokens(ctx, id); e != nil {
+				return e
+			}
+			return domain.ErrInvalidSession
+		})
+		if !errors.Is(err, domain.ErrInvalidSession) {
+			t.Fatal(err)
+		}
+		if err = tx.QueryRow(ctx, `SELECT revoked FROM refresh_tokens WHERE token_hash='new-refresh-fixture'`).Scan(&revoked); err != nil || !revoked {
+			t.Fatal("replay revocation rolled back")
 		}
 	})
 

@@ -89,6 +89,8 @@ func NewJWTService(secret, issuer string, accessTTL, refreshTTL time.Duration) *
 	}
 }
 
+func (s *JWTService) RefreshLifetime() time.Duration { return s.refreshTTL }
+
 func (s *JWTService) GenerateAccessToken(userID uuid.UUID, email string, isPremium bool, roles, permissions []string) (string, time.Time, error) {
 	now := time.Now()
 	expiresAt := now.Add(s.acessTTL)
@@ -306,4 +308,3 @@ func (s *JWTService) VerifyMFAPendingToken(tokenStr string) (uuid.UUID, string, 
 	}
 	return claims.UserID, claims.Email, nil
 }
-

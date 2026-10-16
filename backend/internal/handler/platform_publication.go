@@ -10,13 +10,14 @@ import (
 
 	"github.com/IREAKING/tientonaudio/backend/pkg/utils"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 func (h *PlatformHandler) Publications(w http.ResponseWriter, r *http.Request) {
 	user, admin := platformUser(r)
-	h.rows(w, r, `SELECT s.id,s.title,s.slug,s.publication_status,s.created_by,u.username AS owner_name,
- COALESCE((SELECT jsonb_agg(jsonb_build_object('id',c.id,'title',c.title,'chapter_number',c.chapter_number,'publication_status',c.publication_status,'scheduled_at',c.scheduled_at,'duration_seconds',c.duration_seconds)ORDER BY c.chapter_number) FROM chapters c WHERE c.story_id=s.id),'[]'::jsonb) AS chapters
- FROM stories s LEFT JOIN users u ON u.id=s.created_by WHERE $2 OR s.created_by=$1 ORDER BY s.updated_at DESC LIMIT 100`, user, admin)
+	h.page(w, r, `SELECT s.id,s.title,s.slug,s.publication_status,s.review_reason,s.created_by,s.updated_at,u.username AS owner_name,
+ (SELECT count(*) FROM chapters c WHERE c.story_id=s.id) AS chapter_count
+ FROM stories s LEFT JOIN users u ON u.id=s.created_by WHERE ($2 OR s.created_by=$1) AND ($3='' OR s.title ILIKE '%'||$3||'%') AND ($4='' OR s.publication_status=$4) ORDER BY s.updated_at DESC,s.id`, user, admin, strings.TrimSpace(r.URL.Query().Get("q")), r.URL.Query().Get("status"))
 }
 func (h *PlatformHandler) StoryPublication(w http.ResponseWriter, r *http.Request) {
 	user, admin := platformUser(r)
@@ -27,6 +28,7 @@ func (h *PlatformHandler) StoryPublication(w http.ResponseWriter, r *http.Reques
 	}
 	var body struct {
 		Status string `json:"status"`
+		Reason string `json:"reason"`
 	}
 	if !platformBody(w, r, &body) {
 		return
@@ -46,15 +48,20 @@ func (h *PlatformHandler) StoryPublication(w http.ResponseWriter, r *http.Reques
 	}
 	defer tx.Rollback(context.Background())
 	var old string
-	if err = tx.QueryRow(r.Context(), `SELECT publication_status FROM stories WHERE id=$1 AND ($3 OR created_by=$2) FOR UPDATE`, id, user, admin).Scan(&old); err != nil {
+	var owner *uuid.UUID
+	if err = tx.QueryRow(r.Context(), `SELECT publication_status,created_by FROM stories WHERE id=$1 AND ($3 OR created_by=$2) FOR UPDATE`, id, user, admin).Scan(&old, &owner); err != nil {
 		utils.ErrorResponse(w, 404, "Không tìm thấy truyện")
 		return
 	}
+	if !reviewReason(w, admin, old, body.Status, &body.Reason) {
+		return
+	}
+
 	if old == "published" && !admin {
 		utils.ErrorResponse(w, 409, "Truyện đã xuất bản; liên hệ quản trị để thay đổi trạng thái")
 		return
 	}
-	if _, err = tx.Exec(r.Context(), `UPDATE stories SET publication_status=$2,updated_at=CURRENT_TIMESTAMP WHERE id=$1`, id, body.Status); err != nil {
+	if _, err = tx.Exec(r.Context(), `UPDATE stories SET publication_status=$2,review_reason=CASE WHEN $2='draft' THEN $3 ELSE '' END,updated_at=CURRENT_TIMESTAMP WHERE id=$1`, id, body.Status, body.Reason); err != nil {
 		platformError(w)
 		return
 	}
@@ -73,6 +80,13 @@ func (h *PlatformHandler) StoryPublication(w http.ResponseWriter, r *http.Reques
 			return
 		}
 	}
+	if admin && old != body.Status && owner != nil && *owner != user {
+		if _, err = tx.Exec(r.Context(), `INSERT INTO notifications(user_id,title,message,type,reference_id,reference_type)VALUES($1,'Cập nhật duyệt xuất bản',$2,'publication_review',$3,'studio_story')`, *owner, reviewMessage(body.Status, body.Reason), id); err != nil {
+			platformError(w)
+			return
+		}
+	}
+
 	if tx.Commit(r.Context()) != nil {
 		platformError(w)
 		return
@@ -88,6 +102,7 @@ func (h *PlatformHandler) ChapterPublication(w http.ResponseWriter, r *http.Requ
 	}
 	var body struct {
 		Status      string     `json:"status"`
+		Reason      string     `json:"reason"`
 		ScheduledAt *time.Time `json:"scheduled_at"`
 	}
 	if !platformBody(w, r, &body) {
@@ -115,10 +130,15 @@ func (h *PlatformHandler) ChapterPublication(w http.ResponseWriter, r *http.Requ
 	}
 	defer tx.Rollback(context.Background())
 	var old, storyStatus string
-	if err = tx.QueryRow(r.Context(), `SELECT c.publication_status,s.publication_status FROM chapters c JOIN stories s ON s.id=c.story_id WHERE c.id=$1 AND ($3 OR s.created_by=$2) FOR UPDATE OF c,s`, id, user, admin).Scan(&old, &storyStatus); err != nil {
+	var owner *uuid.UUID
+	if err = tx.QueryRow(r.Context(), `SELECT c.publication_status,s.publication_status,s.created_by FROM chapters c JOIN stories s ON s.id=c.story_id WHERE c.id=$1 AND ($3 OR s.created_by=$2) FOR UPDATE OF s,c`, id, user, admin).Scan(&old, &storyStatus, &owner); err != nil {
 		utils.ErrorResponse(w, 404, "Không tìm thấy chương")
 		return
 	}
+	if !reviewReason(w, admin, old, body.Status, &body.Reason) {
+		return
+	}
+
 	if !admin && (old == "published" || old == "scheduled") {
 		utils.ErrorResponse(w, 409, "Chương đã được duyệt; liên hệ quản trị để sửa trạng thái")
 		return
@@ -127,7 +147,7 @@ func (h *PlatformHandler) ChapterPublication(w http.ResponseWriter, r *http.Requ
 		utils.ErrorResponse(w, 409, "Cần duyệt xuất bản truyện trước")
 		return
 	}
-	if _, err = tx.Exec(r.Context(), `UPDATE chapters SET publication_status=$2,scheduled_at=$3,updated_at=CURRENT_TIMESTAMP WHERE id=$1`, id, body.Status, body.ScheduledAt); err != nil {
+	if _, err = tx.Exec(r.Context(), `UPDATE chapters SET publication_status=$2,scheduled_at=$3,review_reason=CASE WHEN $2='draft' THEN $4 ELSE '' END,updated_at=CURRENT_TIMESTAMP WHERE id=$1`, id, body.Status, body.ScheduledAt, body.Reason); err != nil {
 		platformError(w)
 		return
 	}
@@ -137,6 +157,13 @@ func (h *PlatformHandler) ChapterPublication(w http.ResponseWriter, r *http.Requ
 			return
 		}
 	}
+	if admin && old != body.Status && owner != nil && *owner != user {
+		if _, err = tx.Exec(r.Context(), `INSERT INTO notifications(user_id,title,message,type,reference_id,reference_type)VALUES($1,'Cập nhật duyệt xuất bản',$2,'publication_review',$3,'studio_chapter')`, *owner, reviewMessage(body.Status, body.Reason), id); err != nil {
+			platformError(w)
+			return
+		}
+	}
+
 	if tx.Commit(r.Context()) != nil {
 		platformError(w)
 		return
@@ -150,15 +177,17 @@ func (h *PlatformHandler) DraftChapter(w http.ResponseWriter, r *http.Request) {
 		utils.ErrorResponse(w, 400, "Chương không hợp lệ")
 		return
 	}
-	var data []byte
-	err = h.pool.QueryRow(r.Context(), `SELECT jsonb_build_object('id',c.id,'title',c.title,'content',c.content,'chapter_number',c.chapter_number,'publication_status',c.publication_status) FROM chapters c JOIN stories s ON s.id=c.story_id WHERE c.id=$1 AND ($3 OR s.created_by=$2)`, id, user, admin).Scan(&data)
-	if err != nil {
+	d, err := h.draft(r.Context(), h.pool, id, user, admin)
+	if err == pgx.ErrNoRows {
 		utils.ErrorResponse(w, 404, "Không tìm thấy chương")
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "private,no-store")
-	_, _ = w.Write(append(append([]byte(`{"success":true,"data":`), data...), '}'))
+	if err != nil {
+		utils.ErrorResponse(w, 503, "Không đọc được nội dung bản thảo từ storage; vui lòng thử lại")
+		return
+	}
+	w.Header().Set("Cache-Control", "private, no-store")
+	utils.JSON(w, 200, d)
 }
 func (h *PlatformHandler) BulkDraftChapters(w http.ResponseWriter, r *http.Request) {
 	user, admin := platformUser(r)
@@ -221,11 +250,11 @@ func (h *PlatformHandler) BulkDraftChapters(w http.ResponseWriter, r *http.Reque
 }
 func (h *PlatformHandler) Analytics(w http.ResponseWriter, r *http.Request) {
 	user, admin := platformUser(r)
-	h.rows(w, r, `SELECT s.id,s.title,s.slug,s.view_count,s.rating_avg,s.rating_count,
+	h.page(w, r, `SELECT s.id,s.title,s.slug,s.view_count,s.rating_avg,s.rating_count,
  (SELECT COUNT(*) FROM chapters c WHERE c.story_id=s.id) AS chapters,
  (SELECT COUNT(DISTINCT h.user_id) FROM listening_history h WHERE h.story_id=s.id) AS listeners,
  (SELECT COUNT(*) FROM listening_history h WHERE h.story_id=s.id AND h.is_completed) AS completed_plays,
  COALESCE((SELECT SUM(e.minutes)FROM listening_reward_events e JOIN chapters c ON c.id=e.chapter_id WHERE c.story_id=s.id),0)AS recorded_minutes,
  COALESCE((SELECT jsonb_agg(t) FROM(SELECT c.id,c.title,c.chapter_number,c.listen_count FROM chapters c WHERE c.story_id=s.id ORDER BY c.listen_count DESC NULLS LAST,c.chapter_number LIMIT 5)t),'[]'::jsonb)AS top_chapters
- FROM stories s WHERE $2 OR s.created_by=$1 ORDER BY s.view_count DESC NULLS LAST LIMIT 100`, user, admin)
+ FROM stories s WHERE $2 OR s.created_by=$1 ORDER BY s.view_count DESC NULLS LAST,s.id`, user, admin)
 }

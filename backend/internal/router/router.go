@@ -148,7 +148,7 @@ func NewRouter(opts RouterOptions) http.Handler {
 				if allowed {
 					w.Header().Set("Access-Control-Allow-Origin", origin)
 					w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
-					w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Webhook-Secret, X-Signature, Accept, X-Requested-With, Origin")
+					w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Webhook-Secret, X-Signature, Accept, X-Requested-With, Origin, X-Session-Mode, X-CSRF-Token")
 					w.Header().Set("Access-Control-Allow-Credentials", "true")
 					w.Header().Set("Access-Control-Max-Age", "86400")
 				} else if r.Method == http.MethodOptions {
@@ -165,6 +165,9 @@ func NewRouter(opts RouterOptions) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	})
+
+	sessions := auth.NewCookieSessions(opts.Config)
+	r.Use(sessions.Middleware)
 
 	// 3. Phân tầng Rate Limiters (Global, Auth, AI)
 	globalLimiter := middleware.NewRateLimiter(opts.Config.RateLimitRequestsPerMinute, opts.CacheService, "global")
@@ -243,6 +246,7 @@ func NewRouter(opts RouterOptions) http.Handler {
 	r.Route("/api/v1", func(r chi.Router) {
 		// Auth (Được áp dụng Auth Rate Limiter cho các endpoint nhạy cảm)
 		r.Route("/auth", func(r chi.Router) {
+			r.Get("/csrf", sessions.CSRF)
 			r.With(authLimiter.Middleware).Post("/register", opts.AuthHandler.Register)
 			r.With(authLimiter.Middleware).Get("/verify-email", opts.AuthHandler.VerifyEmail)
 			r.With(authLimiter.Middleware).Post("/verify-email", opts.AuthHandler.VerifyEmail)
@@ -501,6 +505,9 @@ func NewRouter(opts RouterOptions) http.Handler {
 				r.Group(func(r chi.Router) {
 					r.Use(middleware.RequirePartnerOrAdmin)
 					r.Get("/partner/publications", p.Publications)
+					r.Get("/partner/stories/{id}/publication", p.PublicationStory)
+					r.Get("/partner/stories/{id}/publication-chapters", p.PublicationChapters)
+					r.Put("/partner/chapters/{id}/draft", p.EditDraft)
 					r.Put("/partner/stories/{id}/publication", p.StoryPublication)
 					r.Put("/partner/chapters/{id}/publication", p.ChapterPublication)
 					r.Get("/partner/chapters/{id}/draft", p.DraftChapter)

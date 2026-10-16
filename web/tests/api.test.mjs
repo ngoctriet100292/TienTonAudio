@@ -8,7 +8,7 @@ import ts from 'typescript';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 function fixture(fetch) {
-  const values = new Map([['access_token', 'old-access'], ['refresh_token', 'old-refresh']]);
+  const values = new Map([['tienton_session_revision',JSON.stringify({authenticated:true,stamp:'initial'})]]);
   const localStorage = { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: (key) => values.delete(key) };
   const window = new EventTarget();
   const cache = new Map();
@@ -18,48 +18,36 @@ function fixture(fetch) {
     const exports = {};
     cache.set(file, exports);
     const code = ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true, target: ts.ScriptTarget.ES2022 } }).outputText;
-    runInNewContext(code, { exports, require: (name) => load(resolve(dirname(file), name.endsWith('.json') ? name : name + '.ts')), window, localStorage, fetch, Event, Error, AbortSignal, process: { env: {} }, console });
+    runInNewContext(code, { exports, require: (name) => load(resolve(dirname(file), name.endsWith('.json') ? name : name + '.ts')), window, localStorage, fetch:async(url,options={})=>url.endsWith('/auth/csrf')?json({data:{csrf_token:'c'.repeat(43)}}):fetch(url,options), Event, Error, AbortSignal, process: { env: {} }, console });
     return exports;
   }
   const { ApiClient } = load(resolve(root, 'src/lib/api.ts'));
   return { api: new ApiClient('https://api.example/api/v1'), values, load };
 }
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } });
-const tokenResponse = { data: { access_token: 'new-access', refresh_token: 'new-refresh' } };
+const tokenResponse = {data:{authenticated:true}};
 
-test('parallel unauthorized requests rotate the refresh token once', async () => {
-  let rotations = 0;
-  const { api, values } = fixture(async (url, options) => {
-    if (url.endsWith('/auth/refresh')) { rotations++; await new Promise((done) => setImmediate(done)); return json(tokenResponse); }
-    return options.headers.Authorization === 'Bearer new-access' ? json({ data: { total_users: 7 } }) : json({ error: 'expired' }, 401);
-  });
-  const results = await Promise.all(Array.from({ length: 12 }, () => api.getAdminStats()));
-  assert.equal(rotations, 1);
-  assert.ok(results.every((result) => result.total_users === 7));
-  assert.equal(values.get('refresh_token'), 'new-refresh');
+test('parallel expired cookie requests refresh once without exposing credentials',async()=>{
+ let rotations=0;let renewed=false;
+ const {api,values}=fixture(async(url,options)=>{
+  assert.equal(options.credentials,'include');assert.equal(options.headers.Authorization,undefined);
+  if(url.endsWith('/auth/refresh')){rotations++;await new Promise(r=>setImmediate(r));renewed=true;assert.equal(options.headers['X-CSRF-Token'],'c'.repeat(43));assert.equal(options.body,'{}');return json(tokenResponse)}
+  return renewed?json({data:{total_users:7}}):json({error:'expired'},401);
+ });
+ const result=await Promise.all(Array.from({length:12},()=>api.getAdminStats()));assert.equal(rotations,1);assert.ok(result.every(x=>x.total_users===7));assert.equal(values.has('access_token'),false);assert.equal(values.has('refresh_token'),false);
 });
-
-test('temporary refresh failure preserves the session', async () => {
-  const { api, values } = fixture(async (url) => url.endsWith('/auth/refresh') ? json({ error: 'unavailable' }, 503) : json({ error: 'expired' }, 401));
-  await assert.rejects(api.getMe(), (error) => error.status === 503);
-  assert.equal(values.get('access_token'), 'old-access');
-  assert.equal(values.get('refresh_token'), 'old-refresh');
+test('temporary refresh failure preserves authenticated session state',async()=>{
+ const {api,values}=fixture(async url=>url.endsWith('/auth/refresh')?json({error:'unavailable'},503):json({error:'expired'},401));
+ await assert.rejects(api.getMe(),e=>e.status===503);assert.equal(JSON.parse(values.get('tienton_session_revision')).authenticated,true);
 });
-
-test('logout while refresh is pending cannot restore the old session', async () => {
-  let finish;
-  let started;
-  const waiting = new Promise((done) => { started = done; });
-  const { api, values } = fixture(async (url) => {
-    if (url.endsWith('/auth/refresh')) { started(); return new Promise((done) => { finish = done; }); }
-    return json({ error: 'expired' }, 401);
-  });
-  const request = api.getAdminStats();
-  await waiting;
-  values.clear();
-  finish(json(tokenResponse));
-  await assert.rejects(request, (error) => error.status === 401);
-  assert.equal(values.size, 0);
+test('logout waits for an in-flight refresh and then clears the browser session',async()=>{
+ let finish,start;let active=false;const waiting=new Promise(r=>start=r);const calls=[];
+ const {api,values}=fixture(async(url)=>{
+  if(url.endsWith('/auth/refresh')){calls.push('refresh');start();await new Promise(r=>finish=r);active=true;return json(tokenResponse)}
+  if(url.endsWith('/auth/logout')){calls.push('logout');active=false;return json({data:{logged_out:true}})}
+  return active?json({data:{total_users:1}}):json({error:'expired'},401);
+ });
+ const request=api.getAdminStats();await waiting;const logout=api.logout();finish();await Promise.allSettled([request,logout]);assert.deepEqual(calls,['refresh','logout']);assert.equal(active,false);assert.equal(JSON.parse(values.get('tienton_session_revision')).authenticated,false);
 });
 
 test('bad login credentials do not rotate an existing session', async () => {
@@ -77,11 +65,9 @@ test('2FA enable submits both the setup secret and the verification code', async
   assert.equal(result.backup_codes[0], 'backup');
 });
 
-test('expired access without a refresh token clears the cached session', async () => {
-  const { api, values } = fixture(async () => json({ error: 'expired' }, 401));
-  values.delete('refresh_token');
-  assert.equal(await api.getMe(), null);
-  assert.equal(values.has('access_token'), false);
+test('missing refresh cookie ends the session without retry loops',async()=>{
+ let calls=0;const {api,values}=fixture(async()=>{calls++;return json({error:'expired'},401)});
+ assert.equal(await api.getMe(),null);assert.equal(calls,2);assert.equal(JSON.parse(values.get('tienton_session_revision')).authenticated,false);
 });
 
 test('story metadata cannot break out of the JSON-LD script element', () => {
@@ -93,21 +79,15 @@ test('story metadata cannot break out of the JSON-LD script element', () => {
   assert.deepEqual(JSON.parse(output), metadata);
 });
 
-test('partner activation rotates the access token before studio requests', async () => {
-  const calls = [];
-  const { api, values } = fixture(async (url, options) => {
-    calls.push({ url, authorization: options.headers?.Authorization });
-    if (url.endsWith('/partner/become-partner')) return json({ data: { user_id: 'user', role: 'partner' } });
-    if (url.endsWith('/auth/refresh')) return json(tokenResponse);
-    return json({ data: { total_stories: 1 } });
-  });
-  assert.equal((await api.becomePartner()).role, 'partner');
-  await api.getPartnerStats();
-  assert.equal(values.get('access_token'), 'new-access');
-  assert.equal(calls.at(-1).authorization, 'Bearer new-access');
-  assert.equal(calls.filter(call => call.url.endsWith('/auth/refresh')).length, 1);
+test('partner activation refreshes cookie claims before subsequent studio requests',async()=>{
+ const calls=[];const {api}=fixture(async(url,options)=>{
+  calls.push(url);assert.equal(options.headers.Authorization,undefined);assert.equal(options.credentials,'include');
+  if(url.endsWith('/partner/become-partner'))return json({data:{user_id:'user',role:'partner'}});
+  if(url.endsWith('/auth/refresh'))return json(tokenResponse);
+  return json({data:{total_stories:1}});
+ });
+ await api.becomePartner();await api.getPartnerStats();assert.ok(calls.findIndex(x=>x.endsWith('/auth/refresh'))<calls.findIndex(x=>x.endsWith('/partner/stats')));
 });
-
 
 test('catalogue failures are not converted into empty success responses', async () => {
   const { api } = fixture(async () => json({ error: 'unavailable' }, 503));
@@ -124,7 +104,7 @@ test('missing story and chapter return null only for HTTP 404', async () => {
 
 test('successful 204 mutations do not attempt to parse JSON', async () => {
   const { api } = fixture(async () => new Response(null, { status: 204 }));
-  await api.logout('refresh-token');
+  await api.logout();
 });
 
 test('chapter routes reject chapters that belong to another story', async () => {
@@ -211,7 +191,7 @@ test('invalid OAuth codes do not rotate an existing login session', async () => 
   const { api, values } = fixture(async () => { calls++; return json({ error: 'invalid code' }, 401); });
   await assert.rejects(() => api.exchangeOAuthCode('google', 'invalid-code'));
   assert.equal(calls, 1);
-  assert.equal(values.get('refresh_token'), 'old-refresh');
+  assert.equal(JSON.parse(values.get('tienton_session_revision')).authenticated,true);
 });
 
 test('catalogue sends advanced filters to the server and normalizes nullable counters', async () => {
@@ -238,7 +218,8 @@ test('guest playback never posts listening data to an authenticated endpoint', a
 test('OAuth linking includes current authorization and browser binding cookies',async()=>{
   const {api}=fixture(async(url,options)=>{
     assert.equal(new URL(url).pathname,'/api/v1/auth/oauth/google/link');
-    assert.equal(options.headers.Authorization,'Bearer old-access');
+    assert.equal(options.headers.Authorization,undefined);
+    assert.equal(options.headers['X-CSRF-Token'],'c'.repeat(43));
     assert.equal(options.credentials,'include');
     assert.equal(options.method,'POST');
     return json({data:{auth_url:'https://accounts.google.com/authorize'}});
@@ -252,8 +233,48 @@ test('expired authenticated OAuth linking refreshes the app session and preserve
  const {api}=fixture(async(url,options)=>{
   if(url.endsWith('/auth/refresh')){rotations++;return json(tokenResponse)}
   assert.equal(options.credentials,'include');
-  return options.headers.Authorization==='Bearer new-access'?json({data:{auth_url:'https://accounts.google.com/authorize'}}):json({error:'expired'},401);
+  return rotations?json({data:{auth_url:'https://accounts.google.com/authorize'}}):json({error:'expired'},401);
  });
  const result=await api.platformRequest('/auth/oauth/google/link',{method:'POST',credentials:'include'});
  assert.equal(rotations,1);assert.ok(result.auth_url);
+});
+
+test('CSRF expiry retries once after fetching a fresh token',async()=>{
+ let attempts=0;const {api}=fixture(async()=>++attempts===1?json({error:'csrf expired',code:'csrf_failed'},403):json({data:{saved:true}}));
+ const result=await api.platformRequest('/stories/story/reviews',{method:'PUT',body:'{}'});assert.equal(attempts,2);assert.equal(result.saved,true);
+});
+test('paginated catalogue preserves totals and sends the requested page',async()=>{
+ const {api}=fixture(async(url)=>{assert.equal(new URL(url).searchParams.get('page'),'2');return json({data:{items:[{id:'story',view_count:null}],page:2,limit:20,total:35,total_pages:2}})});
+ const page=await api.searchCataloguePage(new URLSearchParams({page:'2'}));assert.equal(page.total,35);assert.equal(page.page,2);assert.equal(page.items[0].view_count,0);
+});
+test('draft conflicts preserve their machine-readable error code',async()=>{
+ const {api}=fixture(async()=>json({error:'Version changed',code:'draft_conflict'},409));
+ await assert.rejects(api.platformRequest('/partner/chapters/id/draft',{method:'PUT',body:'{}'}),error=>error.status===409&&error.code==='draft_conflict');
+});
+
+
+test('expired CSRF is renewed before rotating an expired access cookie', async () => {
+  let refreshes=0;let rotated=false;
+  const {api}=fixture(async(url)=>{
+    if(url.endsWith('/auth/refresh')){
+      refreshes++;
+      if(refreshes===1)return json({code:'csrf_failed'},403);
+      rotated=true;return json(tokenResponse);
+    }
+    return rotated?json({data:{id:'user'}}):json({error:'expired'},401);
+  });
+  assert.equal((await api.getMe()).id,'user');assert.equal(refreshes,2);
+});
+
+test('CSRF recovery and access refresh each get one retry for a mutation', async () => {
+  let attempts=0;let refreshes=0;
+  const {api}=fixture(async(url)=>{
+    if(url.endsWith('/auth/refresh')){refreshes++;return json(tokenResponse);}
+    attempts++;
+    if(attempts===1)return json({code:'csrf_failed'},403);
+    if(attempts===2)return json({error:'expired'},401);
+    return new Response(null,{status:204});
+  });
+  await api.platformRequest('/partner/chapters/example/draft',{method:'PUT',body:'{}'});
+  assert.equal(attempts,3);assert.equal(refreshes,1);
 });

@@ -2,9 +2,12 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
+	"github.com/IREAKING/tientonaudio/backend/config"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/IREAKING/tientonaudio/backend/internal/domain"
 	"github.com/IREAKING/tientonaudio/backend/internal/service"
@@ -15,6 +18,7 @@ import (
 type AuthHandler struct {
 	authService service.AuthService
 	webURL      string
+	sessions    *auth.CookieSessions
 }
 
 func NewAuthHandler(authService service.AuthService, webURL ...string) *AuthHandler {
@@ -22,7 +26,16 @@ func NewAuthHandler(authService service.AuthService, webURL ...string) *AuthHand
 	if len(webURL) > 0 {
 		base = strings.TrimRight(webURL[0], "/")
 	}
-	return &AuthHandler{authService: authService, webURL: base}
+	return &AuthHandler{authService: authService, webURL: base, sessions: auth.NewCookieSessions(&config.Config{AppBaseURL: base, RefreshTokenDuration: 7 * 24 * time.Hour})}
+}
+
+func (h *AuthHandler) SetCookieSessions(s *auth.CookieSessions) { h.sessions = s }
+func (h *AuthHandler) browserTokens(w http.ResponseWriter, r *http.Request, tokens *domain.TokenResp) bool {
+	if !auth.BrowserSession(r) || tokens == nil {
+		return false
+	}
+	h.sessions.Issue(w, tokens.AccessToken, tokens.RefreshToken, tokens.ExpiresAt)
+	return true
 }
 
 // Register xử lý đăng ký tài khoản và gửi email xác thực
@@ -91,6 +104,7 @@ func (h *AuthHandler) ResendVerification(w http.ResponseWriter, r *http.Request)
 
 // Login đăng nhập với email và mật khẩu (hỗ trợ phát hiện 2FA)
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	var req domain.LoginReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		utils.ErrorResponse(w, http.StatusBadRequest, "Invalid request body")
@@ -111,10 +125,15 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.browserTokens(w, r, loginResp.Tokens) {
+		loginResp.Tokens = nil
+	}
+
 	utils.JSONWithMessage(w, http.StatusOK, "Đăng nhập thành công", map[string]any{
-		"user":         loginResp.User,
-		"tokens":       loginResp.Tokens,
-		"mfa_required": false,
+		"user":           loginResp.User,
+		"tokens":         loginResp.Tokens,
+		"mfa_required":   false,
+		"cookie_session": auth.BrowserSession(r),
 	})
 }
 
@@ -125,6 +144,7 @@ func (h *AuthHandler) SocialLogin(w http.ResponseWriter, r *http.Request) {
 
 // VerifyTwoFactorLogin xác thực mã OTP 2FA trong quá trình đăng nhập
 func (h *AuthHandler) VerifyTwoFactorLogin(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	var req domain.TwoFactorVerifyLoginReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		utils.ErrorResponse(w, http.StatusBadRequest, "Invalid request body")
@@ -137,9 +157,14 @@ func (h *AuthHandler) VerifyTwoFactorLogin(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	if h.browserTokens(w, r, tokens) {
+		tokens = nil
+	}
+
 	utils.JSONWithMessage(w, http.StatusOK, "Xác thực 2FA thành công! Đăng nhập hoàn tất.", map[string]any{
-		"user":   user,
-		"tokens": tokens,
+		"user":           user,
+		"tokens":         tokens,
+		"cookie_session": auth.BrowserSession(r),
 	})
 }
 
@@ -239,26 +264,49 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 
 // RefreshToken cấp lại access token mới từ refresh token
 func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	var req domain.RefreshTokenReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.ErrorResponse(w, http.StatusBadRequest, "Invalid request body")
+	if auth.BrowserSession(r) {
+		req.RefreshToken = h.sessions.Refresh(r)
+	} else if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.ErrorResponse(w, 400, "Invalid request body")
 		return
 	}
 
 	tokens, err := h.authService.RefreshToken(r.Context(), req)
 	if err != nil {
-		utils.ErrorResponse(w, http.StatusUnauthorized, err.Error())
+		if errors.Is(err, domain.ErrInvalidSession) {
+			if auth.BrowserSession(r) {
+				h.sessions.Clear(w)
+			}
+			utils.ErrorResponse(w, 401, domain.ErrInvalidSession.Error())
+			return
+		}
+		utils.ErrorResponse(w, 503, "Chưa làm mới được phiên đăng nhập; vui lòng thử lại")
 		return
 	}
 
+	if h.browserTokens(w, r, tokens) {
+		utils.JSON(w, 200, map[string]bool{"authenticated": true})
+		return
+	}
 	utils.JSONWithMessage(w, http.StatusOK, "Làm mới token thành công", tokens)
 }
 
 // Logout vô hiệu hóa refresh token
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	var req domain.LogoutReq
-	_ = json.NewDecoder(r.Body).Decode(&req)
-
+	if auth.BrowserSession(r) {
+		req.RefreshToken = h.sessions.Refresh(r)
+		h.sessions.Clear(w)
+	} else {
+		_ = json.NewDecoder(r.Body).Decode(&req)
+	}
+	if req.RefreshToken == "" {
+		utils.JSON(w, 200, map[string]bool{"logged_out": true})
+		return
+	}
 	if err := h.authService.Logout(r.Context(), req); err != nil {
 		utils.ErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return

@@ -239,5 +239,108 @@ func TestNeonPlatformIntegration(t *testing.T) {
 		}
 		expect(call("GET", "/resume", "", "user", owner, h.ContinueListening), 200)
 	})
+	t.Run("draft saves require ownership version and draft status", func(t *testing.T) {
+		var id uuid.UUID
+		if err := tx.QueryRow(ctx, `SELECT id FROM chapters WHERE story_id=$1 AND chapter_number=2`, story).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		response := call("GET", "/draft", "", "partner", owner, h.DraftChapter, "id", id.String())
+		expect(response, 200)
+		var envelope struct {
+			Data chapterDraft `json:"data"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+			t.Fatal(err)
+		}
+		original := envelope.Data
+		payload := func(version int64, title string) string {
+			b, _ := json.Marshal(map[string]any{"version": version, "title": title, "content": "New draft content", "chapter_number": 2, "is_premium": false})
+			return string(b)
+		}
+		expect(call("PUT", "/draft", payload(original.Version, "First save"), "partner", other, h.EditDraft, "id", id.String()), 404)
+		expect(call("PUT", "/draft", payload(original.Version, "First save"), "partner", owner, h.EditDraft, "id", id.String()), 200)
+		stale := call("PUT", "/draft", payload(original.Version, "Stale overwrite"), "partner", owner, h.EditDraft, "id", id.String())
+		expect(stale, 409)
+		if !strings.Contains(stale.Body.String(), "draft_conflict") {
+			t.Fatal("missing conflict code")
+		}
+		expect(call("PUT", "/publication", `{"status":"pending"}`, "partner", owner, h.ChapterPublication, "id", id.String()), 200)
+		expect(call("PUT", "/draft", payload(original.Version+2, "Edit pending"), "partner", owner, h.EditDraft, "id", id.String()), 409)
+		expect(call("PUT", "/publication", `{"status":"draft"}`, "admin", admin, h.ChapterPublication, "id", id.String()), 400)
+		expect(call("PUT", "/publication", `{"status":"draft","reason":"Please clarify the opening scene"}`, "admin", admin, h.ChapterPublication, "id", id.String()), 200)
+		var reason, title string
+		var count int
+		if err := tx.QueryRow(ctx, `SELECT review_reason,title FROM chapters WHERE id=$1`, id).Scan(&reason, &title); err != nil || title != "First save" || reason != "Please clarify the opening scene" {
+			t.Fatalf("draft changed incorrectly %s %s %v", reason, title, err)
+		}
+		if err := tx.QueryRow(ctx, `SELECT count(*)FROM notifications WHERE user_id=$1 AND reference_id=$2 AND type='publication_review'`, owner, id).Scan(&count); err != nil || count != 1 {
+			t.Fatalf("review notification %d %v", count, err)
+		}
+		expect(call("PUT", "/publication", `{"status":"draft","reason":"Please clarify the opening scene"}`, "admin", admin, h.ChapterPublication, "id", id.String()), 200)
+		if err := tx.QueryRow(ctx, `SELECT count(*)FROM notifications WHERE user_id=$1 AND reference_id=$2 AND type='publication_review'`, owner, id).Scan(&count); err != nil || count != 1 {
+			t.Fatal("duplicate review notification")
+		}
+	})
+	t.Run("pagination scopes owners and returns old support messages", func(t *testing.T) {
+		exec(`INSERT INTO stories(title,slug,created_by,publication_status)SELECT 'Draft '||n,'verify-owner-'||n,$1,'draft'FROM generate_series(1,45)n`, owner)
+		exec(`INSERT INTO stories(title,slug,created_by,publication_status)SELECT 'Other '||n,'verify-other-'||n,$1,'draft'FROM generate_series(1,7)n`, other)
+		type pageEnvelope struct {
+			Data struct {
+				Items []struct {
+					ID      uuid.UUID `json:"id"`
+					Content string    `json:"content"`
+				} `json:"items"`
+				Total      int `json:"total"`
+				Page       int `json:"page"`
+				TotalPages int `json:"total_pages"`
+			} `json:"data"`
+		}
+		first := call("GET", "/publications?page=1&limit=20", "", "partner", owner, h.Publications)
+		expect(first, 200)
+		second := call("GET", "/publications?page=2&limit=20", "", "partner", owner, h.Publications)
+		expect(second, 200)
+		var a, b pageEnvelope
+		if err := json.Unmarshal(first.Body.Bytes(), &a); err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(second.Body.Bytes(), &b); err != nil {
+			t.Fatal(err)
+		}
+		if a.Data.Total != 46 || b.Data.Total != 46 || len(a.Data.Items) != 20 || len(b.Data.Items) != 20 || b.Data.Page != 2 {
+			t.Fatalf("invalid page metadata %s %s", first.Body.String(), second.Body.String())
+		}
+		seen := map[uuid.UUID]bool{}
+		for _, v := range a.Data.Items {
+			seen[v.ID] = true
+		}
+		for _, v := range b.Data.Items {
+			if seen[v.ID] {
+				t.Fatal("duplicate item across stable pages")
+			}
+		}
+		expect(call("GET", "/publications?page=0", "", "partner", owner, h.Publications), 400)
+		var ticket uuid.UUID
+		if err := tx.QueryRow(ctx, `SELECT id FROM support_tickets WHERE user_id=$1`, owner).Scan(&ticket); err != nil {
+			t.Fatal(err)
+		}
+		exec(`INSERT INTO support_messages(ticket_id,sender_id,content,created_at)SELECT $1,$2,'message '||n,CURRENT_TIMESTAMP+n*INTERVAL '1 second'FROM generate_series(1,525)n`, ticket, owner)
+		messages := call("GET", "/messages?page=2&limit=20", "", "partner", owner, h.TicketMessages, "id", ticket.String())
+		expect(messages, 200)
+		var m pageEnvelope
+		if err := json.Unmarshal(messages.Body.Bytes(), &m); err != nil {
+			t.Fatal(err)
+		}
+		if m.Data.Total != 527 || len(m.Data.Items) != 20 || m.Data.Items[0].Content != "message 505" {
+			t.Fatalf("older messages missing: %s", messages.Body.String())
+		}
+		expect(call("GET", "/messages?page=1", "", "user", other, h.TicketMessages, "id", ticket.String()), 404)
+		chaptersPage := call("GET", "/chapters?page=1&limit=2", "", "partner", owner, h.PublicationChapters, "id", story.String())
+		expect(chaptersPage, 200)
+		var c pageEnvelope
+		if err := json.Unmarshal(chaptersPage.Body.Bytes(), &c); err != nil || len(c.Data.Items) != 2 {
+			t.Fatalf("chapter page %s", chaptersPage.Body.String())
+		}
+	})
+
 }
 func jsonNumber(i int) string { b, _ := json.Marshal(i); return string(b) }

@@ -46,8 +46,8 @@ export default function OAuthCallbackPage() {
         const destination = safeRedirect(result.redirect_path);
         setRedirect(destination);
         if ('mfa_required' in result && result.mfa_required) { setMfa(result.mfa_token); return; }
-        if (!('tokens' in result) || !result.tokens || !result.user) throw new Error('Phản hồi đăng nhập không hợp lệ.');
-        completeLogin(result.tokens.access_token, result.tokens.refresh_token, result.user);
+        if (!('cookie_session' in result) || !result.cookie_session || !result.user) throw new Error('Phản hồi đăng nhập không hợp lệ.');
+        completeLogin(result.user);
         router.replace(destination);
       } catch (err) { if (!cancelled) setError(getErrorMessage(err) || 'Đăng nhập thất bại.'); }
       finally { if (!cancelled) setPending(false); }
@@ -60,7 +60,7 @@ export default function OAuthCallbackPage() {
     setPending(true); setError('');
     try {
       const result = await api.verifyTwoFactorLogin(mfa, otp);
-      login(result.tokens.access_token, result.tokens.refresh_token, result.user);
+      login(result.user);
       router.replace(redirect);
     } catch (err) { setError(getErrorMessage(err) || 'Mã 2FA không hợp lệ.'); }
     finally { setPending(false); }

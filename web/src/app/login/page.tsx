@@ -36,11 +36,8 @@ export default function LoginPage() {
         return;
       }
 
-      const accessToken = payload.tokens.access_token;
-      const refreshToken = payload.tokens.refresh_token;
-      const user = payload.user;
-
-      login(accessToken, refreshToken, user);
+      if(!payload.cookie_session)throw new Error("Không tạo được phiên đăng nhập.");
+      login(payload.user);
       router.push('/');
     } catch (err: unknown) {
       setError(getErrorMessage(err) || 'Đăng nhập thất bại. Vui lòng kiểm tra lại.');
@@ -57,11 +54,8 @@ export default function LoginPage() {
     try {
       const payload = await api.verifyTwoFactorLogin(mfaToken || '', otpCode);
 
-      const accessToken = payload.tokens.access_token;
-      const refreshToken = payload.tokens.refresh_token;
-      const user = payload.user;
-
-      login(accessToken, refreshToken, user);
+      if(!payload.cookie_session)throw new Error("Không tạo được phiên đăng nhập.");
+      login(payload.user);
       router.push('/');
     } catch (err: unknown) {
       setError(getErrorMessage(err) || 'Mã xác thực 2FA không chính xác.');

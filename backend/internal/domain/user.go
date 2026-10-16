@@ -98,6 +98,7 @@ type TwoFactorVerifyLoginReq struct {
 }
 
 type LoginResp struct {
+	CookieSession        bool       `json:"cookie_session,omitempty"`
 	RedirectPath         string     `json:"redirect_path,omitempty"`
 	VerificationRequired bool       `json:"verification_required,omitempty"`
 	Email                string     `json:"email,omitempty"`

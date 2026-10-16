@@ -26,6 +26,7 @@ type OAuthHandler struct {
 	auth              service.AuthService
 	webURL, webOrigin string
 	secure            bool
+	sessions          *auth.CookieSessions
 }
 
 func NewOAuthHandler(cfg *config.Config, repo repository.OAuthRepository, svc service.AuthService) (*OAuthHandler, error) {
@@ -40,7 +41,7 @@ func NewOAuthHandler(cfg *config.Config, repo repository.OAuthRepository, svc se
 	if cfg.Environment == "production" && web.Scheme != "https" {
 		return nil, errors.New("production web URL must use HTTPS")
 	}
-	return &OAuthHandler{providers: providers, repo: repo, auth: svc, webURL: strings.TrimRight(cfg.AppBaseURL, "/"), webOrigin: web.Scheme + "://" + web.Host, secure: strings.HasPrefix(cfg.OAuthPublicURL, "https://")}, nil
+	return &OAuthHandler{sessions: auth.NewCookieSessions(cfg), providers: providers, repo: repo, auth: svc, webURL: strings.TrimRight(cfg.AppBaseURL, "/"), webOrigin: web.Scheme + "://" + web.Host, secure: strings.HasPrefix(cfg.OAuthPublicURL, "https://")}, nil
 }
 func validRedirect(path string) string {
 	if !strings.HasPrefix(path, "/") || strings.HasPrefix(path, "//") || strings.ContainsAny(path, "\\\r\n") {
@@ -294,6 +295,12 @@ func (h *OAuthHandler) Exchange(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		utils.ErrorResponse(w, http.StatusUnauthorized, "Không thể đăng nhập tài khoản")
 		return
+	}
+	if auth.BrowserSession(r) && resp.Tokens != nil {
+		tokens := resp.Tokens
+		h.sessions.Issue(w, tokens.AccessToken, tokens.RefreshToken, tokens.ExpiresAt)
+		resp.Tokens = nil
+		resp.CookieSession = true
 	}
 	resp.RedirectPath = validRedirect(code.RedirectPath)
 	utils.JSON(w, http.StatusOK, resp)

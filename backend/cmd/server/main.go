@@ -121,7 +121,7 @@ func main() {
 	})
 
 	// 4. Initialize Repositories
-	userRepo := repository.NewUserRepository(querier)
+	userRepo := repository.NewUserRepository(querier, dbService.Pool())
 	storyRepo := repository.NewStoryRepository(querier, dbService.Pool())
 	chapterRepo := repository.NewChapterRepository(querier)
 	paymentRepo := repository.NewPaymentRepository(querier, dbService.Pool())
@@ -157,6 +157,7 @@ func main() {
 
 	// 6. Initialize Handlers
 	authHandler := handler.NewAuthHandler(authSvc, cfg.AppBaseURL)
+	authHandler.SetCookieSessions(auth.NewCookieSessions(cfg))
 	oauthHandler, err := handler.NewOAuthHandler(cfg, repository.NewOAuthRepository(dbService.Pool()), authSvc)
 	if err != nil {
 		slog.Error("invalid OAuth configuration", "error", err)
@@ -204,7 +205,7 @@ func main() {
 		DBService:           dbService,
 		CacheService:        cacheSvc,
 		AuthHandler:         authHandler,
-		PlatformHandler:     handler.NewPlatformHandler(dbService.Pool()),
+		PlatformHandler:     handler.NewPlatformHandler(dbService.Pool(), storageSvc),
 		OAuthHandler:        oauthHandler,
 		UserHandler:         userHandler,
 		StoryHandler:        storyHandler,

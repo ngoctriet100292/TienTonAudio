@@ -57,6 +57,11 @@ export function NotificationDropdown() {
       await handleMarkAsRead(item.id);
     }
     setOpen(false);
+    if(item.type==='publication_review'&&item.reference_id){
+      if(item.reference_type==='studio_chapter'){
+        try{const draft=await platform<{story_id:string}>(`/partner/chapters/${item.reference_id}/draft`);router.push(`/studio/publications?story=${draft.story_id}&chapter=${item.reference_id}`);}catch{router.push('/studio/publications');}
+      }else router.push(`/studio/publications?story=${item.reference_id}`);
+    }
     // Nếu có liên kết điều hướng
     if (item.type === 'new_chapter' && item.reference_id) {
       try { const location=await platform<{story_slug:string;chapter_id:string}>(`/chapters/${item.reference_id}/location`);router.push(`/stories/${location.story_slug}/chapters/${location.chapter_id}`); } catch {router.push('/account');}

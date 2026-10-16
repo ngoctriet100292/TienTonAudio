@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"github.com/IREAKING/tientonaudio/backend/pkg/auth"
+	"github.com/jackc/pgx/v5"
 
 	db "github.com/IREAKING/tientonaudio/backend/db/sqlc"
 	"github.com/google/uuid"
@@ -53,11 +54,20 @@ type UserRepository interface {
 }
 
 type userRepo struct {
-	q db.Querier
+	q    db.Querier
+	pool interface {
+		Begin(context.Context) (pgx.Tx, error)
+	}
 }
 
-func NewUserRepository(q db.Querier) UserRepository {
-	return &userRepo{q: q}
+func NewUserRepository(q db.Querier, pools ...interface {
+	Begin(context.Context) (pgx.Tx, error)
+}) UserRepository {
+	r := &userRepo{q: q}
+	if len(pools) > 0 {
+		r.pool = pools[0]
+	}
+	return r
 }
 
 func (r *userRepo) CreateUser(ctx context.Context, arg db.CreateUserParams) (db.CreateUserRow, error) {

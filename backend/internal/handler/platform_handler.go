@@ -12,14 +12,24 @@ import (
 	"strings"
 
 	"github.com/IREAKING/tientonaudio/backend/pkg/auth"
+	"github.com/IREAKING/tientonaudio/backend/pkg/storage"
 	"github.com/IREAKING/tientonaudio/backend/pkg/utils"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
 
-type PlatformHandler struct{ pool db.DBTX }
+type PlatformHandler struct {
+	pool    db.DBTX
+	storage storage.StorageService
+}
 
-func NewPlatformHandler(pool db.DBTX) *PlatformHandler { return &PlatformHandler{pool: pool} }
+func NewPlatformHandler(pool db.DBTX, stores ...storage.StorageService) *PlatformHandler {
+	h := &PlatformHandler{pool: pool}
+	if len(stores) > 0 {
+		h.storage = stores[0]
+	}
+	return h
+}
 func (h *PlatformHandler) begin(ctx context.Context) (pgx.Tx, error) {
 	if db, ok := h.pool.(interface {
 		Begin(context.Context) (pgx.Tx, error)
@@ -117,7 +127,7 @@ func (h *PlatformHandler) FollowStory(w http.ResponseWriter, r *http.Request) {
 }
 func (h *PlatformHandler) FollowedStories(w http.ResponseWriter, r *http.Request) {
 	user, _ := platformUser(r)
-	h.rows(w, r, `SELECT s.id,s.title,s.slug,s.cover_image_url,s.total_chapters,s.updated_at FROM story_follows f JOIN stories s ON s.id=f.story_id WHERE f.user_id=$1 AND s.publication_status='published' ORDER BY s.updated_at DESC LIMIT 100`, user)
+	h.page(w, r, `SELECT s.id,s.title,s.slug,s.cover_image_url,s.total_chapters,s.updated_at FROM story_follows f JOIN stories s ON s.id=f.story_id WHERE f.user_id=$1 AND s.publication_status='published' ORDER BY s.updated_at DESC,s.id`, user)
 }
 func (h *PlatformHandler) Reviews(w http.ResponseWriter, r *http.Request) {
 	id, err := platformID(r)
@@ -126,7 +136,7 @@ func (h *PlatformHandler) Reviews(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == http.MethodGet {
-		h.rows(w, r, `SELECT v.id,v.user_id,u.username,v.rating,v.content,v.created_at FROM reviews v JOIN users u ON u.id=v.user_id AND u.deleted_at IS NULL JOIN stories s ON s.id=v.story_id AND s.publication_status='published' WHERE v.story_id=$1 ORDER BY v.created_at DESC LIMIT 100`, id)
+		h.page(w, r, `SELECT v.id,v.user_id,u.username,v.rating,v.content,v.created_at FROM reviews v JOIN users u ON u.id=v.user_id AND u.deleted_at IS NULL JOIN stories s ON s.id=v.story_id AND s.publication_status='published' WHERE v.story_id=$1 ORDER BY v.created_at DESC,v.id DESC`, id)
 		return
 	}
 	user, _ := platformUser(r)
@@ -188,13 +198,13 @@ func (h *PlatformHandler) Search(w http.ResponseWriter, r *http.Request) {
 		utils.ErrorResponse(w, 400, "Bộ lọc không hợp lệ")
 		return
 	}
-	h.rows(w, r, `SELECT s.id,s.title,s.slug,s.cover_image_url,s.status,s.view_count,s.total_chapters,s.rating_avg,s.rating_count,a.name AS author_name,
+	h.page(w, r, `SELECT s.id,s.title,s.slug,s.cover_image_url,s.status,s.view_count,s.total_chapters,s.rating_avg,s.rating_count,a.name AS author_name,
  COALESCE((SELECT SUM(c.duration_seconds) FROM chapters c WHERE c.story_id=s.id AND c.publication_status='published'),0) AS duration_seconds
  FROM stories s LEFT JOIN authors a ON a.id=s.author_id WHERE s.publication_status='published'
  AND ($1='' OR s.title ILIKE '%'||$1||'%' OR a.name ILIKE '%'||$1||'%') AND ($2='' OR s.status=$2) AND COALESCE(s.total_chapters,0)>=$3
  AND ($4='' OR EXISTS(SELECT 1 FROM chapters c JOIN narrators n ON n.id=c.narrator_id WHERE c.story_id=s.id AND c.publication_status='published' AND n.name ILIKE '%'||$4||'%'))
  AND ($5=0 OR COALESCE((SELECT SUM(duration_seconds) FROM chapters WHERE story_id=s.id AND publication_status='published'),0)>=$5::bigint*60)
- ORDER BY CASE WHEN $6='rating' THEN s.rating_avg END DESC NULLS LAST,CASE WHEN $6='chapters' THEN s.total_chapters END DESC NULLS LAST,s.view_count DESC NULLS LAST,s.id LIMIT 100`, strings.TrimSpace(q.Get("q")), q.Get("status"), minCh, strings.TrimSpace(q.Get("narrator")), minDur, sort)
+ ORDER BY CASE WHEN $6='rating' THEN s.rating_avg END DESC NULLS LAST,CASE WHEN $6='chapters' THEN s.total_chapters END DESC NULLS LAST,s.view_count DESC NULLS LAST,s.id`, strings.TrimSpace(q.Get("q")), q.Get("status"), minCh, strings.TrimSpace(q.Get("narrator")), minDur, sort)
 }
 func SchedulePublications(ctx context.Context, pool db.DBTX) error {
 	_, err := pool.Exec(ctx, `UPDATE chapters c SET publication_status='published',updated_at=CURRENT_TIMESTAMP FROM stories s WHERE c.story_id=s.id AND s.publication_status='published' AND c.publication_status='scheduled' AND c.scheduled_at<=CURRENT_TIMESTAMP`)

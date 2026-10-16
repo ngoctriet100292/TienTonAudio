@@ -70,7 +70,7 @@ INSERT INTO chapters (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
 )
-RETURNING id, story_id, narrator_id, chapter_number, title, content, content_url, is_premium, duration_seconds, waveform_data, timeline_markers, listen_count, created_at, updated_at, publication_status, scheduled_at
+RETURNING id, story_id, narrator_id, chapter_number, title, content, content_url, is_premium, duration_seconds, waveform_data, timeline_markers, listen_count, created_at, updated_at, publication_status, scheduled_at, review_reason, edit_version
 `
 
 type CreateChapterParams struct {
@@ -119,6 +119,8 @@ func (q *Queries) CreateChapter(ctx context.Context, arg CreateChapterParams) (C
 		&i.UpdatedAt,
 		&i.PublicationStatus,
 		&i.ScheduledAt,
+		&i.ReviewReason,
+		&i.EditVersion,
 	)
 	return i, err
 }
@@ -354,7 +356,7 @@ SET
     timeline_markers = $10,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = $1
-RETURNING id, story_id, narrator_id, chapter_number, title, content, content_url, is_premium, duration_seconds, waveform_data, timeline_markers, listen_count, created_at, updated_at, publication_status, scheduled_at
+RETURNING id, story_id, narrator_id, chapter_number, title, content, content_url, is_premium, duration_seconds, waveform_data, timeline_markers, listen_count, created_at, updated_at, publication_status, scheduled_at, review_reason, edit_version
 `
 
 type UpdateChapterParams struct {
@@ -401,6 +403,8 @@ func (q *Queries) UpdateChapter(ctx context.Context, arg UpdateChapterParams) (C
 		&i.UpdatedAt,
 		&i.PublicationStatus,
 		&i.ScheduledAt,
+		&i.ReviewReason,
+		&i.EditVersion,
 	)
 	return i, err
 }
@@ -429,7 +433,7 @@ SET
     is_premium = COALESCE(EXCLUDED.is_premium, chapters.is_premium),
     timeline_markers = COALESCE(EXCLUDED.timeline_markers, chapters.timeline_markers),
     updated_at = CURRENT_TIMESTAMP
-RETURNING id, story_id, narrator_id, chapter_number, title, content, content_url, is_premium, duration_seconds, waveform_data, timeline_markers, listen_count, created_at, updated_at, publication_status, scheduled_at
+RETURNING id, story_id, narrator_id, chapter_number, title, content, content_url, is_premium, duration_seconds, waveform_data, timeline_markers, listen_count, created_at, updated_at, publication_status, scheduled_at, review_reason, edit_version
 `
 
 type UpsertChapterParams struct {
@@ -478,6 +482,8 @@ func (q *Queries) UpsertChapter(ctx context.Context, arg UpsertChapterParams) (C
 		&i.UpdatedAt,
 		&i.PublicationStatus,
 		&i.ScheduledAt,
+		&i.ReviewReason,
+		&i.EditVersion,
 	)
 	return i, err
 }

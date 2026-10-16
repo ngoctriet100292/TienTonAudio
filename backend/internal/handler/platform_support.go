@@ -12,7 +12,7 @@ import (
 func (h *PlatformHandler) Tickets(w http.ResponseWriter, r *http.Request) {
 	user, admin := platformUser(r)
 	if r.Method == http.MethodGet {
-		h.rows(w, r, `SELECT t.id,t.subject,t.category,t.payment_id,t.status,t.created_at,t.updated_at,u.username FROM support_tickets t JOIN users u ON u.id=t.user_id WHERE $2 OR t.user_id=$1 ORDER BY t.updated_at DESC LIMIT 100`, user, admin)
+		h.page(w, r, `SELECT t.id,t.subject,t.category,t.payment_id,t.status,t.created_at,t.updated_at,u.username FROM support_tickets t JOIN users u ON u.id=t.user_id WHERE ($2 OR t.user_id=$1) AND ($3='' OR t.status=$3) ORDER BY t.updated_at DESC,t.id DESC`, user, admin, r.URL.Query().Get("status"))
 		return
 	}
 	var body struct {
@@ -95,7 +95,7 @@ func (h *PlatformHandler) TicketMessages(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if r.Method == http.MethodGet {
-		h.rows(w, r, `SELECT m.id,m.content,m.created_at,u.username,u.role,u.id AS sender_id FROM support_messages m JOIN users u ON u.id=m.sender_id WHERE m.ticket_id=$1 ORDER BY m.created_at,m.id LIMIT 500`, id)
+		h.page(w, r, `SELECT m.id,m.content,m.created_at,u.username,u.role,u.id AS sender_id FROM support_messages m JOIN users u ON u.id=m.sender_id WHERE m.ticket_id=$1 ORDER BY m.created_at DESC,m.id DESC`, id)
 		return
 	}
 	var body struct {

@@ -33,7 +33,9 @@ Web dùng giao diện tối với màu vàng chủ đạo, font Be Vietnam Pro/L
 ### Tài khoản
 
 - Đăng ký, đăng nhập, xác thực email và đặt lại mật khẩu qua SMTP.
-- JWT, xoay vòng refresh token, đăng xuất và xác thực hai bước TOTP với mã dự phòng.
+- Web dùng cookie HttpOnly; production bật Secure và tiền tố `__Host-`, kèm kiểm tra Origin/CSRF cho thao tác ghi. Access/refresh token không được lưu trong localStorage hoặc trả về JSON cho trình duyệt.
+- Xoay vòng refresh token trong giao dịch: lưu token mới thất bại sẽ hoàn tác việc thu hồi token cũ. Các tab web phối hợp bằng Web Locks; đăng xuất được xếp sau yêu cầu làm mới phiên đang chạy.
+- API cho ứng dụng native tiếp tục hỗ trợ Bearer token. TOTP và mã dự phòng vẫn dùng cho bước xác thực thứ hai.
 - Đăng nhập Google/Facebook/Apple qua Goth; nhà cung cấp chưa cấu hình được vô hiệu hóa trên web.
 - Liên kết OAuth vào tài khoản đang đăng nhập có email đã xác thực. Email trùng không tự gộp tài khoản; không cho gỡ phương thức đăng nhập cuối cùng khi chưa có cách thay thế.
 
@@ -41,6 +43,8 @@ Web dùng giao diện tối với màu vàng chủ đạo, font Be Vietnam Pro/L
 
 - Đối tác tạo truyện, chương và gắn audio; nội dung mới ở trạng thái nháp.
 - Nhập tối đa 500 chương nháp/lần từ tệp JSON, tối đa 8 MB. Lỗi hoặc trùng số chương sẽ hủy toàn bộ lần nhập.
+- Biên tập chương nháp, xem trước nội dung chữ, tự lưu sau 1,2 giây ngừng nhập và lưu ngay. Phiên bản bản thảo ngăn ghi đè từ tab khác; khi xung đột, bản đang soạn được giữ và có thể tải về.
+- Quản trị ghi lý do khi trả bài về nháp; tác giả nhận thông báo trong ứng dụng về kết quả duyệt.
 - Gửi duyệt, xem bản thảo, xuất bản hoặc lên lịch. Chỉ quản trị được duyệt và đặt lịch; lịch được kiểm tra mỗi phút khi API chạy.
 - Thống kê theo tác phẩm: lượt xem, số tài khoản nghe, lượt hoàn tất, phút nghe hợp lệ và chương được nghe nhiều.
 - Quản trị người dùng, báo cáo, yêu cầu hỗ trợ, danh sách cảnh giới và gói hội viên.
@@ -69,7 +73,7 @@ Web dùng giao diện tối với màu vàng chủ đạo, font Be Vietnam Pro/L
 ```text
 TienTonAudio/
 ├── backend/
-│   ├── cmd/                 # server, migrate, seed, check_email, upload_to_r2
+│   ├── cmd/                 # server, migrate, seed, check_services, upload_to_r2
 │   ├── config/              # Đọc cấu hình app.env và biến môi trường
 │   ├── db/
 │   │   ├── migrations/      # Schema và SQL cập nhật dữ liệu/cấu trúc
@@ -180,6 +184,18 @@ go run ./cmd/migrate -check
 
 `REDIS_URL` phải có scheme, ví dụ `redis://localhost:6379/0` hoặc `rediss://...` khi dùng TLS. Khi Redis lỗi, API chuyển sang cache trong tiến trình; cache này không dùng chung giữa nhiều instance. Dữ liệu tiến độ và thưởng nghe vẫn được lưu trong PostgreSQL.
 
+### Kiểm tra cấu hình và kết nối
+
+```bash
+cd backend
+# Chỉ kiểm tra cấu hình, không kết nối dịch vụ
+go run ./cmd/check_services
+# Ping PostgreSQL/Redis, kiểm tra SMTP và HEAD bucket R2
+go run ./cmd/check_services -network
+```
+
+Lệnh không in credential, không gửi email và không ghi dữ liệu. HEAD bucket chỉ xác nhận khả năng kết nối/quyền truy cập; không chứng minh bucket đã private hoặc audio phát được.
+
 ### Cloudflare R2
 
 Cấu hình `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_ACCESS_KEY_SECRET`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL`.
@@ -222,7 +238,15 @@ Link xác thực dẫn tới trang `/verify-email`; người dùng nhấn xác n
 
 Apple dùng Services ID và khóa `.p8`; cần domain HTTPS thực để thử callback. Khóa chỉ nằm ở backend, ngoài repository. Facebook cần quyền email và cấu hình ứng dụng phù hợp với người dùng được phép đăng nhập.
 
-Phiên OAuth dùng state/cookie gắn trình duyệt, có hạn và dùng một lần. JWT ứng dụng được nhận qua POST exchange, không đặt trên URL. Google/Apple chỉ xác thực email khi provider xác nhận; tài khoản Facebook mới phải xác thực email bằng thư của ứng dụng. Tài khoản bật 2FA vẫn phải hoàn tất bước xác thực thứ hai.
+Phiên OAuth dùng state/cookie gắn trình duyệt, có hạn và dùng một lần. Phiên ứng dụng được tạo qua POST exchange, không đặt JWT trên URL. Google/Apple chỉ xác thực email khi provider xác nhận; tài khoản Facebook mới phải xác thực email bằng thư của ứng dụng. Tài khoản bật 2FA vẫn phải hoàn tất bước xác thực thứ hai.
+
+### Phiên đăng nhập web
+
+`SESSION_COOKIE_SAME_SITE=lax` dành cho web/API cùng site. Nếu triển khai ở hai site khác nhau, dùng `none` và HTTPS; cần tính tới chính sách cookie bên thứ ba của trình duyệt. Ưu tiên domain web/API cùng site.
+
+Web gửi `credentials: include`. Trước thao tác ghi, client lấy token bằng `GET /api/v1/auth/csrf`, sau đó gửi `X-CSRF-Token` cùng `X-Session-Mode: cookie`. Backend kiểm tra Origin và cookie CSRF. Với request cùng origin không có Origin, backend kiểm tra metadata `Sec-Fetch-Site` và origin API đã cấu hình. Phản hồi gắn phiên có `Cache-Control: private, no-store` hoặc `no-store`.
+
+Login, 2FA và OAuth exchange trả `cookie_session: true` khi tạo phiên web; JWT được đặt bằng Set-Cookie. Phiên localStorage của phiên bản web cũ bị xóa khi cập nhật và người dùng cần đăng nhập lại. Ứng dụng native không gửi header browser vẫn nhận cặp token theo hợp đồng Bearer hiện có.
 
 ### Thanh toán
 
@@ -241,7 +265,7 @@ Cấu hình `AI_PROVIDER`, `AI_API_KEY` và `AI_MODEL_NAME` ở backend theo nh�
 
 ## Dữ liệu và migration
 
-PostgreSQL lưu người dùng, truyện/chương, tiến độ nghe, theo dõi, đánh giá, cảnh giới, gói hội viên, đơn thanh toán, hỗ trợ và phần thưởng. R2 lưu file. Local storage của trình duyệt phục vụ phiên nghe trên thiết bị và phiên đăng nhập, không thay thế DB.
+PostgreSQL lưu người dùng, truyện/chương, tiến độ nghe, theo dõi, đánh giá, cảnh giới, gói hội viên, đơn thanh toán, hỗ trợ và phần thưởng. R2 lưu file. Local storage của trình duyệt lưu phiên nghe theo tài khoản và dấu hiệu thay đổi phiên không nhạy cảm. Thông tin xác thực web nằm trong cookie HttpOnly.
 
 ### Schema
 
@@ -252,6 +276,7 @@ go run ./cmd/migrate
 
 # Áp dụng riêng phần cấu trúc/chức năng nền tảng mới
 go run ./cmd/migrate -file db/migrations/20261016_platform_features.sql
+go run ./cmd/migrate -file db/migrations/20261016_sessions_editor.sql
 ```
 
 Các file SQL trong `db/migrations/` được áp dụng bằng công cụ Go của dự án; không phải toàn bộ đều theo quy ước cặp `up/down` của golang-migrate. Xem nội dung từng migration trước khi chạy: một số file cập nhật tên gói hoặc ngưỡng cảnh giới theo phiên bản, trong khi schema khởi tạo giữ chỉnh sửa đã có của danh mục.
@@ -296,7 +321,7 @@ Chương chưa xuất bản được ẩn khỏi API công khai và luồng phá
 | `/vip` | Gói hội viên và trạng thái checkout |
 | `/cultivation` | Danh mục cảnh giới từ DB |
 | `/studio` | Quản lý truyện và audio của đối tác |
-| `/studio/publications` | Nháp, nhập nhiều chương và gửi duyệt |
+| `/studio/publications` | Soạn nháp, tự lưu, xem trước, nhập nhiều chương và gửi duyệt |
 | `/studio/analytics` | Thống kê tác phẩm của mình; admin xem được toàn bộ |
 | `/admin` | Quản trị người dùng, báo cáo và thống kê |
 | `/admin/catalogue` | Quản trị cảnh giới và gói hội viên |
@@ -305,6 +330,16 @@ Chương chưa xuất bản được ẩn khỏi API công khai và luồng phá
 | `/about`, `/policies`, `/privacy`, `/terms`, `/copyright`, `/contact` | Trang giới thiệu và thông tin |
 
 Các khu vực riêng được kiểm tra quyền ở backend. Studio dành cho `partner`, `creator`, `narrator`, `admin`; đối tác chỉ quản lý tác phẩm thuộc mình. Yêu cầu hỗ trợ và đơn thanh toán được kiểm tra quyền sở hữu.
+
+### Phân trang
+
+Tìm kiếm, đánh giá, truyện theo dõi, tác phẩm Studio, chương Studio, thống kê và hỗ trợ nhận `page` (từ 1), `limit` (1–100, mặc định 20). Kết quả có dạng:
+
+```json
+{"items": [], "total": 0, "page": 1, "limit": 20, "total_pages": 1}
+```
+
+Số lượng và dữ liệu trang được đọc trong cùng một snapshot SQL. Đổi bộ lọc trên web đưa về trang đầu. Tin nhắn hỗ trợ hiển thị tin mới nhất ở trang 1; chọn trang sau để đọc tin cũ hơn.
 
 ## API
 
@@ -316,12 +351,15 @@ API có tiền tố `/api/v1`. Swagger UI tại `/swagger/index.html`; định n
 | OAuth | `/auth/oauth/providers`, `/auth/oauth/{provider}`, `/auth/oauth/{provider}/callback`, `/auth/oauth/exchange` |
 | Liên kết OAuth | `POST /auth/oauth/{provider}/link`, `GET /users/oauth/accounts`, `DELETE /users/oauth/{provider}` |
 | Danh mục | `/stories`, `/stories/{slug}`, `/catalogue/search`, `/cultivation/realms` |
+| CSRF | `GET /auth/csrf` |
 | Audio | `/chapters/{id}`, `/chapters/{id}/stream`, `POST /chapters/progress` |
 | Nghe tiếp | `/users/continue-listening`, `/users/chapters/{id}/progress` |
 | Theo dõi / đánh giá | `/stories/{id}/follow`, `/stories/{id}/reviews` |
 | Thành tựu | `/users/achievements`, `POST /users/achievements/{key}/claim` |
 | Hỗ trợ | `/support/tickets`, `/support/tickets/{id}/messages` |
 | Studio | `/partner/publications`, `/partner/analytics`, `/partner/stories/{id}/bulk-drafts` |
+| Biên tập nháp | `GET/PUT /partner/chapters/{id}/draft` (PUT cần `version`) |
+| Chương Studio | `GET /partner/stories/{id}/publication-chapters` |
 | Duyệt xuất bản | `PUT /partner/stories/{id}/publication`, `PUT /partner/chapters/{id}/publication` |
 | Danh mục quản trị | `/admin/cultivation/realms`, `/admin/subscription-plans` |
 | Hội viên | `/payments/plans`, `/payments/create`, `/payments/webhook` |
@@ -359,6 +397,29 @@ npm run build
 Để build sitemap và dữ liệu trang đầy đủ, chạy API trước và đặt đúng `API_INTERNAL_ORIGIN`.
 
 GitHub Actions trong [.github/workflows/ci.yml](.github/workflows/ci.yml) chạy kiểm thử race/vet backend và test/lint/build web trên push `main` hoặc pull request. CI dùng PostgreSQL/Redis tạm, không dùng Neon hay secret triển khai. Kiểm thử tích hợp Neon không được bật mặc định.
+
+### Kiểm thử trình duyệt với dữ liệu cô lập
+
+Bộ kiểm thử dùng API fixture trong bộ nhớ, không kết nối DB, Gmail hay R2. Chạy API trong thư mục `backend`:
+
+```bash
+go run ./internal/handler/testdata/browser
+```
+
+Trong thư mục `web`, build riêng cho API fixture và chạy cổng 3107:
+
+```bash
+API_INTERNAL_ORIGIN=http://localhost:8091 NEXT_PUBLIC_API_URL=http://localhost:8091/api/v1 npm run build
+npm run start -- --port 3107
+```
+
+Mở Chrome với profile tạm riêng, chế độ headless và cổng remote debugging 9462. Ví dụ trên macOS:
+
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --remote-debugging-address=127.0.0.1 --remote-debugging-port=9462 --user-data-dir=/tmp/tienton-cookie-browser about:blank
+```
+
+Sau đó chạy `npm run test:browser-session` trong `web`. Bộ kiểm thử kiểm tra cookie HttpOnly, CSRF, refresh/logout, phân trang, tự lưu, xung đột phiên bản, lý do trả bài và bố cục 1440/390 px; ảnh kiểm tra được ghi vào `/tmp/tienton-cookie-*.png`. Dừng các tiến trình thử nghiệm và build lại với URL API triển khai trước khi chạy bản thực tế.
 
 ## Docker và triển khai
 

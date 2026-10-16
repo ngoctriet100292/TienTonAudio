@@ -10,6 +10,7 @@ import (
 )
 
 type Config struct {
+	SessionCookieSameSite      string        `json:"session_cookie_same_site"`
 	PaymentCheckoutEnabled     bool          `json:"payment_checkout_enabled"`
 	PaymentBankCode            string        `json:"payment_bank_code"`
 	PaymentBankName            string        `json:"payment_bank_name"`
@@ -85,6 +86,7 @@ func LoadConfig(path string) (*Config, error) {
 	smtpPort, _ := strconv.Atoi(getEnv("SMTP_PORT", "587"))
 
 	cfg := &Config{
+		SessionCookieSameSite:      getEnv("SESSION_COOKIE_SAME_SITE", "lax"),
 		PaymentCheckoutEnabled:     getEnv("PAYMENT_CHECKOUT_ENABLED", "false") == "true",
 		PaymentBankCode:            getEnv("PAYMENT_BANK_CODE", ""),
 		PaymentBankName:            getEnv("PAYMENT_BANK_NAME", ""),
@@ -128,6 +130,12 @@ func LoadConfig(path string) (*Config, error) {
 		PaymentWebhookSecret:       getEnv("PAYMENT_WEBHOOK_SECRET", ""),
 	}
 
+	if cfg.SessionCookieSameSite != "lax" && cfg.SessionCookieSameSite != "none" {
+		return nil, fmt.Errorf("SESSION_COOKIE_SAME_SITE must be lax or none")
+	}
+	if cfg.SessionCookieSameSite == "none" && cfg.Environment != "production" && !strings.HasPrefix(cfg.OAuthPublicURL, "https://") {
+		return nil, fmt.Errorf("SameSite=None requires HTTPS")
+	}
 	if cfg.Environment == "production" {
 		for name, secret := range map[string]string{"JWT_SECRET_KEY": cfg.JWTSecretKey, "PAYMENT_WEBHOOK_SECRET": cfg.PaymentWebhookSecret} {
 			if len(secret) < 32 || strings.Contains(secret, "change") || strings.Contains(secret, "your-") {

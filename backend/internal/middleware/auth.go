@@ -11,15 +11,17 @@ import (
 func AuthMiddleware(jwtService *auth.JWTService) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
-				utils.ErrorResponse(w, http.StatusUnauthorized, "Missing Authorization header")
-				return
+			tokenStr := auth.CookieAccessToken(r)
+			if header := r.Header.Get("Authorization"); header != "" {
+				var err error
+				tokenStr, err = auth.ExtractBearerToken(header)
+				if err != nil {
+					utils.ErrorResponse(w, 401, "Invalid Authorization header")
+					return
+				}
 			}
-
-			tokenStr, err := auth.ExtractBearerToken(authHeader)
-			if err != nil {
-				utils.ErrorResponse(w, http.StatusUnauthorized, err.Error())
+			if tokenStr == "" {
+				utils.ErrorResponse(w, 401, "Authentication required")
 				return
 			}
 
@@ -39,7 +41,7 @@ func AuthMiddleware(jwtService *auth.JWTService) func(http.Handler) http.Handler
 func OptionalAuthMiddleware(jwtService *auth.JWTService) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tokenStr := ""
+			tokenStr := auth.CookieAccessToken(r)
 			authHeader := r.Header.Get("Authorization")
 			if authHeader != "" {
 				if t, err := auth.ExtractBearerToken(authHeader); err == nil {

@@ -13,17 +13,18 @@ export const metadata: Metadata = {
 };
 
 interface Props {
-  searchParams: Promise<{ q?: string; status?: string; sort?: string; narrator?:string; min_chapters?:string; min_minutes?:string }>;
+  searchParams: Promise<{ q?: string; status?: string; sort?: string; narrator?:string; min_chapters?:string; min_minutes?:string; page?:string }>;
 }
 
 export default async function SearchPage({ searchParams }: Props) {
-  const { q, status, sort, narrator, min_chapters, min_minutes } = await searchParams;
+  const { q, status, sort, narrator, min_chapters, min_minutes, page } = await searchParams;
   const query = q || '';
   const currentStatus = status || '';
   const currentSort = sort || 'views';
 
-  const filters = new URLSearchParams({q:query,status:currentStatus,sort:currentSort,narrator:narrator||'',min_chapters:min_chapters||'0',min_minutes:min_minutes||'0'});
-  const results = await api.searchCatalogue(filters);
+  const filters = new URLSearchParams({q:query,status:currentStatus,sort:currentSort,narrator:narrator||'',min_chapters:min_chapters||'0',min_minutes:min_minutes||'0',page:page||'1',limit:'20'});
+  const resultPage = await api.searchCataloguePage(filters);
+ const results=resultPage.items;
 
   const statusFilters: { label: string; value: string }[] = [
     { label: 'Tất cả trạng thái', value: '' },
@@ -40,6 +41,7 @@ export default async function SearchPage({ searchParams }: Props) {
 
   const buildFilterUrl = (newStatus?: string, newSort?: string) => {
     const params = new URLSearchParams(filters);
+ params.delete("page");
     if (query) params.set('q', query);
     const s = newStatus !== undefined ? newStatus : currentStatus;
     if (s) params.set('status', s);
@@ -60,7 +62,7 @@ export default async function SearchPage({ searchParams }: Props) {
             {query ? `Kết quả tìm kiếm cho: "${query}"` : 'Khám Phá Toàn Bộ Kho Truyện'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Hiển thị tối đa 100 kết quả: <span className="text-amber-400 font-bold">{results.length}</span> tác phẩm phù hợp
+            Tìm thấy <span className="text-amber-400 font-bold">{resultPage.total}</span> tác phẩm phù hợp
           </p>
         </div>
 
@@ -181,6 +183,9 @@ export default async function SearchPage({ searchParams }: Props) {
           ))}
         </div>
       )}
+      <nav aria-label="Phân trang tìm kiếm" className="flex items-center justify-between gap-4 border-t border-white/10 pt-5 text-sm">
+ <span className="text-slate-400">Trang {resultPage.page}/{resultPage.total_pages}</span><div className="flex gap-3">{resultPage.page>1&&<Link className="rounded-xl border border-white/15 px-4 py-2 text-amber-300" href={`/search?${new URLSearchParams({...Object.fromEntries(filters),page:String(resultPage.page-1)})}`}>Trước</Link>}{resultPage.page<resultPage.total_pages&&<Link className="rounded-xl border border-white/15 px-4 py-2 text-amber-300" href={`/search?${new URLSearchParams({...Object.fromEntries(filters),page:String(resultPage.page+1)})}`}>Sau</Link>}</div>
+ </nav>
     </div>
   );
 }

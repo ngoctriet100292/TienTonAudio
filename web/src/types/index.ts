@@ -137,7 +137,7 @@ export interface NotificationItem {
   user_id: string;
   title: string;
   message: string;
-  type: 'comment_reply' | 'new_chapter' | 'vip_expiring' | 'system';
+  type: 'comment_reply' | 'new_chapter' | 'vip_expiring' | 'publication_review' | 'system';
   reference_id?: string;
   reference_type?: string;
   is_read: boolean;
@@ -402,7 +402,7 @@ export interface ChapterAudioFile { id: string; chapter_id: string; quality: str
 export interface StoryRealmsResponse { story_id: string; story_name: string; realms: string }
 export interface TwoFactorSetupResponse { secret: string; qr_code_url: string }
 export interface TokenResponse { access_token: string; refresh_token: string; expires_at: string; token_type: string }
-export interface AuthenticatedResponse { user: User; tokens: TokenResponse }
+export interface AuthenticatedResponse { user: User; cookie_session: true }
 export type LoginResponse = (AuthenticatedResponse & { mfa_required: false }) | { mfa_required: true; mfa_token: string };
 
 export type OAuthLoginResponse = LoginResponse & { redirect_path?: string } | { verification_required: true; email: string; redirect_path?: string };

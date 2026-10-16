@@ -489,7 +489,7 @@ export function Navbar() {
                     <button
                       onClick={() => {
                         setDropdownOpen(false);
-                        logout();
+                        void logout().catch(error=>alert(error instanceof Error?error.message:'Không đăng xuất được; vui lòng thử lại.'));
                       }}
                       className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-colors font-semibold"
                     >
@@ -704,7 +704,7 @@ export function Navbar() {
                 <button
                   onClick={() => {
                     setMobileMenuOpen(false);
-                    logout();
+                    void logout().catch(error=>alert(error instanceof Error?error.message:'Không đăng xuất được; vui lòng thử lại.'));
                   }}
                   className="w-full py-3 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-bold text-xs flex items-center justify-center gap-2 border border-rose-500/30 transition-colors"
                 >
